@@ -8,7 +8,8 @@
                  [http-kit "2.1.5"]
                  [compojure "1.1.5"]
                  [ring/ring-devel "1.2.0"]
-                 [ring/ring-core "1.2.0"]]
+                 [ring/ring-core "1.2.0"]
+                 [hiccup "1.0.4"]]
   :plugins [[lein-cljsbuild "0.3.2"]
             [lein-ring "0.8.6"]]
   :cljsbuild {
@@ -21,4 +22,5 @@
           :output-to "public/js/main.js"  ; default: target/cljsbuild-main.js
           :optimizations :whitespace
           :pretty-print true}}]}
-  :ring {:handler grub.core/async-handler})
+  :ring {:handler grub.core/app}
+  :main grub.core)
