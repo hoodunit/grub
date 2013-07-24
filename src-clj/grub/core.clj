@@ -7,7 +7,7 @@
             [compojure.route :as route]
             [hiccup
              [page :refer [html5]]
-             [page :refer [include-js]]]))
+             [page :refer [include-js include-css]]]))
 
 
 
@@ -22,11 +22,19 @@
                       :body    "Long polling?"}))))
 (defn index-page []
   (html5
-    [:head
-      [:title "Hello World"]
-      (include-js "/js/main.js")]
+   [:head
+    [:title "Grub"]
+    [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+    (include-css "/css/bootstrap.css")
+    (include-css "/css/bootstrap-responsive.css")]
     [:body
-      [:h3 "Grub"]]))
+     [:div.container
+      [:div.row-fluid
+       [:div.span8.offset2
+        [:h3 "Grub"]]]]
+     (include-js "http://code.jquery.com/jquery.js")
+     (include-js "/js/bootstrap.js")
+     (include-js "/js/main.js")]))
 
 (defroutes routes
   (GET "/ws" [] async-handler)
