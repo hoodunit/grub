@@ -20,6 +20,17 @@
       (send! channel {:status 200
                       :headers {"Content-Type" "text/plain"}
                       :body    "Long polling?"}))))
+(def test-grubs
+  ["8 dl water"
+   "8 whole peppercorns"
+   "2 bay leaves"
+   "1 - 2 (150 g) onions"
+   "750 g potato"
+   "600 g salmon"
+   "1 t. salt"
+   "2 dl cream"
+   "1 dl dill"])
+
 (defn index-page []
   (html5
    [:head
@@ -31,7 +42,11 @@
      [:div.container
       [:div.row-fluid
        [:div.span8.offset2
-        [:h3 "Grub"]]]]
+        [:h2 "Grub"]
+        [:table.table 
+         [:tbody
+          (for [grub test-grubs]
+            [:tr [:td [:label.checkbox [:input {:type :checkbox} grub]]]])]]]]]
      (include-js "http://code.jquery.com/jquery.js")
      (include-js "/js/bootstrap.js")
      (include-js "/js/main.js")]))
