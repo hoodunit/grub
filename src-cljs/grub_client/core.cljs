@@ -1,6 +1,9 @@
 (ns grub-client.core
-  (:use-macros [dommy.macros :only [deftemplate sel1 node]])
-  (:require [dommy.core :as dommy]))
+  ;(:use-macros [dommy.macros :only [deftemplate sel1 node]])
+  (:require [dommy.core :as dommy]
+            [cljs.core.async :as async :refer [<! >! chan close! timeout]])
+  (:require-macros [dommy.macros :refer [deftemplate sel1 node]]
+                   [cljs.core.async.macros :as m :refer [go alt!]]))
 
 (defn log [& args]
   (apply #(.log js/console %) args))
@@ -30,9 +33,13 @@
       [:input.span2#addGrubText {:type "text"}]
       [:button.btn#addGrubButton {:type "button"} "Add"]]]]])
 
-(defn onClicked []
-  (log "onClicked"))
+(def add-grub-chan (chan))
+
+(defn on-add-grub-clicked [& args]
+  (let [new-grub (dommy/value (sel1 :#addGrubText))]
+    (go (>! add-grub-chan new-grub))))
 
 (dommy/prepend! (sel1 :body) (main-template test-grubs))
+(dommy/listen! (sel1 :#addGrubButton) :click on-add-grub-clicked)
 
-(dommy/listen! (sel1 :#addGrubButton) :click onClicked)
+(go (while true (log (<! add-grub-chan))))
