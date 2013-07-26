@@ -9,7 +9,9 @@
                  [compojure "1.1.5"]
                  [ring/ring-devel "1.2.0"]
                  [ring/ring-core "1.2.0"]
-                 [hiccup "1.0.4"]]
+                 [hiccup "1.0.4"]
+                 [prismatic/dommy "0.1.1"]
+                 [core.async "0.1.0-SNAPSHOT"]]
   :plugins [[lein-cljsbuild "0.3.2"]
             [lein-ring "0.8.6"]]
   :cljsbuild {
