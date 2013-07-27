@@ -19,25 +19,28 @@
 (deftemplate grub-template [grub]
   [:tr 
    [:td 
-    [:label.checkbox [:input {:type "checkbox"}] grub]]])
+    [:div.checkbox [:label [:input {:type "checkbox"}] grub]]]])
 
 (def add-grub-text 
-  (node [:input.input-medium {:type "text" :placeholder "2 grubs"}]))
+  (node [:input.form-control {:type "text" :placeholder "2 grubs"}]))
 
 (def add-grub-btn 
-  (node [:button.btn {:type "button"} "Add"]))
+  (node [:button.btn.btn-default {:type "button"} "Add"]))
 
 (deftemplate main-template [grubs]
   [:div.container
-   [:div.row-fluid
-    [:div.span8.offset2
-     [:h2 "Grub List"]
-     [:table.table 
-      [:tbody#grubList
-       (for [grub grubs] (grub-template grub))]]
-     [:div.input-append
+   [:div.row.show-grid
+    [:div.col-lg-4]
+    [:div.col-lg-4
+     [:h3 "Grub List"]
+     [:div.input-group
       add-grub-text
-      add-grub-btn]]]])
+      [:span.input-group-btn
+       add-grub-btn]]
+     [:table.table.table-condensed
+      [:tbody#grubList
+       (for [grub grubs] (grub-template grub))]]]
+    [:div.col-lg-4]]])
 
 (def add-grub-chan (chan))
 

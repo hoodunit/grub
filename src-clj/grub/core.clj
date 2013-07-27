@@ -9,8 +9,6 @@
              [page :refer [html5]]
              [page :refer [include-js include-css]]]))
 
-
-
 (defn async-handler [request]
   (if-not (:websocket? request)
     {:status 200 :body "WebSocket server"}
@@ -25,8 +23,7 @@
    [:head
     [:title "Grub"]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    (include-css "/css/bootstrap.css")
-    (include-css "/css/bootstrap-responsive.css")]
+    (include-css "/css/bootstrap.css")]
     [:body
      (include-js "http://code.jquery.com/jquery.js")
      (include-js "/js/bootstrap.js")
