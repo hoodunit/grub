@@ -1,20 +1,9 @@
 (ns grub-client.core
-  ;(:use-macros [dommy.macros :only [deftemplate sel1 node]])
   (:require [dommy.core :as dommy]
             [cljs.core.async :as async :refer [<! >! chan close! timeout]])
   (:require-macros [dommy.macros :refer [deftemplate sel1 node]]
-                   [cljs.core.async.macros :as m :refer [go alt!]]))
-
-(defn log [& args]
-  (apply #(.log js/console %) args))
-
-(def test-grubs
-  ["8 dl water"
-   "8 whole peppercorns"
-   "2 bay leaves"
-   "1 - 2 (150 g) onions"
-   "2 dl cream"
-   "1 dl dill"])
+                   [cljs.core.async.macros :as m :refer [go alt!]]
+                   [grub-client.macros :refer [log]]))
 
 (deftemplate grub-template [grub]
   [:tr 
@@ -42,20 +31,63 @@
        (for [grub grubs] (grub-template grub))]]]
     [:div.col-lg-4]]])
 
-(def add-grub-chan (chan))
+(defn render-body [grubs]
+  (dommy/prepend! (sel1 :body) (main-template grubs)))
 
-(defn on-add-grub-clicked [& args]
+(defn push-new-grub [channel]
   (let [new-grub (dommy/value add-grub-text)]
     (dommy/set-value! add-grub-text "")
-    (go (>! add-grub-chan new-grub))))
+    (go (>! channel new-grub))))
 
-(defn add-grub [grub]
+(defn put-grubs-from-clicks [channel]
+  (dommy/listen! add-grub-btn :click #(push-new-grub channel)))
+
+(defn put-grubs-if-enter-pressed [channel event]
+  (when (= (.-keyIdentifier event) "Enter")
+                (push-new-grub channel)))
+
+(defn put-grubs-from-enter [channel]
+  (dommy/listen! add-grub-text 
+                 :keyup 
+                 (partial put-grubs-if-enter-pressed channel)))
+
+(defn get-added-grubs []
+  (let [out (chan)]
+    (put-grubs-from-clicks out)
+    (put-grubs-from-enter out)
+    out))
+
+(defn append-new-grub [grub]
   (dommy/append! (sel1 :#grubList) (grub-template grub)))
 
-(dommy/prepend! (sel1 :body) (main-template test-grubs))
-(dommy/listen! add-grub-btn :click on-add-grub-clicked)
+(defn add-grubs-to-list [in]
+  (go (while true 
+        (let [new-grub (<! in)]
+          (log "Added grub: " new-grub)
+          (append-new-grub new-grub)))))
 
-(go (while true 
-      (let [new-grub (<! add-grub-chan)]
-        (log new-grub)
-        (add-grub new-grub))))
+(defn filter-empty-grubs [in]
+  (let [out (chan)]
+    (go (while true
+          (let [grub (<! in)]
+            (when-not (empty? grub) (>! out grub)))))
+    out))
+
+(defn add-new-grubs-to-list []
+  (let [added-grubs (get-added-grubs)
+        filtered-grubs (filter-empty-grubs added-grubs)]
+    (add-grubs-to-list filtered-grubs)))
+
+(def test-grubs
+  ["8 dl water"
+   "8 whole peppercorns"
+   "2 bay leaves"
+   "1 - 2 (150 g) onions"
+   "2 dl cream"
+   "1 dl dill"])
+
+(defn init []
+  (render-body test-grubs)
+  (add-new-grubs-to-list))
+
+(init)
