@@ -21,25 +21,38 @@
    [:td 
     [:label.checkbox [:input {:type "checkbox"}] grub]]])
 
+(def add-grub-text 
+  (node [:input.input-medium {:type "text" :placeholder "2 grubs"}]))
+
+(def add-grub-btn 
+  (node [:button.btn {:type "button"} "Add"]))
+
 (deftemplate main-template [grubs]
   [:div.container
    [:div.row-fluid
     [:div.span8.offset2
      [:h2 "Grub List"]
      [:table.table 
-      [:tbody
+      [:tbody#grubList
        (for [grub grubs] (grub-template grub))]]
      [:div.input-append
-      [:input.span2#addGrubText {:type "text"}]
-      [:button.btn#addGrubButton {:type "button"} "Add"]]]]])
+      add-grub-text
+      add-grub-btn]]]])
 
 (def add-grub-chan (chan))
 
 (defn on-add-grub-clicked [& args]
-  (let [new-grub (dommy/value (sel1 :#addGrubText))]
+  (let [new-grub (dommy/value add-grub-text)]
+    (dommy/set-value! add-grub-text "")
     (go (>! add-grub-chan new-grub))))
 
-(dommy/prepend! (sel1 :body) (main-template test-grubs))
-(dommy/listen! (sel1 :#addGrubButton) :click on-add-grub-clicked)
+(defn add-grub [grub]
+  (dommy/append! (sel1 :#grubList) (grub-template grub)))
 
-(go (while true (log (<! add-grub-chan))))
+(dommy/prepend! (sel1 :body) (main-template test-grubs))
+(dommy/listen! add-grub-btn :click on-add-grub-clicked)
+
+(go (while true 
+      (let [new-grub (<! add-grub-chan)]
+        (log new-grub)
+        (add-grub new-grub))))
