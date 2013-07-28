@@ -2,7 +2,7 @@
   (:require [dommy.core :as dommy]
             [cljs.core.async :as async :refer [<! >! chan close! timeout]])
   (:require-macros [dommy.macros :refer [deftemplate sel1 node]]
-                   [cljs.core.async.macros :as m :refer [go alt!]]
+                   [cljs.core.async.macros :as m :refer [go alt! alts!]]
                    [grub-client.macros :refer [log]]))
 
 (deftemplate grub-template [grub]
@@ -27,12 +27,11 @@
       [:span.input-group-btn
        add-grub-btn]]
      [:table.table.table-condensed
-      [:tbody#grubList
-       (for [grub grubs] (grub-template grub))]]]
+      [:tbody#grubList]]]
     [:div.col-lg-4]]])
 
-(defn render-body [grubs]
-  (dommy/prepend! (sel1 :body) (main-template grubs)))
+(defn render-body []
+  (dommy/prepend! (sel1 :body) (main-template)))
 
 (defn push-new-grub [channel]
   (let [new-grub (dommy/value add-grub-text)]
@@ -60,10 +59,14 @@
 (defn append-new-grub [grub]
   (dommy/append! (sel1 :#grubList) (grub-template grub)))
 
+(defn append-new-grubs [chan]
+  (go (while true
+        (let [grub (<! chan)]
+          (append-new-grub grub)))))
+
 (defn add-grubs-to-list [in]
   (go (while true 
         (let [new-grub (<! in)]
-          (log "Added grub: " new-grub)
           (append-new-grub new-grub)))))
 
 (defn filter-empty-grubs [in]
@@ -73,21 +76,35 @@
             (when-not (empty? grub) (>! out grub)))))
     out))
 
-(defn add-new-grubs-to-list []
-  (let [added-grubs (get-added-grubs)
-        filtered-grubs (filter-empty-grubs added-grubs)]
-    (add-grubs-to-list filtered-grubs)))
+(def websocket* (atom nil))
 
-(def test-grubs
-  ["8 dl water"
-   "8 whole peppercorns"
-   "2 bay leaves"
-   "1 - 2 (150 g) onions"
-   "2 dl cream"
-   "1 dl dill"])
+(defn push-grubs-to-server [chan]
+  (let [websocket (js/WebSocket. "ws://localhost:3000/ws")]
+    (aset websocket "onmessage" (fn [event] 
+                                  (let [grub (.-data event)]
+                                    (log "Received grub:" grub)
+                                    (append-new-grub grub))))
+    (go (while true
+          (let [grub (<! chan)]
+            (.send websocket grub))))))
+
+(defn fan-out [in num-chans]
+  (let [out-channels (repeatedly num-chans chan)]
+   (go (while true
+             (let [x (<! in)]
+               (doseq [out out-channels]
+                 (>! out x)))))
+   out-channels))
+
+(defn add-new-grubs-as-they-come []
+  (let [added-grubs (get-added-grubs)
+        filtered-grubs (filter-empty-grubs added-grubs)
+        out-channels (fan-out filtered-grubs 2)]
+    (append-new-grubs (first out-channels))
+    (push-grubs-to-server (second out-channels))))
 
 (defn init []
-  (render-body test-grubs)
-  (add-new-grubs-to-list))
+  (render-body)
+  (add-new-grubs-as-they-come))
 
 (init)
