@@ -1,0 +1,7 @@
+.grub-close {
+    display: none;
+}
+
+tr:hover .grub-close {
+    display: block;
+}

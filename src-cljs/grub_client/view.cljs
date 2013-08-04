@@ -14,7 +14,7 @@
                                  [:input {:type "checkbox"}] 
                                  (:grub grub)]]]
    [:td
-    [:button.close {:type "button"} "×"]]])
+    [:button.grub-close.close {:type "button"} "×"]]])
 
 (def add-grub-text 
   (node [:input.form-control {:type "text" :placeholder "2 grubs"}]))
