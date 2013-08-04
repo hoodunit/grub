@@ -52,7 +52,7 @@
 (def app 
   (let [dev? true]
     (if dev?
-      (reload/wrap-reload (handler/site #'routes))
+      (reload/wrap-reload (handler/site #'routes) {:dirs ["src-clj"]})
       (handler/site routes))))
 
 (defn -main [& args]
