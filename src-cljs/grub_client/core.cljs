@@ -4,7 +4,7 @@
             [grub-client.view :as view]
             [cljs.core.async :refer [<! >! >!! chan close! timeout]]
             [cljs.reader])
-  (:require-macros [grub-client.macros :refer [log go-loop]]
+  (:require-macros [grub-client.macros :refer [log logs go-loop]]
                    [cljs.core.async.macros :refer [go]]))
 
 (def websocket* (atom nil))
@@ -13,47 +13,45 @@
   (reset! websocket* (js/WebSocket. "ws://localhost:3000/ws")))
 
 (defn get-local-events []
-  (let [added-events (view/get-added-events)
-        completed-events (view/get-completed-events)]
-    (fan-in [added-events completed-events])))
+  (fan-in [(view/get-added-events)
+           (view/get-completed-events)
+           (view/get-deleted-events)]))
 
 (defn get-remote-events []
   (let [out (chan)]
     (aset @websocket* "onmessage" (fn [event] 
-                                    (log "event:" event)
                                     (let [grub-event (cljs.reader/read-string (.-data event))]
-                                      (log "Received grub event:" (str grub-event))
+                                      (logs "Received:" grub-event)
                                       (go (>! out grub-event)))))
     out))
 
 (defn send-to-server [event]
   (.send @websocket* event))
 
-(defn handle-added [in]
-  (->> in
-       (filter-chan #(= (:event %) :create))
-       (do-chan! view/add-grub)))
+(defmulti handle-event :event :default :unknown-event)
 
-(defn handle-completed [in]
-  (->> in
-       (filter-chan #(= (:event %) :complete))
-       (do-chan! view/complete-grub)))
+(defmethod handle-event :create [event]
+  (view/add-grub event))
 
-(defn handle-uncompleted [in]
-  (->> in
-       (filter-chan #(= (:event %) :uncomplete))
-       (do-chan! view/uncomplete-grub)))
-  
+(defmethod handle-event :complete [event]
+  (view/complete-grub event))
+
+(defmethod handle-event :uncomplete [event]
+  (view/uncomplete-grub event))
+
+(defmethod handle-event :delete [event]
+  (view/delete-grub event))
+
+(defmethod handle-event :unknown-event [event]
+  (logs "Cannot handle unknown event:" event))
+
 (defn handle-grub-events []
   (let [local-events (get-local-events)
         [local-events' local-events''] (fan-out local-events 2)
         remote-events (get-remote-events)
-        [remote-events' remote-events'' remote-events'''] (fan-out remote-events 3)
-        events (fan-in [local-events' remote-events'])]
+        events (fan-in [local-events' remote-events])]
     (do-chan! send-to-server local-events'')
-    (handle-added events)
-    (handle-completed remote-events'')
-    (handle-uncompleted remote-events''')))
+    (go-loop (handle-event (<! events)))))
 
 (defn init []
   (view/render-body)
