@@ -23,9 +23,9 @@
 (defn fan-in
   ([ins] (fan-in (chan) ins))
   ([c ins]
-     (go (while true
-           (let [[x] (alts! ins)]
-             (>! c x))))
+     (go-loop
+      (let [[x] (alts! ins)]
+        (>! c x)))
      c))
 
 (defn copy-chan
@@ -63,4 +63,12 @@
   (go-loop
    (let [v (<! source)]
      (f v))))
+
+(defn do-chan [f source]
+  (let [out (chan)]
+    (go-loop
+     (let [v (<! source)]
+       (f v)
+       (>! out v)))
+    out))
      
