@@ -49,7 +49,7 @@
     (go (doseq [grub sorted-grubs]
           (let [grub-event (-> grub
                                (select-keys [:_id :grub :completed])
-                               (assoc :event :create))]
+                               (assoc :event :add))]
             (>! out grub-event))))
     out))
 

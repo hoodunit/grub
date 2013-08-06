@@ -1,20 +1,12 @@
 (ns grub-client.view
   (:require [grub-client.async-utils 
              :refer [do-chan! do-chan event-chan map-chan fan-in filter-chan]]
+            [grub-client.state :as state]
             [dommy.core :as dommy]
             [cljs.core.async :refer [<! >! chan]])
   (:require-macros [grub-client.macros :refer [log logs go-loop]]
                    [dommy.macros :refer [deftemplate sel1 node]]
                    [cljs.core.async.macros :refer [go]]))
-
-(deftemplate grub-template [grub]
-  [:tr {:id (:_id grub)}
-   [:td 
-    [:div.checkbox.grubCheckbox [:label 
-                                 [:input {:type "checkbox"}] 
-                                 (:grub grub)]]]
-   [:td
-    [:button.grub-close.close {:type "button"} "×"]]])
 
 (def add-grub-text 
   (node [:input.form-control {:type "text" :placeholder "2 grubs"}]))
@@ -36,27 +28,18 @@
       [:tbody#grubList]]]
     [:div.col-lg-4]]])
 
+(deftemplate grub-template [grub]
+  [:tr {:id (:_id grub)}
+   [:td 
+    [:div.checkbox.grubCheckbox [:label 
+                                 [:input {:type "checkbox"
+                                          :checked (:completed grub)}] 
+                                 (:grub grub)]]]
+   [:td
+    [:button.grub-close.close {:type "button"} "×"]]])
+
 (defn render-body []
   (dommy/prepend! (sel1 :body) (main-template)))
-
-(defn add-grub-to-dom [grub-obj]
-  (logs "Add" grub-obj)
-  (dommy/append! (sel1 :#grubList) (grub-template grub-obj)))
-
-(defn add-grub [grub]
-  (add-grub-to-dom grub))
-
-(defn complete-grub [grub]
-  (logs "Complete" grub)
-  (aset (sel1 [(str "#" (:_id grub)) "input"]) "checked" true))
-
-(defn uncomplete-grub [grub]
-  (logs "Uncomplete" grub)
-  (aset (sel1 [(str "#" (:_id grub)) "input"]) "checked" false))
-
-(defn delete-grub [grub]
-  (let [elem (sel1 (str "#" (:_id grub)))]
-    (.removeChild (.-parentNode elem) elem)))
 
 (defn get-add-grub-text []
   (let [text (dommy/value add-grub-text)]
@@ -108,4 +91,22 @@
     (let [ids (map-chan #(.-id (.-parentNode (.-parentNode (.-target %)))) click-events)
           grub-events (map-chan (fn [id] {:event :delete :_id id}) ids)]
       grub-events)))
-  
+
+(defn get-local-events []
+  (fan-in [(get-added-events)
+           (get-completed-events)
+           (get-deleted-events)]))
+
+(defn render-grub-list [grubs]
+  (let [grub-list (sel1 :#grubList)
+        sorted-grubs (sort-by :_id grubs)]
+    (aset grub-list "innerHTML" "")
+    (doseq [grub sorted-grubs]
+      (logs "render-grub-list:" grub)
+      (dommy/append! grub-list (grub-template grub)))))
+
+(add-watch state/grubs 
+           :grub-add-watch
+           (fn [key ref old new]
+             (logs "state:" new)
+             (render-grub-list new)))
