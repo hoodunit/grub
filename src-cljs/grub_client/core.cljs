@@ -2,31 +2,16 @@
   (:require [grub-client.async-utils 
              :refer [fan-in fan-out event-chan filter-chan do-chan do-chan! map-chan]]
             [grub-client.view :as view]
+            [grub-client.websocket :as ws]
             [cljs.core.async :refer [<! >! >!! chan close! timeout]]
             [cljs.reader])
   (:require-macros [grub-client.macros :refer [log logs go-loop]]
                    [cljs.core.async.macros :refer [go]]))
 
-(def websocket* (atom nil))
-
-(defn connect-to-server []
-  (reset! websocket* (js/WebSocket. "ws://localhost:3000/ws")))
-
 (defn get-local-events []
   (fan-in [(view/get-added-events)
            (view/get-completed-events)
            (view/get-deleted-events)]))
-
-(defn get-remote-events []
-  (let [out (chan)]
-    (aset @websocket* "onmessage" (fn [event] 
-                                    (let [grub-event (cljs.reader/read-string (.-data event))]
-                                      (logs "Received:" grub-event)
-                                      (go (>! out grub-event)))))
-    out))
-
-(defn send-to-server [event]
-  (.send @websocket* event))
 
 (defmulti handle-event :event :default :unknown-event)
 
@@ -48,14 +33,14 @@
 (defn handle-grub-events []
   (let [local-events (get-local-events)
         [local-events' local-events''] (fan-out local-events 2)
-        remote-events (get-remote-events)
+        remote-events (ws/get-remote-events)
         events (fan-in [local-events' remote-events])]
-    (do-chan! send-to-server local-events'')
+    (do-chan! ws/send-to-server local-events'')
     (go-loop (handle-event (<! events)))))
 
 (defn init []
   (view/render-body)
-  (connect-to-server)
+  (ws/connect-to-server)
   (handle-grub-events))
 
 (init)
