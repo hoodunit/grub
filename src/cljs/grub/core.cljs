@@ -1,6 +1,5 @@
 (ns grub.core
-  (:require [grub.async-utils 
-             :refer [fan-in fan-out event-chan filter-chan do-chan do-chan! map-chan]]
+  (:require [grub.async-utils :as a]
             [grub.view :as view]
             [grub.websocket :as ws]
             [grub.state :as state]
@@ -11,11 +10,11 @@
 
 (defn handle-grub-events []
   (let [local-events (view/get-local-events)
-        [local-events' local-events''] (fan-out local-events 2)
+        [local-events' local-events''] (a/fan-out local-events 2)
         remote-events (ws/get-remote-events)
-        events (fan-in [local-events' remote-events])]
-    (do-chan! ws/send-to-server local-events'')
-    (go-loop (state/handle-event (<! events)))))
+        events (a/fan-in [local-events' remote-events])]
+    (a/do-chan! ws/send-to-server local-events'')
+    (a/copy-chan state/incoming-events events)))
 
 (defn init []
   (view/render-body)

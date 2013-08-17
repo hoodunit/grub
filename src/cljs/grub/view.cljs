@@ -67,7 +67,7 @@
                        (get-grubs-from-enter)])]
     (->> grubs
          (filter-chan #(not (empty? %)))
-         (map-chan (fn [g] {:event :create :grub g :_id (str "grub-" (.now js/Date))})))))
+         (map-chan (fn [g] {:event :create :grub g})))))
 
 (defn get-completed-event [event]
   (let [target (.-target event)

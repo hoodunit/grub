@@ -1,5 +1,9 @@
 (ns grub.state
-  (:require-macros [grub.macros :refer [log logs]]))
+  (:require [cljs.core.async :refer [chan <!]])
+  (:require-macros [grub.macros :refer [log logs go-loop]]
+                   [cljs.core.async.macros :refer [go]]))
+
+(def incoming-events (chan))
 
 (def grubs (atom []))
 
@@ -21,6 +25,7 @@
 (defmethod handle-event :create [event]
   (let [grub (-> event
                  (select-keys [:_id :grub])
+                 (assoc :_id (str "grub-" (.now js/Date)))
                  (assoc :completed false))]
     (swap! grubs (fn [current] (conj current grub)))))
 
@@ -46,4 +51,7 @@
 (defmethod handle-event :unknown-event [event]
   (logs "Cannot handle unknown event:" event))
 
+(defn handle-incoming-events []
+    (go-loop (handle-event (<! incoming-events))))
   
+(handle-incoming-events)
