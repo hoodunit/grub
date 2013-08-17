@@ -25,7 +25,7 @@
 (defn push-received-events-to-client [c ws-channel]
   (go-loop (let [event (<! c)
                  event-str (str event)]
-             (println "Send to client" event)
+             (println "Send to client" event-str)
              (httpkit/send! ws-channel event-str))))
 
 (defn add-incoming-event [raw-event ws-channel-id]
@@ -38,7 +38,7 @@
   (let [[incoming incoming'] (fan-out incoming-events 2)]
     (do-chan! push-event-to-others incoming)
     (go-loop (let [event (<! incoming')]
-               (>! (db/get-incoming-events) event)))))
+               (>! @db/incoming-events event)))))
 
 (defn websocket-handler [request]
   (httpkit/with-channel request ws-channel

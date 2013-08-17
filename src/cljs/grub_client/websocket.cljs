@@ -14,6 +14,7 @@
 (defn get-remote-events []
   (let [out (chan)]
     (aset @websocket* "onmessage" (fn [event] 
+                                    (logs "received event" event)
                                     (let [grub-event (cljs.reader/read-string (.-data event))]
                                       (logs "Received:" grub-event)
                                       (go (>! out grub-event)))))

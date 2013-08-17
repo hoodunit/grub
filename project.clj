@@ -3,7 +3,8 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :source-paths ["src-clj"]
+  :source-paths ["src/clj"]
+  :test-paths ["test/clj"]
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [http-kit "2.1.8"]
                  [compojure "1.1.5"]
@@ -19,7 +20,7 @@
   :cljsbuild {
     :builds [{
         ; The path to the top-level ClojureScript source directory:
-        :source-paths ["src-cljs"]
+        :source-paths ["src/cljs"]
         ; The standard ClojureScript compiler options:
         ; (See the ClojureScript compiler documentation for details.)
         :compiler {
