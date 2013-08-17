@@ -36,4 +36,5 @@
       (handler/site routes))))
 
 (defn -main [& args]
+  (db/connect-and-handle-events)
   (httpkit/run-server app {:port 3000}))

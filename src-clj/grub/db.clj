@@ -7,10 +7,7 @@
 
 (def grub-collection "grubs")
 
-(def incoming-events (chan))
-
-(defn get-incoming-events []
-  incoming-events)
+(def incoming-events (atom nil))
 
 (defmulti handle-event :event :default :unknown-event)
 
@@ -18,7 +15,7 @@
   (let [grub (-> event
                  (select-keys [:_id :grub])
                  (assoc :completed false))]
-    (mc/insert grub-collection grub)))
+    (when (and (:_id grub) (:grub grub)) (mc/insert grub-collection grub))))
 
 (defmethod handle-event :complete [event]
   (mc/update grub-collection 
@@ -36,16 +33,15 @@
 (defmethod handle-event :unknown-event [event]
   (println "Cannot handle unknown event:" event))
 
-(defn handle-incoming-events []
-  (go-loop (let [event (<! (get-incoming-events))]
-             (println "DB handling" event)
+(defn handle-incoming-events! []
+  (reset! incoming-events (chan))
+  (go-loop (let [event (<! @incoming-events)]
              (handle-event event))))
 
 (defn get-current-grubs-as-events []
   (let [grubs (mc/find-maps grub-collection)
         sorted-grubs (sort-by :_id (vec grubs))
         out (chan)]
-    (println "sorted-grubs:" sorted-grubs)
     (go (doseq [grub sorted-grubs]
           (let [grub-event (-> grub
                                (select-keys [:_id :grub :completed])
@@ -53,10 +49,11 @@
             (>! out grub-event))))
     out))
 
-(defn connect-to-db []
-  (println "Connect to db")
-  (m/connect!)
-  (m/set-db! (m/get-db "monger-test")))
+(def default-db "grub")
 
-(connect-to-db)
-(handle-incoming-events)
+(defn connect-and-handle-events
+  ([] (connect-and-handle-events default-db))
+  ([db-name]
+     (handle-incoming-events!)
+     (m/connect!)
+     (m/set-db! (m/get-db db-name))))

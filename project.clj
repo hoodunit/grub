@@ -13,6 +13,7 @@
                  [prismatic/dommy "0.1.1"]
                  [core.async "0.1.0-SNAPSHOT"]
                  [com.novemberain/monger "1.5.0"]]
+  :profiles {:dev {:dependencies [[midje "1.5.1"]]}}
   :plugins [[lein-cljsbuild "0.3.2"]
             [lein-ring "0.8.6"]]
   :cljsbuild {
