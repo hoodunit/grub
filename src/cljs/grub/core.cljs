@@ -1,12 +1,12 @@
-(ns grub-client.core
-  (:require [grub-client.async-utils 
+(ns grub.core
+  (:require [grub.async-utils 
              :refer [fan-in fan-out event-chan filter-chan do-chan do-chan! map-chan]]
-            [grub-client.view :as view]
-            [grub-client.websocket :as ws]
-            [grub-client.state :as state]
+            [grub.view :as view]
+            [grub.websocket :as ws]
+            [grub.state :as state]
             [cljs.core.async :refer [<! >! >!! chan close! timeout]]
             [cljs.reader])
-  (:require-macros [grub-client.macros :refer [log logs go-loop]]
+  (:require-macros [grub.macros :refer [log logs go-loop]]
                    [cljs.core.async.macros :refer [go]]))
 
 (defn handle-grub-events []

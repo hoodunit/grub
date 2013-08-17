@@ -1,4 +1,4 @@
-(ns grub-client.macros)
+(ns grub.macros)
 
 (defmacro log [& args]
   `(.log js/console ~@args))

@@ -1,7 +1,7 @@
-(ns grub-client.async-utils
+(ns grub.async-utils
   (:require [cljs.core.async :as async :refer [<! >! chan put! alts!]])
   (:require-macros [cljs.core.async.macros :as m :refer [go]]
-                   [grub-client.macros :refer [go-loop]]))
+                   [grub.macros :refer [go-loop]]))
 
 (defn put-all! [cs x]
   (doseq [c cs]

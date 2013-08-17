@@ -20,14 +20,13 @@
    [:body
     (include-js "http://code.jquery.com/jquery.js")
     (include-js "/js/bootstrap.js")
-    (include-js "/js/main.js")]))
+    (include-js "/js/grub_dev.js")]))
 
 (defroutes routes
   (GET "/ws" [] ws/websocket-handler)
   (GET "/" [] (index-page))
   (route/files "/")
   (route/not-found "<p>Page not found.</p>"))
-
 
 (def app 
   (let [dev? true]

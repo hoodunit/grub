@@ -1,9 +1,9 @@
-(ns grub-client.websocket
-  (:require [grub-client.async-utils 
+(ns grub.websocket
+  (:require [grub.async-utils 
              :refer [fan-in fan-out event-chan filter-chan do-chan do-chan! map-chan]]
             [cljs.core.async :refer [<! >! >!! chan close! timeout]]
             [cljs.reader])
-  (:require-macros [grub-client.macros :refer [log logs go-loop]]
+  (:require-macros [grub.macros :refer [log logs go-loop]]
                    [cljs.core.async.macros :refer [go]]))
 
 (def websocket* (atom nil))
@@ -14,7 +14,6 @@
 (defn get-remote-events []
   (let [out (chan)]
     (aset @websocket* "onmessage" (fn [event] 
-                                    (logs "received event" event)
                                     (let [grub-event (cljs.reader/read-string (.-data event))]
                                       (logs "Received:" grub-event)
                                       (go (>! out grub-event)))))

@@ -1,10 +1,10 @@
-(ns grub-client.view
-  (:require [grub-client.async-utils 
+(ns grub.view
+  (:require [grub.async-utils 
              :refer [do-chan! do-chan event-chan map-chan fan-in filter-chan]]
-            [grub-client.state :as state]
+            [grub.state :as state]
             [dommy.core :as dommy]
             [cljs.core.async :refer [<! >! chan]])
-  (:require-macros [grub-client.macros :refer [log logs go-loop]]
+  (:require-macros [grub.macros :refer [log logs go-loop]]
                    [dommy.macros :refer [deftemplate sel1 node]]
                    [cljs.core.async.macros :refer [go]]))
 
@@ -102,11 +102,9 @@
         sorted-grubs (sort-by :_id grubs)]
     (aset grub-list "innerHTML" "")
     (doseq [grub sorted-grubs]
-      (logs "render-grub-list:" grub)
       (dommy/append! grub-list (grub-template grub)))))
 
 (add-watch state/grubs 
            :grub-add-watch
            (fn [key ref old new]
-             (logs "state:" new)
              (render-grub-list new)))

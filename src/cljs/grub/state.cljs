@@ -1,5 +1,5 @@
-(ns grub-client.state
-  (:require-macros [grub-client.macros :refer [log logs]]))
+(ns grub.state
+  (:require-macros [grub.macros :refer [log logs]]))
 
 (def grubs (atom []))
 
@@ -9,7 +9,7 @@
                         (filter #(= (:_id (second %)) id))
                         (first)
                         (first))
-        grub (nth grubs grub-index)]
+        grub (grubs grub-index)]
     [grub-index grub]))
 
 (defmulti handle-event :event :default :unknown-event)
