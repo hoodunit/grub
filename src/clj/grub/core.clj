@@ -1,6 +1,7 @@
 (ns grub.core
   (:require [grub.websocket :as ws]
             [grub.db :as db]
+            [grub.integration-test :as integration-test]
             [ring.middleware.reload :as reload]
             [compojure.core :refer [defroutes GET POST]]
             [compojure.handler :as handler]
@@ -36,4 +37,7 @@
 
 (defn -main [& args]
   (db/connect-and-handle-events)
-  (httpkit/run-server app {:port 3000}))
+  (defonce stop-server (httpkit/run-server app {:port 3000}))
+  (when (some #(= % "integration") args)
+    (integration-test/run)
+    (stop-server)))

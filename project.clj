@@ -13,7 +13,8 @@
                  [core.async "0.1.0-SNAPSHOT"]
                  [com.novemberain/monger "1.5.0"]]
   :profiles {:dev {:dependencies [[speclj "2.5.0"]
-                                  [specljs "2.7.4"]]}}
+                                  [specljs "2.7.4"]
+                                  [clj-webdriver "0.6.0"]]}}
   :plugins [[lein-cljsbuild "0.3.2"]
             [lein-ring "0.8.6"]
             [speclj "2.5.0"]
@@ -30,7 +31,7 @@
                                 :compiler {:output-to "public/js/grub.js"
                                            :optimizations :simple}}
                          :test-commands {"test" run-specs}}})
-  :source-paths ["src/clj"]
+  :source-paths ["src/clj" "integration"]
   :test-paths ["spec/clj"]
   :ring {:handler grub.core/app}
   :main grub.core)

@@ -9,10 +9,10 @@
                    [cljs.core.async.macros :refer [go]]))
 
 (def add-grub-text 
-  (node [:input.form-control {:type "text" :placeholder "2 grubs"}]))
+  (node [:input.form-control {:id "add-grub-input" :type "text" :placeholder "2 grubs"}]))
 
 (def add-grub-btn 
-  (node [:button.btn.btn-default {:type "button"} "Add"]))
+  (node [:button.btn.btn-default {:id "add-grub-btn" :type "button"} "Add"]))
 
 (deftemplate main-template []
   [:div.container
