@@ -7,12 +7,17 @@
 (def test-db "grub-test")
 
 (defn short-delay []
-  (<!! (timeout 1)))
+  (<!! (timeout 20)))
+
+(defn get-test-grub []
+  {:_id (str "grub" (rand-int 10000))
+   :grub (str "testtext" (rand-int 1000))
+   :completed ([true false] (rand-int 1))})
 
 (describe 
  "grub.db"
- (before (do (db/connect-and-handle-events test-db)
-             (mc/drop db/grub-collection)))
+ (before-all (db/connect-and-handle-events test-db))
+ (before (mc/drop db/grub-collection))
  (describe "Create grub" 
            (it "should create a grub when a create event comes"
                (let [test-grub "testgrub"

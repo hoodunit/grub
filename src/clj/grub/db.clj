@@ -15,7 +15,7 @@
   (let [grub (-> event
                  (select-keys [:_id :grub])
                  (assoc :completed false))]
-    (when (and (:_id grub) (:grub grub)) (mc/insert grub-collection grub))))
+    (mc/insert grub-collection grub)))
 
 (defmethod handle-event :complete [event]
   (mc/update grub-collection 
@@ -57,3 +57,5 @@
      (handle-incoming-events!)
      (m/connect!)
      (m/set-db! (m/get-db db-name))))
+
+(connect-and-handle-events default-db)

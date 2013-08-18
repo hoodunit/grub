@@ -38,8 +38,7 @@
 (defn -main [& args]
   (let [port 3000]
     (println (str "Starting server on localhost:" port))
-    (db/connect-and-handle-events)
     (defonce stop-server (httpkit/run-server app {:port port}))
     (when (some #(= % "integration") args)
-      (integration-test/run)
+      (integration-test/run port)
       (stop-server))))

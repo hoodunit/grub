@@ -37,7 +37,8 @@
 (defn handle-incoming-events []
   (let [[incoming incoming'] (fan-out incoming-events 2)]
     (do-chan! push-event-to-others incoming)
-    (go-loop (let [event (<! incoming')]
+    (go-loop (let [event (<! incoming')
+                   parsed-event (dissoc event :ws-channel)]
                (>! @db/incoming-events event)))))
 
 (defn websocket-handler [request]
