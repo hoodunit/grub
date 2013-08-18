@@ -6,18 +6,23 @@
   (:require-macros [grub.macros :refer [log logs go-loop]]
                    [cljs.core.async.macros :refer [go]]))
 
+(def incoming-events (chan))
+(def outgoing-events (chan))
+
 (def websocket* (atom nil))
 
+(defn handle-incoming-events []
+  (go-loop
+   (let [event (<! incoming-events)]
+     (.send @websocket* event))))
+
+(defn handle-outgoing-events []
+  (aset @websocket* "onmessage" (fn [event] 
+                                  (let [grub-event (cljs.reader/read-string (.-data event))]
+                                    (logs "Received:" grub-event)
+                                    (go (>! outgoing-events grub-event))))))
+  
 (defn connect-to-server []
-  (reset! websocket* (js/WebSocket. "ws://localhost:3000/ws")))
-
-(defn get-remote-events []
-  (let [out (chan)]
-    (aset @websocket* "onmessage" (fn [event] 
-                                    (let [grub-event (cljs.reader/read-string (.-data event))]
-                                      (logs "Received:" grub-event)
-                                      (go (>! out grub-event)))))
-    out))
-
-(defn send-to-server [event]
-  (.send @websocket* event))
+  (reset! websocket* (js/WebSocket. "ws://localhost:3000/ws"))
+  (handle-incoming-events)
+  (handle-outgoing-events))

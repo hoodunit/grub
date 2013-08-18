@@ -1,5 +1,6 @@
 (ns grub.integration-test
-  (:require [clj-webdriver.taxi :as taxi]
+  (:require [grub.db :as db]
+            [clj-webdriver.taxi :as taxi]
             [clj-webdriver.core :as webdriver]
             [clojure.test :as test]))
 
@@ -23,20 +24,25 @@
       (add-grub driver1 grub))
     (doseq [grub grubs]
       (test/is (taxi/find-element driver2 {:text grub})
-               "Added grubs should appear in other browser"))))
+               "Added grubs should appear in other browser")))
+  (db/clear-grubs))
 
 (defn test-grubs-are-stored-on-server [url driver]
   (taxi/to driver url)
   (let [grubs (repeatedly 4 get-rand-grub)]
     (doseq [grub grubs]
       (add-grub driver grub))
+    (Thread/sleep 200)
     (taxi/refresh driver)
+    (Thread/sleep 200)
     (doseq [grub grubs]
       (test/is (taxi/find-element driver {:text grub})
-               "Previously added grubs should be loaded on refresh"))))
+               "Previously added grubs should be loaded on refresh")))
+  (db/clear-grubs))
   
 
 (defn run [port]
+  (db/connect-and-handle-events "grub-integration-test")
   (let [site-url (str "http://localhost:" port)]
     (println "Starting integration test")
     (let [driver1 (get-driver site-url)
@@ -44,4 +50,5 @@
       (test-adding-grubs site-url driver1 driver2)
       (test-grubs-are-stored-on-server site-url driver1)
       (taxi/quit driver1)
-      (taxi/quit driver2))))
+      (taxi/quit driver2)))
+  (db/clear-grubs))

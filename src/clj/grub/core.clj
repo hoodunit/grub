@@ -35,10 +35,19 @@
       (reload/wrap-reload (handler/site #'routes) {:dirs ["src/clj"]})
       (handler/site routes))))
 
+(def default-port 3000)
+(def integration-test-port 3456)
+
+(defn start-server [port]
+  (println (str "Starting server on localhost:" port))
+  (httpkit/run-server app {:port port}))
+
+(defn run-integration-test []
+  (let [stop-server (start-server integration-test-port)]
+    (integration-test/run integration-test-port)
+    (stop-server)))
+
 (defn -main [& args]
-  (let [port 3000]
-    (println (str "Starting server on localhost:" port))
-    (defonce stop-server (httpkit/run-server app {:port port}))
-    (when (some #(= % "integration") args)
-      (integration-test/run port)
-      (stop-server))))
+  (if (some #(= % "integration") args)
+    (run-integration-test)
+    (start-server default-port)))

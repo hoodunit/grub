@@ -11,10 +11,9 @@
 
 (defmulti handle-event :event :default :unknown-event)
 
-(defmethod handle-event :create [event]
+(defmethod handle-event :add [event]
   (let [grub (-> event
-                 (select-keys [:_id :grub])
-                 (assoc :completed false))]
+                 (select-keys [:_id :grub :completed]))]
     (mc/insert grub-collection grub)))
 
 (defmethod handle-event :complete [event]
@@ -48,6 +47,9 @@
                                (assoc :event :add))]
             (>! out grub-event))))
     out))
+
+(defn clear-grubs [] 
+  (mc/drop grub-collection))
 
 (def default-db "grub")
 

@@ -8,6 +8,8 @@
                    [dommy.macros :refer [deftemplate sel1 node]]
                    [cljs.core.async.macros :refer [go]]))
 
+(def outgoing-events (chan))
+
 (def add-grub-text 
   (node [:input.form-control {:id "add-grub-input" :type "text" :placeholder "2 grubs"}]))
 
@@ -92,10 +94,6 @@
           grub-events (map-chan (fn [id] {:event :delete :_id id}) ids)]
       grub-events)))
 
-(defn get-local-events []
-  (fan-in [(get-added-events)
-           (get-completed-events)
-           (get-deleted-events)]))
 
 (defn render-grub-list [grubs]
   (let [grub-list (sel1 :#grubList)
@@ -104,7 +102,18 @@
     (doseq [grub sorted-grubs]
       (dommy/append! grub-list (grub-template grub)))))
 
-(add-watch state/grubs 
-           :grub-add-watch
-           (fn [key ref old new]
-             (render-grub-list new)))
+(defn push-outgoing-events []
+  (fan-in outgoing-events [(get-added-events)
+                           (get-completed-events)
+                           (get-deleted-events)]))
+
+(defn watch-for-state-changes []
+  (add-watch state/grubs 
+             :grub-add-watch
+             (fn [key ref old new]
+               (render-grub-list new))))
+
+(defn init []
+  (render-body)
+  (watch-for-state-changes)
+  (push-outgoing-events))
