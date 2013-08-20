@@ -11,6 +11,8 @@
              [page :refer [html5]]
              [page :refer [include-js include-css]]]))
 
+(def js-file (atom "/js/grub_dev.js"))
+
 (defn index-page []
   (html5
    [:head
@@ -21,7 +23,7 @@
    [:body
     (include-js "http://code.jquery.com/jquery.js")
     (include-js "/js/bootstrap.js")
-    (include-js "/js/grub_dev.js")]))
+    (include-js @js-file)]))
 
 (defroutes routes
   (GET "/ws" [] ws/websocket-handler)
@@ -48,6 +50,8 @@
     (stop-server)))
 
 (defn -main [& args]
-  (if (some #(= % "integration") args)
-    (run-integration-test)
-    (start-server default-port)))
+  (cond
+   (some #(= % "integration") args) (run-integration-test)
+   (some #(= % "production") args) (do (reset! js-file "/js/grub.js")
+                                       (start-server default-port))
+   :else (start-server default-port)))
