@@ -5,3 +5,25 @@
 tr:hover .grub-close {
     display: block;
 }
+
+#grub-list {
+    margin-top: 10px;
+}
+
+.grub-item {
+    cursor: default;
+    -webkit-user-select: none;  
+    -moz-user-select: none;    
+    -ms-user-select: none;      
+    user-select: none;
+}
+
+.grub-item:active {
+    color: #ffffff;
+    background-color: rgb(71, 73, 73);
+}
+
+.completed {
+    text-decoration: line-through;
+    color: #a9a9a9;
+}

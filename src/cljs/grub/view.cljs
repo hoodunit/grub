@@ -26,19 +26,14 @@
       add-grub-text
       [:span.input-group-btn
        add-grub-btn]]
-     [:table.table.table-condensed
-      [:tbody#grubList]]]
-    [:div.col-lg-4]]])
+     [:ul#grub-list.list-group]]
+     [:div.col-lg-4]
+    [:div.col-lg-2]]])
 
-(deftemplate grub-template [grub]
-  [:tr {:id (:_id grub)}
-   [:td 
-    [:div.checkbox.grubCheckbox [:label 
-                                 [:input {:type "checkbox"
-                                          :checked (:completed grub)}] 
-                                 (:grub grub)]]]
-   [:td
-    [:button.grub-close.close {:type "button"} "×"]]])
+(defn make-grub-node [grub]
+  (if (:completed grub)
+    (node [:li.list-group-item.completed.grub-item {:id (:_id grub)} (:grub grub)])
+    (node [:li.list-group-item.grub-item {:id (:_id grub)} (:grub grub)])))
 
 (defn render-body []
   (dommy/prepend! (sel1 :body) (main-template)))
@@ -73,21 +68,14 @@
 
 (defn get-completed-event [event]
   (let [target (.-target event)
-        checked (.-checked target)
-        event-type (if checked :complete :uncomplete)
-        label (aget (.-labels (.-target event)) 0)
-        grub (.-textContent label)
-        id (.-id (.-parentNode (.-parentNode (.-parentNode (.-parentNode target)))))]
-    {:grub grub :_id id :event event-type}))
-
-(defn get-completed-events []
-  (let [events (:chan (event-chan (sel1 :#grubList) "change"))
-        grubs (map-chan #(get-completed-event %) events)]
-    grubs))
+        id (.-id target)
+        completed (dommy/has-class? target "completed")
+        event-type (if completed :uncomplete :complete)]
+    {:_id id :event event-type}))
   
 (defn get-deleted-events []
   (let [click-events (chan)]
-    (dommy/listen! [(sel1 :#grubList) ".close"] 
+    (dommy/listen! [(sel1 :#grub-list) ".close"] 
                    :click 
                    #(go (>! click-events %)))
     (let [ids (map-chan #(.-id (.-parentNode (.-parentNode (.-target %)))) click-events)
@@ -96,15 +84,16 @@
 
 
 (defn render-grub-list [grubs]
-  (let [grub-list (sel1 :#grubList)
+  (let [grub-list (sel1 :#grub-list)
         sorted-grubs (sort-by (juxt :completed :_id) grubs)]
     (aset grub-list "innerHTML" "")
     (doseq [grub sorted-grubs]
-      (dommy/append! grub-list (grub-template grub)))))
+      (let [node (make-grub-node grub)]
+        (dommy/listen! node :click #(go (>! outgoing-events (get-completed-event %))))
+        (dommy/append! grub-list node)))))
 
 (defn push-outgoing-events []
   (fan-in outgoing-events [(get-added-events)
-                           (get-completed-events)
                            (get-deleted-events)]))
 
 (defn watch-for-state-changes []
