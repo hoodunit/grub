@@ -14,7 +14,7 @@
   (node [:input.form-control {:id "add-grub-input" :type "text" :placeholder "2 grubs"}]))
 
 (def add-grub-btn 
-  (node [:button.btn.btn-default {:id "add-grub-btn" :type "button"} "Add"]))
+  (node [:button.btn.btn-primary {:id "add-grub-btn" :type "button"} "Add"]))
 
 (deftemplate main-template []
   [:div.container
@@ -32,8 +32,12 @@
 
 (defn make-grub-node [grub]
   (if (:completed grub)
-    (node [:li.list-group-item.completed.grub-item {:id (:_id grub)} (:grub grub)])
-    (node [:li.list-group-item.grub-item {:id (:_id grub)} (:grub grub)])))
+    (node [:li.list-group-item.completed.grub-item {:id (:_id grub)} 
+           [:span.glyphicon.glyphicon-check]
+           (str " " (:grub grub))])
+    (node [:li.list-group-item.grub-item {:id (:_id grub)}
+           [:span.glyphicon.glyphicon-unchecked]
+           (str " " (:grub grub))])))
 
 (defn render-body []
   (dommy/prepend! (sel1 :body) (main-template)))
