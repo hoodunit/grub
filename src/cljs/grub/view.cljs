@@ -97,7 +97,7 @@
 
 (defn render-grub-list [grubs]
   (let [grub-list (sel1 :#grubList)
-        sorted-grubs (sort-by :_id grubs)]
+        sorted-grubs (sort-by (juxt :completed :_id) grubs)]
     (aset grub-list "innerHTML" "")
     (doseq [grub sorted-grubs]
       (dommy/append! grub-list (grub-template grub)))))
