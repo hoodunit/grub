@@ -10,8 +10,9 @@
                  [ring/ring-core "1.2.0"]
                  [hiccup "1.0.4"]
                  [prismatic/dommy "0.1.1"]
-                 [core.async "0.1.0-SNAPSHOT"]
+                 [org.clojure/core.async "0.1.0-SNAPSHOT"]
                  [com.novemberain/monger "1.5.0"]]
+  :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
   :profiles {:dev {:dependencies [[speclj "2.5.0"]
                                   [specljs "2.7.4"]
                                   [clj-webdriver "0.6.0"]]}}
