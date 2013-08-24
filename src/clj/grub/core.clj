@@ -54,4 +54,5 @@
    (some #(= % "integration") args) (run-integration-test)
    (some #(= % "production") args) (do (reset! js-file "/js/grub.js")
                                        (start-server default-port))
-   :else (start-server default-port)))
+   :else (do (db/connect-and-handle-events "grub-dev")
+             (start-server default-port))))
