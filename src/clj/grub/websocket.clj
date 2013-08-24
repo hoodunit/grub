@@ -47,6 +47,7 @@
           c (chan)]
       (swap! ws-channels conj {:id ws-channel-id :channel c})
       (println "Channel connected:" (.toString ws-channel))
+      (println "Request:" request)
       (httpkit/on-receive ws-channel #(add-incoming-event % ws-channel-id))
       (push-current-grubs-to-client c ws-channel)
       (push-received-events-to-client c ws-channel))))

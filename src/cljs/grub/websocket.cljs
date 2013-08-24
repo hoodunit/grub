@@ -3,8 +3,8 @@
              :refer [fan-in fan-out event-chan filter-chan do-chan do-chan! map-chan]]
             [cljs.core.async :refer [<! >! >!! chan close! timeout]]
             [cljs.reader])
-  (:require-macros [grub.macros :refer [log logs go-loop]]
-                   [cljs.core.async.macros :refer [go]]))
+  (:require-macros [cljs.core.async.macros :refer [go]]
+                   [grub.macros :refer [log logs go-loop]]))
 
 (def incoming-events (chan))
 (def outgoing-events (chan))
@@ -14,15 +14,19 @@
 (defn handle-incoming-events []
   (go-loop
    (let [event (<! incoming-events)]
+     (logs "Sending event:" event)
      (.send @websocket* event))))
 
 (defn handle-outgoing-events []
   (aset @websocket* "onmessage" (fn [event] 
                                   (let [grub-event (cljs.reader/read-string (.-data event))]
-                                    (logs "Received:" grub-event)
                                     (go (>! outgoing-events grub-event))))))
-  
-(defn connect-to-server []
-  (reset! websocket* (js/WebSocket. "ws://localhost:3000/ws"))
-  (handle-incoming-events)
-  (handle-outgoing-events))
+
+(defn connect-to-server [url port]
+  (let [full-url (str "ws://" url ":" port "/ws")]
+    (reset! websocket* (js/WebSocket. full-url))
+    (aset @websocket* "onopen" (fn [event] (log "Connected:" event)))
+    (aset @websocket* "onclose" (fn [event] (log "Connection closed:" event)))
+    (aset @websocket* "onerror" (fn [event] (log "Connection error:" event)))
+    (handle-incoming-events)
+    (handle-outgoing-events)))
