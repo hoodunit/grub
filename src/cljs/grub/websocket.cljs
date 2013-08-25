@@ -14,7 +14,6 @@
 (defn handle-incoming-events []
   (go-loop
    (let [event (<! incoming-events)]
-     (logs "Sending event:" event)
      (.send @websocket* event))))
 
 (defn handle-outgoing-events []

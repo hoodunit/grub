@@ -15,9 +15,10 @@
 
 (defn init []
   (view/init)
-  (if-let [server-url (when grub.production grub.production/server-url)]
-    (do (logs "prod") (ws/connect-to-server server-url 80))
-    (do (logs "dev") (ws/connect-to-server "localhost" 3000)))
+  (if-let [url (when grub.production grub.production/server-url)]
+    (let [port grub.production/server-port]
+      (ws/connect-to-server url port))
+    (ws/connect-to-server "localhost" 3000))
   (handle-grub-events))
 
 (init)
