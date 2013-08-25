@@ -48,6 +48,14 @@
                       delete-event {:_id (:_id test-grub) :event :delete}]
                   (reset! state/grubs [test-grub])
                   (state/handle-event delete-event)
+                  (should= [] @state/grubs))))
+
+  (describe "Clear all" 
+            (it "should delete all grubs"
+                (let [test-grub {:_id 234243 :grub "testgrub" :completed true}
+                      clear-all-event {:event :clear-all}]
+                  (reset! state/grubs [test-grub])
+                  (state/handle-event clear-all-event)
                   (should= [] @state/grubs)))))
  
  (describe 

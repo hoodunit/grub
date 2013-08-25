@@ -26,7 +26,8 @@
       add-grub-text
       [:span.input-group-btn
        add-grub-btn]]
-     [:ul#grub-list.list-group]]
+     [:ul#grub-list.list-group]
+     [:button.btn.hidden {:id "clear-all-btn" :type "button"} "Clear all"]]
      [:div.col-lg-4]
     [:div.col-lg-2]]])
 
@@ -41,6 +42,17 @@
 
 (defn render-body []
   (dommy/prepend! (sel1 :body) (main-template)))
+
+(defprotocol IHideable
+  (-hide! [view])
+  (-show! [view]))
+
+(extend-type js/HTMLElement
+  IHideable
+  (-hide! [view]
+    (dommy/add-class! view :hidden))
+  (-show! [view]
+    (dommy/remove-class! view :hidden)))
 
 (defn get-add-grub-text []
   (let [text (dommy/value add-grub-text)]
@@ -86,6 +98,11 @@
           grub-events (map-chan (fn [id] {:event :delete :_id id}) ids)]
       grub-events)))
 
+(defn get-clear-all-events []
+  (let [events (chan)]
+    (dommy/listen! (sel1 :#clear-all-btn) :click #(go (>! events {:event :clear-all})))
+    events))
+
 
 (defn render-grub-list [grubs]
   (let [grub-list (sel1 :#grub-list)
@@ -98,12 +115,16 @@
 
 (defn push-outgoing-events []
   (fan-in outgoing-events [(get-added-events)
-                           (get-deleted-events)]))
+                           (get-deleted-events)
+                           (get-clear-all-events)]))
 
 (defn watch-for-state-changes []
   (add-watch state/grubs 
              :grub-add-watch
              (fn [key ref old new]
+               (if (empty? new)
+                 (-hide! (sel1 :#clear-all-btn))
+                 (-show! (sel1 :#clear-all-btn)))
                (render-grub-list new))))
 
 (defn init []

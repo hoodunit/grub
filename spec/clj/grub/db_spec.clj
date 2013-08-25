@@ -59,4 +59,14 @@
                  (short-delay)
                  (should= 
                   nil
-                  (mc/find-one-as-map db/grub-collection {:_id (:_id test-grub)}))))))
+                  (mc/find-one-as-map db/grub-collection {:_id (:_id test-grub)})))))
+
+ (describe "Clear all"
+           (it "should delete all grubs"
+               (let [test-grub {:_id 123456 :completed true}]
+                 (mc/insert db/grub-collection test-grub)
+                 (>!! @db/incoming-events {:event :clear-all})
+                 (short-delay)
+                 (should
+                  (empty?
+                   (mc/find-maps db/grub-collection)))))))

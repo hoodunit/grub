@@ -2,6 +2,10 @@ h3 {
     margin-top: 10px;
 }
 
+.hidden {
+    display: none;
+}
+
 .grub-close {
     display: none;
 }
@@ -12,6 +16,7 @@ tr:hover .grub-close {
 
 #grub-list {
     margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 .grub-item {
@@ -30,4 +35,8 @@ tr:hover .grub-close {
 .completed {
     text-decoration: line-through;
     color: #a9a9a9;
+}
+
+#clear-all-btn {
+    float: right;
 }

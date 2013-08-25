@@ -7,6 +7,9 @@
 
 (def grub-collection "grubs")
 
+(defn clear-grubs [] 
+  (mc/drop grub-collection))
+
 (def incoming-events (atom nil))
 
 (defmulti handle-event :event :default :unknown-event)
@@ -29,6 +32,9 @@
 (defmethod handle-event :delete [event]
   (mc/remove grub-collection {:_id (:_id event)}))
 
+(defmethod handle-event :clear-all [event]
+  (clear-grubs))
+
 (defmethod handle-event :unknown-event [event]
   (println "Cannot handle unknown event:" event))
 
@@ -47,9 +53,6 @@
                                (assoc :event :add))]
             (>! out grub-event))))
     out))
-
-(defn clear-grubs [] 
-  (mc/drop grub-collection))
 
 (def default-db "grub")
 

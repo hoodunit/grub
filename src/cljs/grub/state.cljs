@@ -43,6 +43,9 @@
          (fn [current] 
            (vec (remove #(= (:_id %) (:_id event)) current)))))
 
+(defmethod handle-event :clear-all [event]
+  (reset! grubs []))
+
 (defmethod handle-event :unknown-event [event]
   (logs "Cannot handle unknown event:" event))
 
