@@ -28,7 +28,7 @@
                                           :optimizations :whitespace
                                           :pretty-print true}
                                :notify-command run-specs}
-                         :prod {:source-paths ["src/cljs" "src/prod"]
+                         :prod {:source-paths ["src/cljs"]
                                 :compiler {:output-to "public/js/grub.js"
                                            :optimizations :simple}}
                          :test-commands {"test" run-specs}}})

@@ -21,8 +21,8 @@
                                   (let [grub-event (cljs.reader/read-string (.-data event))]
                                     (go (>! outgoing-events grub-event))))))
 
-(defn connect-to-server [url port]
-  (let [full-url (str "ws://" url ":" port "/ws")]
+(defn connect-to-server []
+  (let [full-url (str "ws://" (.-host (.-location js/document)) "/ws")]
     (reset! websocket* (js/WebSocket. full-url))
     (aset @websocket* "onopen" (fn [event] (log "Connected:" event)))
     (aset @websocket* "onclose" (fn [event] (log "Connection closed:" event)))
