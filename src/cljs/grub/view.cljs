@@ -89,20 +89,10 @@
         event-type (if completed :uncomplete :complete)]
     {:_id id :event event-type}))
   
-(defn get-deleted-events []
-  (let [click-events (chan)]
-    (dommy/listen! [(sel1 :#grub-list) ".close"] 
-                   :click 
-                   #(go (>! click-events %)))
-    (let [ids (map-chan #(.-id (.-parentNode (.-parentNode (.-target %)))) click-events)
-          grub-events (map-chan (fn [id] {:event :delete :_id id}) ids)]
-      grub-events)))
-
 (defn get-clear-all-events []
   (let [events (chan)]
     (dommy/listen! (sel1 :#clear-all-btn) :click #(go (>! events {:event :clear-all})))
     events))
-
 
 (defn render-grub-list [grubs]
   (let [grub-list (sel1 :#grub-list)
@@ -115,7 +105,6 @@
 
 (defn push-outgoing-events []
   (fan-in outgoing-events [(get-added-events)
-                           (get-deleted-events)
                            (get-clear-all-events)]))
 
 (defn watch-for-state-changes []
