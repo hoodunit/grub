@@ -7,7 +7,7 @@
 (def test-db "grub-test")
 
 (defn short-delay []
-  (<!! (timeout 20)))
+  (<!! (timeout 50)))
 
 (defn get-test-grub []
   {:_id (str "grub" (rand-int 10000))
