@@ -1,3 +1,11 @@
+html, body {
+    height: 100%;
+    min-height: 100%;
+    width: 100%;
+    min-width: 100%;
+    margin: 0px;
+}
+
 h3 {
     margin-top: 10px;
 }
@@ -27,14 +35,45 @@ tr:hover .grub-close {
     user-select: none;
 }
 
-.grub-item:active {
+.grub-item.grub-active {
     color: #ffffff;
     background-color: rgb(71, 73, 73);
+}
+
+.grub-item .input-span {
+    display: block;
+    overflow: hidden;
+}
+
+.grub-item .grub-static {
+    display: inline;
+}
+
+.grub-item .grub-input {
+    display: none;
+}
+
+.grub-item.edit .grub-static {
+    display: none;
+}
+
+.grub-item.edit .grub-input {
+    display: inline;
+    width: 100%;
+}
+
+.grub-item .glyphicon {
+    margin-right: 5px;
 }
 
 .completed {
     text-decoration: line-through;
     color: #a9a9a9;
+}
+
+.completed.edit {
+    text-decoration: none;
+    color: default;
 }
 
 #clear-all-btn {

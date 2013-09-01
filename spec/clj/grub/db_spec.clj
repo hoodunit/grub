@@ -51,6 +51,18 @@
                   {:_id (:_id test-grub) :completed false}
                   (mc/find-one-as-map db/grub-collection {:_id (:_id test-grub)})))))
 
+ (describe "Update"
+           (it "should update grub info when an update event comes"
+               (let [test-grub {:_id 123456 :grub "original"}]
+                 (mc/insert db/grub-collection test-grub)
+                 (>!! @db/incoming-events {:event :update 
+                                           :_id (:_id test-grub)
+                                           :grub "updated"})
+                 (short-delay)
+                 (should= 
+                  {:_id (:_id test-grub) :grub "updated"}
+                  (mc/find-one-as-map db/grub-collection {:_id (:_id test-grub)})))))
+
  (describe "Delete"
            (it "should delete a grub when a delete event comes"
                (let [test-grub {:_id 123456 :completed true}]

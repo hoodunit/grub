@@ -9,13 +9,14 @@
                    [cljs.core.async.macros :refer [go]]))
 
 (defn handle-grub-events []
-  (a/copy-chan state/incoming-view-events view/outgoing-events)
-  (a/copy-chan state/incoming-events ws/outgoing-events)
-  (a/copy-chan ws/incoming-events state/outgoing-events))
+  (a/fan-out view/outgoing-events [state/incoming-events ws/incoming-events])
+  (a/copy state/incoming-events ws/outgoing-events)
+  (a/copy ws/incoming-events state/outgoing-events))
 
 (defn init []
-  (view/init)
   (ws/connect-to-server)
+  (state/init)
+  (view/init)
   (handle-grub-events))
 
 (init)

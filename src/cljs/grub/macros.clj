@@ -11,3 +11,13 @@
   `(cljs.core.async.macros/go
      (while true
        ~@body)))
+
+(defmacro do-chan [[binding chan] & body]
+  `(let [chan# ~chan]
+     (cljs.core.async.macros/go
+       (loop []
+         (if-let [~binding (cljs.core.async/<! chan#)]
+           (do
+             ~@body
+             (recur))
+           :done)))))

@@ -22,8 +22,8 @@
                                     (go (>! outgoing-events grub-event))))))
 
 (defn connect-to-server []
-  (let [full-url (str "ws://" (.-host (.-location js/document)) "/ws")]
-    (reset! websocket* (js/WebSocket. full-url))
+  (let [server-url (str "ws://" (.-host (.-location js/document)) "/ws")]
+    (reset! websocket* (js/WebSocket. server-url))
     (aset @websocket* "onopen" (fn [event] (log "Connected:" event)))
     (aset @websocket* "onclose" (fn [event] (log "Connection closed:" event)))
     (aset @websocket* "onerror" (fn [event] (log "Connection error:" event)))

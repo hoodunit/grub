@@ -29,6 +29,11 @@
              {:_id (:_id event)}
              {mo/$set {:completed false}}))
 
+(defmethod handle-event :update [event]
+  (mc/update grub-collection 
+             {:_id (:_id event)}
+             {mo/$set {:grub (:grub event)}}))
+
 (defmethod handle-event :delete [event]
   (mc/remove grub-collection {:_id (:_id event)}))
 

@@ -56,22 +56,4 @@
                       clear-all-event {:event :clear-all}]
                   (reset! state/grubs [test-grub])
                   (state/handle-event clear-all-event)
-                  (should= [] @state/grubs)))))
- 
- (describe 
-  "view event handling"
-  (describe "Create" 
-            (it "should add a new grub to the state when a create event comes"
-                (let [test-grub {:grub "testgrub"}
-                      create-event (assoc test-grub :event :create)]
-                  (state/handle-view-event create-event)
-                  (js/setTimeout (fn [] (let [created-grub (first @state/grubs)]
-                    (should= (:grub test-grub) (:grub created-grub)))))))
-            (it "should generate an _id for the new grub"
-                (let [test-grub {:grub "testgrub"}
-                      create-event (assoc test-grub :event :create)]
-                  (state/handle-view-event create-event)
-                  (js/setTimeout (fn [] 
-                                   (let [added-grub (first (filter #(= (:grub %) (:grub test-grub)) 
-                                                                   @state/grubs))]
-                                     (should-not-be-nil (:_id added-grub))))))))))
+                  (should= [] @state/grubs))))))

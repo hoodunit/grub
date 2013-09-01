@@ -1,7 +1,15 @@
 (ns grub.async-utils
-  (:require [cljs.core.async :as async :refer [<! >! chan put! alts!]])
-  (:require-macros [cljs.core.async.macros :as m :refer [go]]
-                   [grub.macros :refer [go-loop]]))
+  (:refer-clojure :exclude [map filter])
+  (:require [cljs.core.async :as async :refer [<! >! chan put! alts! close!]])
+  (:require-macros [cljs.core.async.macros :refer [go]]
+                   [grub.macros :refer [do-chan]]))
+
+(defn log [in]
+  (let [out (chan)]
+    (do-chan [e in]
+      (.log js/console e)
+      (>! out e))
+    out))
 
 (defn put-all! [cs x]
   (doseq [c cs]
@@ -22,53 +30,57 @@
 
 (defn fan-in
   ([ins] (fan-in (chan) ins))
-  ([c ins]
-     (go-loop
-      (let [[x] (alts! ins)]
-        (>! c x)))
-     c))
+  ([out ins]
+    (go (loop [ins (vec ins)]
+          (when (> (count ins) 0)
+            (let [[x in] (alts! ins)]
+              (when x
+                (>! out x)
+                (recur ins))
+              (recur (vec (disj (set ins) in))))))
+        (close! out))
+    out))
 
-(defn copy-chan
+(defn copy
   ([c]
     (first (fan-out c 1)))
   ([out c]
     (first (fan-out c [out]))))
 
-(defn event-chan
-  ([type] (event-chan js/window type))
-  ([el type] (event-chan (chan) el type))
-  ([c el type]
-    (let [writer #(put! c %)]
-      (.addEventListener el type writer)
-      {:chan c
-       :unsubscribe #(.removeEventListener el type writer)})))
-
-(defn map-chan
-  ([f source] (map-chan (chan) f source))
-  ([c f source]
-    (go-loop
-      (>! c (f (<! source))))
-    c))
-
-(defn filter-chan
-  ([f source] (filter-chan (chan) f source))
-  ([c f source]
-    (go-loop
-      (let [v (<! source)]
-        (when (f v)
-          (>! c v))))
-    c))
-
-(defn do-chan! [f source]
-  (go-loop
-   (let [v (<! source)]
-     (f v))))
-
-(defn do-chan [f source]
+(defn map [f in]
   (let [out (chan)]
-    (go-loop
-     (let [v (<! source)]
-       (f v)
-       (>! out v)))
+    (go (loop []
+          (if-let [x (<! in)]
+            (do (>! out (f x))
+              (recur))
+            (close! out))))
     out))
+
+(defn map-filter [f in]
+  (let [out (chan)]
+    (go (loop []
+          (if-let [x (<! in)]
+            (do 
+              (when-let [val (f x)]
+                (>! out val))
+              (recur))
+            (close! out))))
+    out))
+
+(defn filter [pred in]
+  (let [out (chan)]
+    (go (loop []
+          (if-let [x (<! in)]
+            (do (when (pred x) (>! out x))
+              (recur))
+            (close! out))))
+    out))
+
+(defn siphon
+  ([in] (siphon in []))
+  ([in coll]
+    (go (loop [coll coll]
+          (if-let [v (<! in)]
+            (recur (conj coll v))
+            coll)))))
      
