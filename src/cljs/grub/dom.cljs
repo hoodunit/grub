@@ -1,7 +1,6 @@
 (ns grub.dom
-  (:require [grub.async-utils :as a]
-            [dommy.core :as dommy]
-            [cljs.core.async :refer [<! >! chan timeout close!]])
+  (:require [dommy.core :as dommy]
+            [cljs.core.async :as a :refer [<! >! chan]])
   (:require-macros [grub.macros :refer [log logs go-loop]]
                    [dommy.macros :refer [deftemplate sel1 node]]
                    [cljs.core.async.macros :refer [go]]))
@@ -12,7 +11,7 @@
   ([el type f out]
      (let [push-fn (fn [e] (when f (f e)) (go (>! out e)))
            unlisten #(do (dommy/unlisten! el type push-fn)
-                         (close! out))]
+                         (a/close! out))]
          (dommy/listen! el type push-fn)
          {:chan out :unlisten unlisten})))
 
@@ -22,7 +21,7 @@
   ([el type f out]
      (let [push-fn (fn [e] (when f (f e)) (go (>! out e)))
            unlisten #(do (dommy/unlisten! el type push-fn)
-                         (close! out))]
+                         (a/close! out))]
          (dommy/listen-once! el type push-fn)
          {:chan out :unlisten unlisten})))
 
@@ -49,10 +48,40 @@
 (defn grubs-selector []
   [(sel1 :#grub-list) :.grub-item])
 
+(defn make-recipe-node [id name steps]
+  (node [:div.panel.panel-default.recipe-panel {:id id}
+          [:div.panel-heading.recipe-header
+           [:input.form-control.recipe-header-input 
+            {:id "recipe-name"
+             :type "text" 
+             :placeholder "Grub pie"
+             :value name}]]
+          [:div.panel-body.recipe-steps.hidden
+           [:textarea.form-control.recipe-steps-input
+            {:id "recipe-steps"
+             :rows 3 
+             :placeholder "2 grubs"
+             :value steps}]]
+          [:button.btn.btn-primary.recipe-done-btn.hidden {:type "button"} "Done"]]))
+
+(defn add-new-recipe [id name steps]
+  (log "add new recipe:" name)
+  (let [node (make-recipe-node id name steps)
+        recipe-list (sel1 :#recipe-list)]
+    (logs "node:" node)
+    (logs "recipe-list:" recipe-list)
+    (dommy/append! recipe-list node)
+    node))
+
+(def new-recipe (make-recipe-node "new-recipe" "" ""))
+
+(defn recipes-selector []
+  [(sel1 :#recipe-list) :.recipe-panel])
+
 (deftemplate main-template []
   [:div.container
    [:div.row.show-grid
-    [:div.col-lg-4]
+    [:div.col-lg-2]
     [:div.col-lg-4
      [:h3 "Grub List"]
      [:div.input-group 
@@ -61,7 +90,10 @@
        add-grub-btn]]
      [:ul#grub-list.list-group]
      clear-all-btn]
-     [:div.col-lg-4]
+    [:div.col-lg-4
+     [:h3 "Recipes"]
+     new-recipe
+     [:ul#recipe-list.list-group.recipe-list]]
     [:div.col-lg-2]]])
 
 (defn render-body []
@@ -94,6 +126,13 @@
   (-set-editing! [view])
   (-unset-editing! [view]))
 
+(defprotocol IExpandable
+  (-expand! [view])
+  (-unexpand! [view]))
+
+(defprotocol IClearable
+  (-clear! [view]))
+
 (extend-type js/HTMLElement
   IActivatable
   (-activate! [view]
@@ -117,4 +156,18 @@
   (-unset-editing! [view]
     (dommy/remove-class! view :edit)))
 
+(extend-type js/HTMLDivElement
+  IExpandable
+  (-expand! [view]
+    (dommy/remove-class! (sel1 view ".recipe-steps") :hidden)
+    (dommy/remove-class! (sel1 view ".recipe-done-btn") :hidden))
+  (-unexpand! [view]
+    (dommy/add-class! (sel1 view ".recipe-steps") :hidden)
+    (dommy/add-class! (sel1 view ".recipe-done-btn") :hidden)))
+
+(extend-type js/HTMLDivElement
+  IClearable
+  (-clear! [view]
+    (dommy/set-value! (sel1 view "#recipe-name") "")
+    (dommy/set-value! (sel1 view "#recipe-steps") "")))
     

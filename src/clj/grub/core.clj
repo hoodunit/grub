@@ -3,6 +3,8 @@
             [grub.db :as db]
             [grub.integration-test :as integration-test]
             [ring.middleware.reload :as reload]
+            [ring.middleware.file :as file]
+            [ring.util.response :as resp]
             [compojure.core :refer [defroutes GET POST]]
             [compojure.handler :as handler]
             [compojure.route :as route]
@@ -28,6 +30,8 @@
 (defroutes routes
   (GET "/ws" [] ws/websocket-handler)
   (GET "/" [] (index-page))
+  (GET "*/src/cljs/grub/:file" [file] (resp/file-response file {:root "src/cljs/grub"}))
+  (GET "/js/public/js/:file" [file] (resp/redirect (str "/js/" file)))
   (route/files "/")
   (route/not-found "<p>Page not found.</p>"))
 

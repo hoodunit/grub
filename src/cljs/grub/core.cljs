@@ -1,22 +1,22 @@
 (ns grub.core
-  (:require [grub.async-utils :as a]
-            [grub.view :as view]
+  (:require [grub.view :as view]
             [grub.websocket :as ws]
             [grub.state :as state]
-            [cljs.core.async :refer [<! >! >!! chan close! timeout]]
+            [cljs.core.async :as a :refer [<! >! chan]]
             [cljs.reader])
   (:require-macros [grub.macros :refer [log logs go-loop]]
                    [cljs.core.async.macros :refer [go]]))
 
-(defn handle-grub-events []
-  (a/fan-out view/outgoing-events [state/incoming-events ws/incoming-events])
-  (a/copy state/incoming-events ws/outgoing-events)
-  (a/copy ws/incoming-events state/outgoing-events))
+(defn wire-channels-together []
+  (let [to-remote (chan)
+        to-state (chan)
+        to-view (chan)
+        from-remote (a/mult (ws/get-remote-chan to-remote))
+        from-view (a/mult (view/setup-and-get-view-events to-view))]
+    (state/handle-incoming-events to-state)
+    (a/tap from-view to-state)
+    (a/tap from-view to-remote)
+    (a/tap from-remote to-state)
+    (a/tap from-remote to-view)))
 
-(defn init []
-  (ws/connect-to-server)
-  (state/init)
-  (view/init)
-  (handle-grub-events))
-
-(init)
+(wire-channels-together)

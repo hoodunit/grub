@@ -22,6 +22,9 @@
 (defn push-current-grubs-to-client [c ws-channel]
   (copy-chan c (db/get-current-grubs-as-events)))
 
+(defn push-current-recipes-to-client [c ws-channel]
+  (copy-chan c (db/get-current-recipes-as-events)))
+
 (defn push-received-events-to-client [c ws-channel]
   (go-loop (let [event (<! c)
                  event-str (str event)]
@@ -50,6 +53,7 @@
       (println "Request:" request)
       (httpkit/on-receive ws-channel #(add-incoming-event % ws-channel-id))
       (push-current-grubs-to-client c ws-channel)
+      (push-current-recipes-to-client c ws-channel)
       (push-received-events-to-client c ws-channel))))
       
 (handle-incoming-events)

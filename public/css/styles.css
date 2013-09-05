@@ -79,3 +79,52 @@ tr:hover .grub-close {
 #clear-all-btn {
     float: right;
 }
+
+.recipe-panel {
+    padding: 0px;
+}
+
+.recipe-header {
+    margin: 0px;
+    padding: 0px;
+    background-color: #ffffff;
+    border-bottom: none;
+}
+
+.recipe-header-input {
+    border: none;
+    box-shadow: none;
+    transition: none;
+    border-bottom: none;
+}
+
+.recipe-header-input:focus {
+    border: none;
+    box-shadow: none;
+    transition: none;
+    outline: none;
+}
+
+.recipe-done-btn {
+    margin-left: 290px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.recipe-steps {
+}
+
+.recipe-steps-input {
+    border: none;
+    box-shadow: none;
+    transition: none;
+    border-bottom: none;
+    resize: none;
+}
+
+.recipe-steps-input:focus {
+    border: none;
+    box-shadow: none;
+    transition: none;
+    border-bottom: none;
+}

@@ -6,6 +6,7 @@
             [clojure.core.async :as async :refer [<! >! >!! chan go close! timeout]]))
 
 (def grub-collection "grubs")
+(def recipe-collection "recipes")
 
 (defn clear-grubs [] 
   (mc/drop grub-collection))
@@ -40,6 +41,10 @@
 (defmethod handle-event :clear-all [event]
   (clear-grubs))
 
+(defmethod handle-event :add-recipe [event]
+  (let [recipe (select-keys event [:_id :name :steps])]
+    (mc/insert recipe-collection recipe)))
+
 (defmethod handle-event :unknown-event [event]
   (println "Cannot handle unknown event:" event))
 
@@ -57,6 +62,17 @@
                                (select-keys [:_id :grub :completed])
                                (assoc :event :add))]
             (>! out grub-event))))
+    out))
+
+(defn get-current-recipes-as-events []
+  (let [recipes (mc/find-maps recipe-collection)
+        sorted-recipes (sort-by :_id (vec recipes))
+        out (chan)]
+    (go (doseq [recipe sorted-recipes]
+          (let [recipe-event (-> recipe
+                               (select-keys [:_id :name :steps])
+                               (assoc :event :add-recipe))]
+            (>! out recipe-event))))
     out))
 
 (def default-db "grub")
