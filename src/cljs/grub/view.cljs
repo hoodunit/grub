@@ -46,7 +46,7 @@
        (a/filter #(= (.-keyIdentifier %) "Enter"))))
 
 (defn parse-completed-event [event]
-  (let [target (.-target event)
+  (let [target (.-selectedTarget event)
         id (.-id target)
         completed (dommy/has-class? target "completed")
         event-type (if completed :uncomplete :complete)]
