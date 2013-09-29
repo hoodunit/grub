@@ -32,7 +32,9 @@
   (node [:button.btn.btn-primary {:id "add-grub-btn" :type "button"} "Add"]))
 
 (def clear-all-btn
-  (node [:button.btn.hidden {:id "clear-all-btn" :type "button"} "Clear all"]))
+  (node [:button.btn.hidden.pull-right 
+         {:id "clear-all-btn" :type "button"}
+         "Clear all"]))
 
 (defn make-grub-node [grub]
   (node [:li.list-group-item.grub-item 
@@ -60,12 +62,13 @@
            [:textarea.form-control.recipe-steps-input
             {:id "recipe-steps"
              :rows 3 
-             :placeholder "2 grubs"
-             :value steps}]]
-          [:button.btn.btn-primary.recipe-done-btn.hidden {:type "button"} "Done"]]))
+             :placeholder "2 grubs"}
+            steps]
+           [:button.btn.btn-primary.recipe-done-btn.hidden.pull-right 
+            {:type "button"} "Done"]]]))
 
 (defn add-new-recipe [id name steps]
-  (log "add new recipe:" name)
+  (log "add new recipe:" name "steps:" steps)
   (let [node (make-recipe-node id name steps)
         recipe-list (sel1 :#recipe-list)]
     (logs "node:" node)
@@ -78,11 +81,13 @@
 (defn recipes-selector []
   [(sel1 :#recipe-list) :.recipe-panel])
 
+(defn recipe-done-btns-selector []
+  [(sel1 :body) :.recipe-done-btn])
+
 (deftemplate main-template []
   [:div.container
-   [:div.row.show-grid
-    [:div.col-lg-2]
-    [:div.col-lg-4
+   [:div.row
+    [:div.col-sm-6.leftmost-column
      [:h3 "Grub List"]
      [:div.input-group 
       add-grub-text
@@ -90,11 +95,10 @@
        add-grub-btn]]
      [:ul#grub-list.list-group]
      clear-all-btn]
-    [:div.col-lg-4
-     [:h3 "Recipes"]
+    [:div.col-sm-6
+     [:h3.recipes-title "Recipes"]
      new-recipe
-     [:ul#recipe-list.list-group.recipe-list]]
-    [:div.col-lg-2]]])
+     [:ul#recipe-list.list-group.recipe-list]]]])
 
 (defn render-body []
   (dommy/prepend! (sel1 :body) (main-template)))

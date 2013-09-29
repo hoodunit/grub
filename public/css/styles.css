@@ -10,8 +10,16 @@ h3 {
     margin-top: 10px;
 }
 
+.recipes-title {
+    clear: right;
+}
+
 .hidden {
     display: none;
+}
+
+.leftmost-column {
+    margin-bottom: 45px;
 }
 
 .grub-close {
@@ -76,12 +84,9 @@ tr:hover .grub-close {
     color: default;
 }
 
-#clear-all-btn {
-    float: right;
-}
-
 .recipe-panel {
     padding: 0px;
+    margin-bottom: -1px;
 }
 
 .recipe-header {
@@ -106,9 +111,7 @@ tr:hover .grub-close {
 }
 
 .recipe-done-btn {
-    margin-left: 290px;
     margin-top: 10px;
-    margin-bottom: 10px;
 }
 
 .recipe-steps {
@@ -127,4 +130,8 @@ tr:hover .grub-close {
     box-shadow: none;
     transition: none;
     border-bottom: none;
+}
+
+#new-recipe {
+    margin-bottom: 20px;
 }

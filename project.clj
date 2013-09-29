@@ -21,7 +21,7 @@
   :cljsbuild {:builds {:dev {:source-paths ["src/cljs"]
                              :compiler {:output-dir "out"
                                         :output-to "public/js/grub_dev.js"
-                                        :source-map "public/js/grub_dev.js.map"
+                                        ;:source-map "public/js/grub_dev.js.map"
                                         :optimizations :whitespace
                                         :pretty-print false}}
                        :prod {:source-paths ["src/cljs"]

@@ -56,7 +56,12 @@
 
 (defn get-edit-recipe-clicks []
   (->> (:chan (dom/listen (dom/recipes-selector) :click))
-      (a/map< (fn [e] (log "edit-recipe-click:" (.-selectedTarget e)) {:elem (.-selectedTarget e)}))))
+      (a/map< (fn [e] {:elem (.-selectedTarget e)}))))
+
+(defn get-recipe-done-btn-clicks []
+  (->> (:chan (dom/listen (dom/recipe-done-btns-selector) :click))
+       (a/map< (fn [e] (log "done button click:" (.-selectedTarget e)) 
+                 {:elem (.-selectedTarget e)}))))
 
 (defn parse-completed-event [event]
   (let [target (.-selectedTarget event)
@@ -209,12 +214,16 @@
       state)))
 
 (defmethod handle-event [:new-recipe :body-click] [state event]
-  (log "new-recipe body click")
-  (let [clicked-elem (.-target (:data event))
-        recipe-panel (sel1 ".recipe-panel")]
-    (if (dommy/descendant? clicked-elem recipe-panel)
+  (let [clicked-elem (.-target (:data event))]
+    (if (dommy/descendant? clicked-elem dom/new-recipe)
       state
       (transition state :default))))
+
+(defmethod handle-event [:new-recipe :recipe-done-btn-click] [state event]
+  (log "handle new recipe done btn click")
+  (if (dommy/descendant? (:elem event) dom/new-recipe)
+    (transition state :default)
+    state))
 
 
 (defmethod enter-state :edit-recipe [old-state new-state-name [elem]]
@@ -237,6 +246,11 @@
     (if (dommy/descendant? clicked-elem recipe-node)
       state
       (transition state :default))))
+
+(defmethod handle-event [:edit-recipe :recipe-done-btn-click] [state event]
+  (if (dommy/descendant? (:elem event) (:edit-elem state))
+    (transition state :default)
+    state))
 
 
 
@@ -267,7 +281,8 @@
    :edit (chan)
    :enter (get-enters)
    :new-recipe-click (get-new-recipe-clicks)
-   :edit-recipe-click (get-edit-recipe-clicks)})
+   :edit-recipe-click (get-edit-recipe-clicks)
+   :recipe-done-btn-click (get-recipe-done-btn-clicks)})
 
 (defn append-event-name-to-channel-events [channels]
   (into {} 
