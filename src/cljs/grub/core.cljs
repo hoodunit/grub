@@ -9,14 +9,16 @@
 
 (defn wire-channels-together []
   (let [to-remote (chan)
-        to-state (chan)
+        ;to-state (chan)
         to-view (chan)
-        from-remote (a/mult (ws/get-remote-chan to-remote))
-        from-view (a/mult (view/setup-and-get-view-events to-view))]
-    (state/handle-incoming-events to-state)
-    (a/tap from-view to-state)
-    (a/tap from-view to-remote)
-    (a/tap from-remote to-state)
-    (a/tap from-remote to-view)))
+        from-remote (ws/get-remote-chan to-remote)
+        from-view (view/setup-and-get-view-events to-view)]
+    ;(state/handle-incoming-events to-state)
+    ;; (a/tap from-view to-state)
+    ;; (a/tap from-view to-remote)
+    ;(a/tap from-remote to-state)))
+    ;(a/tap from-remote to-view)))
+    (a/pipe from-remote to-view)
+    (a/pipe from-view to-remote)))
 
 (wire-channels-together)

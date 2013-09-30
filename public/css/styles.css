@@ -14,6 +14,10 @@ h3 {
     clear: right;
 }
 
+.recipe-list {
+    margin-top: 10px;
+}
+
 .hidden {
     display: none;
 }
@@ -84,6 +88,11 @@ tr:hover .grub-close {
     color: default;
 }
 
+.panel-body {
+    padding: 10px;
+    padding-top: 0px;
+}
+
 .recipe-panel {
     padding: 0px;
     margin-bottom: -1px;
@@ -110,14 +119,14 @@ tr:hover .grub-close {
     outline: none;
 }
 
-.recipe-done-btn {
+.recipe-btn {
     margin-top: 10px;
 }
 
-.recipe-steps {
+.recipe-grubs {
 }
 
-.recipe-steps-input {
+.recipe-grubs-input {
     border: none;
     box-shadow: none;
     transition: none;
@@ -125,13 +134,9 @@ tr:hover .grub-close {
     resize: none;
 }
 
-.recipe-steps-input:focus {
+.recipe-grubs-input:focus {
     border: none;
     box-shadow: none;
     transition: none;
     border-bottom: none;
-}
-
-#new-recipe {
-    margin-bottom: 20px;
 }

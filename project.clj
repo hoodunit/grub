@@ -23,7 +23,7 @@
                                         :output-to "public/js/grub_dev.js"
                                         ;:source-map "public/js/grub_dev.js.map"
                                         :optimizations :whitespace
-                                        :pretty-print false}}
+                                        :pretty-print true}}
                        :prod {:source-paths ["src/cljs"]
                               :compiler {:output-to "public/js/grub.js"
                                          :optimizations :simple}}}}

@@ -12,35 +12,37 @@
 
 (defmulti handle-event :event :default :unknown-event)
 
-(defmethod handle-event :add [event]
+(defmethod handle-event :add-grub [event]
   (let [grub (-> event
                  (select-keys [:_id :grub :completed]))]
     (mc/insert grub-collection grub)))
 
-(defmethod handle-event :complete [event]
+(defmethod handle-event :complete-grub [event]
   (mc/update grub-collection 
              {:_id (:_id event)}
              {mo/$set {:completed true}}))
 
-(defmethod handle-event :uncomplete [event]
+(defmethod handle-event :uncomplete-grub [event]
   (mc/update grub-collection 
              {:_id (:_id event)}
              {mo/$set {:completed false}}))
 
-(defmethod handle-event :update [event]
+(defmethod handle-event :update-grub [event]
   (mc/update grub-collection 
              {:_id (:_id event)}
              {mo/$set {:grub (:grub event)}}))
 
-(defmethod handle-event :delete [event]
-  (mc/remove grub-collection {:_id (:_id event)}))
-
-(defmethod handle-event :clear-all [event]
+(defmethod handle-event :clear-all-grubs [event]
   (clear-grubs))
 
 (defmethod handle-event :add-recipe [event]
   (let [recipe (select-keys event [:_id :name :steps])]
     (mc/insert recipe-collection recipe)))
+
+(defmethod handle-event :update-recipe [event]
+  (mc/update recipe-collection 
+             {:_id (:_id event)}
+             {mo/$set {:name (:name event) :grubs (:grubs event)}}))
 
 (defmethod handle-event :unknown-event [event]
   (println "Cannot handle unknown event:" event))
@@ -50,7 +52,7 @@
         sorted-grubs (sort-by :_id (vec grubs))
         events (map (fn [g] (-> g
                                 (select-keys [:_id :grub :completed])
-                                (assoc :event :add)))
+                                (assoc :event :add-grub)))
                     sorted-grubs)
         out (chan)]
     (a/onto-chan out events)
@@ -60,7 +62,7 @@
   (let [recipes (mc/find-maps recipe-collection)
         sorted-recipes (sort-by :_id (vec recipes))
         events (map (fn [r] (-> r
-                                (select-keys [:_id :name :steps])
+                                (select-keys [:_id :name :grubs])
                                 (assoc :event :add-recipe)))
                     sorted-recipes)
         out (chan)]
@@ -72,7 +74,6 @@
 
 (defn handle-incoming-events [in]
   (a/go-loop [] (let [event (<! in)]
-                  (println "db received event:" event)
                   (handle-event event)
                   (recur))))
 

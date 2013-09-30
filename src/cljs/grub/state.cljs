@@ -18,6 +18,7 @@
 (defmulti handle-event :event :default :unknown-event)
 
 (defmethod handle-event :add [event]
+  (logs "handle event add:" event)
   (let [grub (select-keys event [:_id :grub :completed])]
     (swap! grubs (fn [current] (conj current grub)))))
 
