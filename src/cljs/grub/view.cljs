@@ -51,6 +51,10 @@
   (->> (:chan (dom/listen (sel1 :body) :keyup))
        (a/filter< #(= (.-keyIdentifier %) "Enter"))))
 
+(defn get-ctrl-enters []
+  (->> (:chan (dom/listen (sel1 :body) :keyup))
+       (a/filter< #(and (= (.-keyIdentifier %) "Enter") (.-ctrlKey %)))))
+
 (defn get-new-recipe-clicks []
   (:chan (dom/listen dom/new-recipe :click)))
 
@@ -225,6 +229,9 @@
     (transition state :default)
     state))
 
+(defmethod handle-event [:new-recipe :ctrl-enter] [state event]
+  (transition state :default))
+
 
 (defmethod enter-state :edit-recipe [old-state new-state-name [elem]]
   (dom/-expand! elem)
@@ -280,6 +287,7 @@
    :body-click (get-body-clicks)
    :edit (chan)
    :enter (get-enters)
+   :ctrl-enter (get-ctrl-enters)
    :new-recipe-click (get-new-recipe-clicks)
    :edit-recipe-click (get-edit-recipe-clicks)
    :recipe-done-btn-click (get-recipe-done-btn-clicks)})
