@@ -53,10 +53,19 @@
     (integration-test/run integration-test-port)
     (stop-server)))
 
+(defn start-production-server []
+  (reset! js-file "/js/grub.js")
+  (let [db-chan (db/connect-production-database)]
+    (ws/pass-received-events-to-clients-and-db db-chan)
+    (start-server default-port)))
+
+(defn start-development-server []
+  (let [db-chan (db/connect-development-database)]
+    (ws/pass-received-events-to-clients-and-db db-chan)
+    (start-server default-port)))
+
 (defn -main [& args]
   (cond
    (some #(= % "integration") args) (run-integration-test)
-   (some #(= % "production") args) (do (reset! js-file "/js/grub.js")
-                                       (start-server default-port))
-   :else (do (db/connect-and-handle-events "grub-dev")
-             (start-server default-port))))
+   (some #(= % "production") args) (start-production-server)
+   :else (start-development-server)))

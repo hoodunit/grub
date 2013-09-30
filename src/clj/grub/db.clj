@@ -1,17 +1,14 @@
 (ns grub.db
-  (:require [grub.async :refer [go-loop]]
-            [monger.core :as m]
+  (:require [monger.core :as m]
             [monger.collection :as mc]
             [monger.operators :as mo]
-            [clojure.core.async :as async :refer [<! >! >!! chan go close! timeout]]))
+            [clojure.core.async :as a :refer [<! >! chan go]]))
 
 (def grub-collection "grubs")
 (def recipe-collection "recipes")
 
 (defn clear-grubs [] 
   (mc/drop grub-collection))
-
-(def incoming-events (atom nil))
 
 (defmulti handle-event :event :default :unknown-event)
 
@@ -48,40 +45,46 @@
 (defmethod handle-event :unknown-event [event]
   (println "Cannot handle unknown event:" event))
 
-(defn handle-incoming-events! []
-  (reset! incoming-events (chan))
-  (go-loop (let [event (<! @incoming-events)]
-             (handle-event event))))
-
 (defn get-current-grubs-as-events []
   (let [grubs (mc/find-maps grub-collection)
         sorted-grubs (sort-by :_id (vec grubs))
+        events (map (fn [g] (-> g
+                                (select-keys [:_id :grub :completed])
+                                (assoc :event :add)))
+                    sorted-grubs)
         out (chan)]
-    (go (doseq [grub sorted-grubs]
-          (let [grub-event (-> grub
-                               (select-keys [:_id :grub :completed])
-                               (assoc :event :add))]
-            (>! out grub-event))))
+    (a/onto-chan out events)
     out))
 
 (defn get-current-recipes-as-events []
   (let [recipes (mc/find-maps recipe-collection)
         sorted-recipes (sort-by :_id (vec recipes))
+        events (map (fn [r] (-> r
+                                (select-keys [:_id :name :steps])
+                                (assoc :event :add-recipe)))
+                    sorted-recipes)
         out (chan)]
-    (go (doseq [recipe sorted-recipes]
-          (let [recipe-event (-> recipe
-                               (select-keys [:_id :name :steps])
-                               (assoc :event :add-recipe))]
-            (>! out recipe-event))))
+    (a/onto-chan out events)
     out))
 
-(def default-db "grub")
+(def production-db "grub")
+(def development-db "grub-dev")
 
-(defn connect-and-handle-events
-  ([] (connect-and-handle-events default-db))
-  ([db-name]
-     (handle-incoming-events!)
-     (m/connect!)
-     (m/set-db! (m/get-db db-name))))
+(defn handle-incoming-events [in]
+  (a/go-loop [] (let [event (<! in)]
+                  (println "db received event:" event)
+                  (handle-event event)
+                  (recur))))
 
-(connect-and-handle-events default-db)
+(defn connect-and-handle-events [db-name]
+  (let [in (chan)]
+    (handle-incoming-events in)
+    (m/connect!)
+    (m/set-db! (m/get-db db-name))
+    in))
+
+(defn connect-production-database []
+  (connect-and-handle-events production-db))
+
+(defn connect-development-database []
+  (connect-and-handle-events development-db))
