@@ -23,7 +23,7 @@
     (include-css "/css/bootstrap.css")
     (include-css "/css/styles.css")]
    [:body
-    (include-js "http://code.jquery.com/jquery.js")
+    (include-js "/js/jquery.js")
     (include-js "/js/bootstrap.js")
     (include-js @js-file)]))
 
