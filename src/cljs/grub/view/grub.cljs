@@ -21,7 +21,7 @@
          (a/filter< #(not (empty? %)))
          (a/map< (fn [g] 
                    {:event :add-grub 
-                    :_id (str "grub-" (.now js/Date))
+                    :id (str "grub-" (.now js/Date))
                     :grub g
                     :completed false})))))
 
@@ -29,7 +29,7 @@
   (let [id (.-id elem)
         completed (dom/-completed? elem)
         event-type (if completed :uncomplete-grub :complete-grub)]
-    {:_id id 
+    {:id id 
      :event event-type}))
 
 (defn get-complete-events []
@@ -88,7 +88,7 @@
     (when (not (= grub-text orig-grub-text))
       {:event :update-grub
        :grub grub-text 
-       :_id id})))
+       :id id})))
 
 (defn wait-for-update-event [grub]
   (let [out (chan)
@@ -120,7 +120,7 @@
 (defn get-grub-with-index [grubs id]
   (let [grub-index (->> grubs
                         (map-indexed vector)
-                        (filter #(= (:_id (second %)) id))
+                        (filter #(= (:id (second %)) id))
                         (first)
                         (first))
         grub (grubs grub-index)]
@@ -134,22 +134,28 @@
   grubs)
 
 (defmethod handle-event :add-grub [event grubs]
-  (let [grub (dom/add-new-grub (:_id event) (:grub event) (:completed event))]
+  (let [grub (dom/make-new-grub (:id event) (:grub event) (:completed event))
+        new-grubs (assoc grubs (:id grub) grub)]
     (dom/-show! dom/clear-all-btn)
-    (assoc grubs (:id grub) grub)))
+    (dom/render-grub-list new-grubs)
+    (dom/clear-new-grub-input!)
+    new-grubs))
 
 (defmethod handle-event :complete-grub [event grubs]
-  (let [grub (get grubs (:_id event))]
-    (dom/-complete! grub)
-    (assoc-in grubs [(:_id event) :completed] true)))
+  (let [grub (get grubs (:id event))
+        new-grubs (assoc-in grubs [(:id event) :completed] true)]
+    (dom/render-grub-list new-grubs)
+    new-grubs))
 
 (defmethod handle-event :uncomplete-grub [event grubs]
-  (dom/-uncomplete! (get grubs (:_id event)))
-  (assoc-in grubs [(:_id event) :completed] false))
+  (let [new-grubs (assoc-in grubs [(:id event) :completed] false)]
+    (dom/render-grub-list new-grubs)
+    new-grubs))
 
 (defmethod handle-event :update-grub [event grubs]
-  (dom/-update-grub! (get grubs (:_id event)) (:grub event))
-  (assoc-in grubs [(:_id event) :grub] (:grub event)))
+  (let [new-grubs (assoc-in grubs [(:id event) :grub] (:grub event))]
+    (dom/render-grub-list new-grubs)
+    new-grubs))
 
 (defmethod handle-event :clear-all-grubs [event grubs]
   (dom/-hide! dom/clear-all-btn)

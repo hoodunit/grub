@@ -111,8 +111,18 @@
      new-recipe
      [:ul#recipe-list.list-group.recipe-list]]]])
 
+(deftemplate grub-list-template [grubs]
+  (node (for [grub grubs] 
+          (make-grub-node (:id grub) (:grub grub) (:completed grub)))))
+
 (defn render-body []
   (dommy/prepend! (sel1 :body) (main-template)))
+
+(defn render-grub-list [grubs]
+  (let [grub-list (sel1 :#grub-list)
+        sorted-grubs (sort-by (juxt :completed :id) (vals grubs))]
+    (aset grub-list "innerHTML" "")
+    (dommy/replace-contents! grub-list (grub-list-template sorted-grubs))))
 
 (defn get-add-grub-text []
   (dommy/value add-grub-text))
@@ -207,13 +217,14 @@
     (dommy/set-text! (sel1 elem ".grub-text") grub)
     (dommy/set-value! (sel1 elem ".grub-input") grub)))
 
-(defn add-new-grub [id grub completed]
+(defn make-new-grub [id grub completed]
   (let [node (make-grub-node id grub completed)
         grub (Grub. node id grub completed)
         grub-list (sel1 :#grub-list)]
-    (dommy/append! grub-list grub)
-    (dommy/set-value! (sel1 :#add-grub-input) "")
     grub))
+
+(defn clear-new-grub-input! []
+  (dommy/set-value! (sel1 :#add-grub-input) ""))
 
 (extend-type js/HTMLDivElement
   IRecipe

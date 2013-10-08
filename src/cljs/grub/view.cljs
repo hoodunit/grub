@@ -1,6 +1,5 @@
 (ns grub.view
-  (:require [grub.state :as state]
-            [grub.view.dom :as dom]
+  (:require [grub.view.dom :as dom]
             [grub.view.grub :as grub-view]
             [grub.view.recipe :as recipe-view]
             [dommy.core :as dommy]

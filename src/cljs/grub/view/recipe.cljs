@@ -24,7 +24,7 @@
         {:event :add-recipe 
          :name name 
          :grubs grubs 
-         :_id id}))))
+         :id id}))))
 
 (defn wait-for-create-event []
   (let [out (chan)
@@ -69,7 +69,7 @@
         {:event :update-recipe 
          :name name 
          :grubs grubs 
-         :_id id})))
+         :id id})))
 
 (defn wait-for-update-event [elem]
   (let [out (chan)
@@ -110,7 +110,7 @@
                    id (.-id elem)
                    grubs (dom/-get-grubs elem)
                    events (map-indexed (fn [index g] {:event :add-grub
-                                                      :_id (str "grub-" (.now js/Date) index)
+                                                      :id (str "grub-" (.now js/Date) index)
                                                       :grub g
                                                       :completed false}) grubs)]
                (a/onto-chan out events false))
@@ -126,13 +126,13 @@
   recipes)
 
 (defmethod handle-event :add-recipe [event recipes]
-  (let [recipe (dom/add-new-recipe (:_id event)
+  (let [recipe (dom/add-new-recipe (:id event)
                                    (:name event)
                                    (:grubs event))]
     (assoc recipes (:id recipe) recipe)))
 
 (defmethod handle-event :update-recipe [event recipes]
-  (let [recipe (get recipes (:_id event))
+  (let [recipe (get recipes (:id event))
         updated-recipe (-> recipe
                        (assoc :name (:name event))
                        (assoc :grubs (:grubs event)))]
