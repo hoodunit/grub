@@ -18,6 +18,16 @@ h3 {
     margin-top: 10px;
 }
 
+#recipe-grubs {
+    width: 100%;
+}
+
+.recipe-add-grubs-btn {
+    float: right;
+    clear: both;
+    margin: 2px;
+}
+
 .hidden {
     display: none;
 }
@@ -93,15 +103,22 @@ tr:hover .grub-close {
     padding-top: 0px;
 }
 
+.panel-heading {
+    background-color: #ffffff;
+}
+
 .recipe-panel {
     padding: 0px;
     margin-bottom: -1px;
 }
 
+.recipe-panel > .recipe-header {
+    background-color: #ffffff;
+}
+
 .recipe-header {
     margin: 0px;
     padding: 0px;
-    background-color: #ffffff;
     border-bottom: none;
 }
 
@@ -110,6 +127,8 @@ tr:hover .grub-close {
     box-shadow: none;
     transition: none;
     border-bottom: none;
+    width: inherit;
+    display: inline;
 }
 
 .recipe-header-input:focus {

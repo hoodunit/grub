@@ -59,6 +59,7 @@
 
 (defn wait-for-edit-recipe-input-click []
   (->> (:chan (dom/listen-once (dom/recipes-selector) :click))
+       (a/filter< #(not (dommy/has-class? (.-selectedTarget %) :btn)))
        (a/map< #(.-selectedTarget %))))
 
 (defn parse-update-recipe-event [elem]

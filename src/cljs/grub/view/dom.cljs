@@ -71,16 +71,15 @@
              {:id "recipe-name"
               :type "text" 
               :placeholder "Grub pie"
-              :value name}]]
+              :value name}]
+            (when-not new-recipe 
+              [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn {:type "button"} "Add Grubs"])]
            [:div.panel-body.recipe-grubs.hidden
             [:textarea.form-control.recipe-grubs-input
              {:id "recipe-grubs"
               :rows 3 
               :placeholder "2 grubs"}
              grubs]
-            (when-not new-recipe 
-              [:button.btn.btn-primary.pull-left.recipe-btn.recipe-add-grubs-btn
-             {:type "button"} "Add Grubs"])
             [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
              {:type "button"} "Done"]]])))
 
