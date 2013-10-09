@@ -5,7 +5,7 @@
 
 (def incoming-events (chan))
 
-(def connected-clients (atom []))
+(def connected-clients (atom {}))
 
 (def ws-channel-id-count (atom 0))
 
@@ -15,10 +15,17 @@
 (defn add-connected-client! [ws-channel]
   (let [ws-channel-id (get-unique-ws-id)
         client-chan (chan)]
-    (swap! connected-clients 
-           conj 
-           {:id ws-channel-id :channel client-chan})
+    (swap! connected-clients #(assoc % ws-channel-id client-chan))
     [ws-channel-id client-chan]))
+
+(defn remove-connected-client! [status ws-channel ws-channel-id client-chan]
+  (println "Client disconnected:" 
+           (.toString ws-channel)
+           (str "(" ws-channel-id ")")
+           "with status" status)
+  (swap! connected-clients #(dissoc % ws-channel-id))
+  (println (count @connected-clients) "client(s) still connected")
+  (a/close! client-chan))
 
 
 (defn add-event-to-incoming-channel [raw-event ws-channel-id]
@@ -27,16 +34,12 @@
     (println "Received event" event)
     (go (>! incoming-events event))))
 
-(defn forward-client-events-to-others [ws-channel ws-channel-id]
-  (httpkit/on-receive ws-channel 
-                      #(add-event-to-incoming-channel % ws-channel-id)))
-
 (defn forward-other-events-to-client [c ws-channel]
-  (a/go-loop [] (let [event (<! c)
-                      event-str (str event)]
-                  (println "Send to client '" event-str "'")
-                  (httpkit/send! ws-channel event-str))
-             (recur)))
+  (a/go-loop [] 
+             (when-let [event (<! c)]
+               (println "Send to client '" (str event) "'")
+               (httpkit/send! ws-channel (str event))
+               (recur))))
 
 
 (defn send-current-grubs-and-recipes-to-client [client-chan]
@@ -45,23 +48,26 @@
 
 (defn setup-new-connection [ws-channel]
   (let [[ws-channel-id client-chan] (add-connected-client! ws-channel)]
-    (println "Channel connected:" (.toString ws-channel))
-    (forward-client-events-to-others ws-channel ws-channel-id)
+    (println "Client connected:" (.toString ws-channel) (str "(" ws-channel-id ")"))
+    (println (count @connected-clients) "client(s) connected")
+    (httpkit/on-close ws-channel #(remove-connected-client! % ws-channel ws-channel-id client-chan))
+    (httpkit/on-receive ws-channel #(add-event-to-incoming-channel % ws-channel-id))
     (forward-other-events-to-client client-chan ws-channel)
     (send-current-grubs-and-recipes-to-client client-chan)))
 
 (defn websocket-handler [request]
   (httpkit/with-channel request ws-channel (setup-new-connection ws-channel)))
 
-(defn get-other-clients [my-ws-channel-id]
-  (filter #(not (= (:id %) my-ws-channel-id))
-          @connected-clients))
+(defn get-other-client-channels [my-ws-channel-id]
+  (-> @connected-clients
+       (dissoc my-ws-channel-id)
+       (vals)))
 
 (defn push-event-to-others [orig-event]
   (let [my-ws-channel-id (:ws-channel orig-event)
         event (dissoc orig-event :ws-channel)]
-    (go (doseq [{ch :channel} (get-other-clients my-ws-channel-id)]
-            (>! ch event)))))
+    (go (doseq [c (get-other-client-channels my-ws-channel-id)]
+            (>! c event)))))
 
 (defn pass-received-events-to-clients-and-db [db-chan]
   (let [in' (a/mult incoming-events)
