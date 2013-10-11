@@ -1,13 +1,4 @@
-# grub
+# Grub
 
-A Clojure library designed to ... well, that part is up to you.
+Grub is a real-time synced grocery list. Mainly it's a way for me to play around with Clojure[Script] and core.async.
 
-## Usage
-
-FIXME
-
-## License
-
-Copyright © 2013 FIXME
-
-Distributed under the Eclipse Public License, the same as Clojure.
