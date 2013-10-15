@@ -126,6 +126,15 @@
         grub (grubs grub-index)]
     [grub-index grub]))
 
+(defn get-grub-ingredient [grub]
+  (let [text (clojure.string/lower-case (:grub grub))
+        match (re-find #"[a-z]{3}.*$" text)]
+    match))
+
+(defn sort-and-render-grub-list! [grubs]
+  (let [sorted-grubs (sort-by (juxt :completed get-grub-ingredient) (vals grubs))]
+    (dom/render-grub-list sorted-grubs)))
+
 (defmulti handle-event (fn [event grubs] (:event event))
   :default :unknown-event)
 
@@ -137,24 +146,24 @@
   (let [grub (dom/make-new-grub (:id event) (:grub event) (:completed event))
         new-grubs (assoc grubs (:id grub) grub)]
     (dom/-show! dom/clear-all-btn)
-    (dom/render-grub-list new-grubs)
+    (sort-and-render-grub-list! new-grubs)
     (dom/clear-new-grub-input!)
     new-grubs))
 
 (defmethod handle-event :complete-grub [event grubs]
   (let [grub (get grubs (:id event))
         new-grubs (assoc-in grubs [(:id event) :completed] true)]
-    (dom/render-grub-list new-grubs)
+    (sort-and-render-grub-list! new-grubs)
     new-grubs))
 
 (defmethod handle-event :uncomplete-grub [event grubs]
   (let [new-grubs (assoc-in grubs [(:id event) :completed] false)]
-    (dom/render-grub-list new-grubs)
+    (sort-and-render-grub-list! new-grubs)
     new-grubs))
 
 (defmethod handle-event :update-grub [event grubs]
   (let [new-grubs (assoc-in grubs [(:id event) :grub] (:grub event))]
-    (dom/render-grub-list new-grubs)
+    (sort-and-render-grub-list! new-grubs)
     new-grubs))
 
 (defmethod handle-event :clear-all-grubs [event grubs]

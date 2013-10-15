@@ -118,10 +118,9 @@
   (dommy/prepend! (sel1 :body) (main-template)))
 
 (defn render-grub-list [grubs]
-  (let [grub-list (sel1 :#grub-list)
-        sorted-grubs (sort-by (juxt :completed :id) (vals grubs))]
+  (let [grub-list (sel1 :#grub-list)]
     (aset grub-list "innerHTML" "")
-    (dommy/replace-contents! grub-list (grub-list-template sorted-grubs))))
+    (dommy/replace-contents! grub-list (grub-list-template grubs))))
 
 (defn get-add-grub-text []
   (dommy/value add-grub-text))
