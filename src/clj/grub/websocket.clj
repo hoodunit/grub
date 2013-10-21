@@ -27,12 +27,21 @@
   (println (count @connected-clients) "client(s) still connected")
   (a/close! client-chan))
 
+(defn send-current-grubs-and-recipes-to-client [client-chan]
+  (let [add-grubs-event {:event :add-grub-list
+                         :grubs (db/get-current-grubs)}
+        add-recipes-event {:event :add-recipe-list
+                           :recipes (db/get-current-recipes)}]
+    (go (>! client-chan add-grubs-event)
+        (>! client-chan add-recipes-event))))
 
-(defn add-event-to-incoming-channel [raw-event ws-channel-id]
+(defn on-receive [raw-event ws-channel-id client-chan]
   (let [parsed-event (read-string raw-event)
         event (assoc parsed-event :ws-channel ws-channel-id)]
     (println "Received event" event)
-    (go (>! incoming-events event))))
+    (if (= (:event event) :send-all-items)
+      (send-current-grubs-and-recipes-to-client client-chan)
+      (go (>! incoming-events event)))))
 
 (defn forward-other-events-to-client [c ws-channel]
   (a/go-loop [] 
@@ -41,25 +50,13 @@
                (httpkit/send! ws-channel (str event))
                (recur))))
 
-
-(defn send-current-grubs-and-recipes-to-client [client-chan]
-  (let [add-grubs-event {:event :add-grub-list
-                         :grubs (db/get-current-grubs)}
-        add-recipes-event {:event :add-recipe-list
-                           :recipes (db/get-current-recipes)}]
-    (go (>! client-chan add-grubs-event)
-        (>! client-chan add-recipes-event))))
-  ;(a/pipe (db/get-current-grubs-as-events) client-chan false)
-  ;(a/pipe (db/get-current-recipes-as-events) client-chan false))
-
 (defn setup-new-connection [ws-channel]
   (let [[ws-channel-id client-chan] (add-connected-client! ws-channel)]
     (println "Client connected:" (.toString ws-channel) (str "(" ws-channel-id ")"))
     (println (count @connected-clients) "client(s) connected")
     (httpkit/on-close ws-channel #(remove-connected-client! % ws-channel ws-channel-id client-chan))
-    (httpkit/on-receive ws-channel #(add-event-to-incoming-channel % ws-channel-id))
-    (forward-other-events-to-client client-chan ws-channel)
-    (send-current-grubs-and-recipes-to-client client-chan)))
+    (httpkit/on-receive ws-channel #(on-receive % ws-channel-id client-chan))
+    (forward-other-events-to-client client-chan ws-channel)))
 
 (defn websocket-handler [request]
   (httpkit/with-channel request ws-channel (setup-new-connection ws-channel)))
