@@ -12,11 +12,18 @@
 
 (defmulti handle-event :event :default :unknown-event)
 
-(defmethod handle-event :add-grub [event]
+(defn insert-grub [event]
   (let [grub (-> event
                  (select-keys [:id :grub :completed])
                  (clojure.set/rename-keys {:id :_id}))]
     (mc/insert grub-collection grub)))
+
+(defmethod handle-event :add-grub [event]
+  (insert-grub event))
+
+(defmethod handle-event :add-grub-list [event]
+  (doseq [grub-event (:grubs event)]
+    (insert-grub grub-event)))
 
 (defmethod handle-event :complete-grub [event]
   (mc/update grub-collection 
@@ -50,29 +57,23 @@
 (defmethod handle-event :unknown-event [event]
   (println "Cannot handle unknown event:" event))
 
-(defn get-current-grubs-as-events []
-  (let [grubs (mc/find-maps grub-collection)
-        sorted-grubs (sort-by :_id (vec grubs))
-        events (map (fn [g] (-> g
+(defn get-current-grubs []
+  (let [raw-grubs (mc/find-maps grub-collection)
+        sorted-grubs (sort-by :_id (vec raw-grubs))
+        grubs (map (fn [g] (-> g
                                 (select-keys [:_id :grub :completed])
-                                (clojure.set/rename-keys {:_id :id})
-                                (assoc :event :add-grub)))
-                    sorted-grubs)
-        out (chan)]
-    (a/onto-chan out events)
-    out))
+                                (clojure.set/rename-keys {:_id :id})))
+                    sorted-grubs)]
+    grubs))
 
-(defn get-current-recipes-as-events []
-  (let [recipes (mc/find-maps recipe-collection)
-        sorted-recipes (sort-by :_id (vec recipes))
-        events (map (fn [r] (-> r
+(defn get-current-recipes []
+  (let [raw-recipes (mc/find-maps recipe-collection)
+        sorted-recipes (sort-by :_id (vec raw-recipes))
+        recipes (map (fn [r] (-> r
                                 (select-keys [:_id :name :grubs])
-                                (clojure.set/rename-keys {:_id :id})
-                                (assoc :event :add-recipe)))
-                    sorted-recipes)
-        out (chan)]
-    (a/onto-chan out events)
-    out))
+                                (clojure.set/rename-keys {:_id :id})))
+                    sorted-recipes)]
+    recipes))
 
 (def production-db "grub")
 (def development-db "grub-dev")

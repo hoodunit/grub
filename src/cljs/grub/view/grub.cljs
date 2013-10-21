@@ -142,6 +142,21 @@
     (dom/clear-new-grub-input!)
     new-grubs))
 
+(defn assoc-new-grub [current new]
+  (assoc current (:id new)
+    (dom/make-new-grub (:id new) (:grub new) (:completed new))))
+
+(defn make-add-grubs-map [grub-events]
+  (reduce assoc-new-grub {} grub-events))
+
+(defmethod handle-event :add-grub-list [event grubs]
+  (let [add-grub-events (:grubs event)
+        add-grubs (make-add-grubs-map add-grub-events)
+        new-grubs (merge grubs add-grubs)]
+    (dom/-show! dom/clear-all-btn)
+    (sort-and-render-grub-list! new-grubs)
+    new-grubs))
+
 (defmethod handle-event :complete-grub [event grubs]
   (let [grub (get grubs (:id event))
         new-grubs (assoc-in grubs [(:id event) :completed] true)]

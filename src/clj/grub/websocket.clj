@@ -43,8 +43,14 @@
 
 
 (defn send-current-grubs-and-recipes-to-client [client-chan]
-  (a/pipe (db/get-current-grubs-as-events) client-chan false)
-  (a/pipe (db/get-current-recipes-as-events) client-chan false))
+  (let [add-grubs-event {:event :add-grub-list
+                         :grubs (db/get-current-grubs)}
+        add-recipes-event {:event :add-recipe-list
+                           :recipes (db/get-current-recipes)}]
+    (go (>! client-chan add-grubs-event)
+        (>! client-chan add-recipes-event))))
+  ;(a/pipe (db/get-current-grubs-as-events) client-chan false)
+  ;(a/pipe (db/get-current-recipes-as-events) client-chan false))
 
 (defn setup-new-connection [ws-channel]
   (let [[ws-channel-id client-chan] (add-connected-client! ws-channel)]

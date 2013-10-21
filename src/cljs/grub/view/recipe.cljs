@@ -9,13 +9,6 @@
 (defn wait-for-new-recipe-input-click []
   (:chan (dom/listen-once dom/new-recipe :click)))
 
-(defn get-ctrl-enters []
-  (let [{c :chan unlisten :unlisten} (dom/listen (sel1 :body) :keyup)
-        filtered-chan (a/filter< #(and (= (.-keyIdentifier %) "Enter")
-                                       (.-ctrlKey %))
-                                 c)]
-    {:chan filtered-chan :unlisten unlisten}))
-
 (defn parse-new-recipe-event []
   (let [name (dom/-get-name dom/new-recipe)
         grubs (dom/-get-grubs-str dom/new-recipe)]
@@ -29,7 +22,7 @@
 (defn wait-for-create-event []
   (let [out (chan)
         {ctrl-enters :chan
-         ctrl-enters-unlisten :unlisten} (get-ctrl-enters)
+         ctrl-enters-unlisten :unlisten} (dom/get-ctrl-enters)
         {away-clicks :chan
          away-clicks-unlisten :unlisten} (dom/get-away-clicks dom/new-recipe)
         {done-clicks :chan
@@ -40,9 +33,9 @@
         (ctrl-enters-unlisten)
         (away-clicks-unlisten)
         (done-clicks-unlisten)
-        (if-let [event (parse-new-recipe-event)]
-          (>! out event)
-          (a/close! out)))
+        (when-let [event (parse-new-recipe-event)]
+          (>! out event))
+        (a/close! out))
     out))
 
 (defn get-create-events []
@@ -75,7 +68,7 @@
 (defn wait-for-update-event [elem]
   (let [out (chan)
         {ctrl-enters :chan
-         ctrl-enters-unlisten :unlisten} (get-ctrl-enters)
+         ctrl-enters-unlisten :unlisten} (dom/get-ctrl-enters)
         {away-clicks :chan
          away-clicks-unlisten :unlisten} (dom/get-away-clicks elem)
         {done-clicks :chan
@@ -86,9 +79,9 @@
         (ctrl-enters-unlisten)
         (away-clicks-unlisten)
         (done-clicks-unlisten)
-        (if-let [event (parse-update-recipe-event elem)]
-          (>! out event)
-          (a/close! out)))
+        (when-let [event (parse-update-recipe-event elem)]
+          (>! out event))
+        (a/close! out))
     out))
 
 (defn get-update-events []
@@ -109,12 +102,14 @@
              (let [e (<! clicks)
                    elem (dommy/closest (.-selectedTarget e) :.recipe-panel)
                    id (.-id elem)
-                   grubs (dom/-get-grubs elem)
-                   events (map-indexed (fn [index g] {:event :add-grub
-                                                      :id (str "grub-" (.now js/Date) index)
-                                                      :grub g
-                                                      :completed false}) grubs)]
-               (a/onto-chan out events false))
+                   grub-texts (dom/-get-grubs elem)
+                   grubs (map-indexed (fn [index g] {:id (str "grub-" (.now js/Date) index)
+                                                     :grub g
+                                                     :completed false})
+                                      grub-texts)
+                   event {:event :add-grub-list
+                          :grubs grubs}]
+               (>! out event))
              (recur))
     out))
   
@@ -127,10 +122,23 @@
   recipes)
 
 (defmethod handle-event :add-recipe [event recipes]
-  (let [recipe (dom/add-new-recipe (:id event)
+  (let [recipe (dom/add-new-recipe! (:id event)
                                    (:name event)
                                    (:grubs event))]
     (assoc recipes (:id recipe) recipe)))
+
+(defn assoc-new-recipe! [current new]
+  (assoc current (:id new)
+    (dom/add-new-recipe! (:id new) (:name new) (:grubs new))))
+
+(defn add-new-recipes! [recipe-events]
+  (reduce assoc-new-recipe! {} recipe-events))
+
+(defmethod handle-event :add-recipe-list [event recipes]
+  (let [add-recipe-events (:recipes event)
+        added-recipes (add-new-recipes! add-recipe-events)
+        new-recipes (merge recipes added-recipes)]
+    new-recipes))
 
 (defmethod handle-event :update-recipe [event recipes]
   (let [recipe (get recipes (:id event))

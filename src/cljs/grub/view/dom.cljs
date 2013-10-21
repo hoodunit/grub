@@ -39,6 +39,13 @@
     {:unlisten unlisten
      :chan (a/filter< #(= (.-keyIdentifier %) "Enter") c)}))
 
+(defn get-ctrl-enters []
+  (let [{c :chan unlisten :unlisten} (listen (sel1 :body) :keyup)
+        filtered-chan (a/filter< #(and (= (.-keyIdentifier %) "Enter")
+                                       (.-ctrlKey %))
+                                 c)]
+    {:chan filtered-chan :unlisten unlisten}))
+
 (defn get-body-enters []
   (get-enters (sel1 :body)))
 
@@ -282,7 +289,7 @@
     (dommy/set-value! (sel1 this :#recipe-name) name)
     (dommy/set-text! (sel1 this :#recipe-grubs) grubs)))
 
-(defn add-new-recipe [id name grubs]
+(defn add-new-recipe! [id name grubs]
   (let [node (make-recipe-node id name grubs)
         recipe (Recipe. node id name grubs)
         recipe-list (sel1 :#recipe-list)]
