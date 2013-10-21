@@ -1,17 +1,14 @@
 (ns grub.view.grub
   (:require [grub.view.dom :as dom]
-            [dommy.core :as dommy]
             [cljs.core.async :as a :refer [<! >! chan]])
   (:require-macros [grub.macros :refer [log logs and-let]]
-                   [dommy.macros :refer [sel1]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn get-add-grub-clicks []
-  (:chan (dom/listen dom/add-grub-btn :click)))
+  (:chan (dom/get-clicks dom/add-grub-btn)))
 
 (defn get-add-grub-enters []
-  (->> (:chan (dom/listen dom/add-grub-text :keyup))
-       (a/filter< #(= (.-keyIdentifier %) "Enter"))))
+  (:chan (dom/get-enters dom/add-grub-text)))
 
 (defn get-create-events []
   (let [events (a/merge [(get-add-grub-clicks)
@@ -77,14 +74,9 @@
           (>! out (= c timeout))))
     out))
 
-(defn get-enters []
-  (let [{c :chan unlisten :unlisten} (dom/listen (sel1 :body) :keyup)]
-    {:unlisten unlisten
-     :chan (a/filter< #(= (.-keyIdentifier %) "Enter") c)}))
-
 (defn make-grub-update-event [grub-elem orig-grub-text]
-  (let [grub-text (.-value (sel1 grub-elem :.grub-input))
-        id (.-id grub-elem)]
+  (let [grub-text (dom/-grub-text grub-elem)
+        id (dom/-id grub-elem)]
     (when (not (= grub-text orig-grub-text))
       {:event :update-grub
        :grub grub-text 
@@ -92,11 +84,11 @@
 
 (defn wait-for-update-event [grub]
   (let [out (chan)
-        orig-grub (.-value (sel1 grub :.grub-input))]
+        orig-grub (dom/-grub-text grub)]
     (go (let [{bodyclick :chan 
                unlisten-bodyclick :unlisten} (dom/get-away-clicks grub)
                {enter :chan
-                unlisten-enter :unlisten} (get-enters)]
+                unlisten-enter :unlisten} (dom/get-body-enters)]
           (dom/-set-editing! grub)
           (a/alts! [bodyclick enter])
           (unlisten-bodyclick)

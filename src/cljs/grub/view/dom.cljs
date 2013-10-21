@@ -30,6 +30,18 @@
         filtered-chan (a/filter< #(not (dommy/descendant? (.-target %) elem)) c)]
     {:unlisten unlisten :chan filtered-chan}))
 
+(defn get-clicks [elem]
+  (listen elem :click))
+
+(defn get-enters [elem]
+  (let [{c :chan unlisten :unlisten} 
+        (listen elem :keyup)]
+    {:unlisten unlisten
+     :chan (a/filter< #(= (.-keyIdentifier %) "Enter") c)}))
+
+(defn get-body-enters []
+  (get-enters (sel1 :body)))
+
 (def add-grub-text 
   (node [:input.form-control {:id "add-grub-input" :type "text" :placeholder "2 grubs"}]))
 
@@ -137,6 +149,9 @@
   (-activate! [this])
   (-deactivate! [this])
 
+  (-id [this])
+  (-grub-text [this])
+
   (-complete! [this])
   (-uncomplete! [this])
   (-completed? [this])
@@ -173,6 +188,11 @@
     (dommy/add-class! this :grub-active))
   (-deactivate! [this]
     (dommy/remove-class! this :grub-active))
+
+  (-id [this]
+    (.-id this))
+  (-grub-text [this]
+    (.-value (sel1 this :.grub-input)))
 
   (-complete! [this]
     (dommy/add-class! this :completed)
