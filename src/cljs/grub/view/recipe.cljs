@@ -1,9 +1,7 @@
 (ns grub.view.recipe
   (:require [grub.view.dom :as dom]
-            [dommy.core :as dommy]
             [cljs.core.async :as a :refer [<! >! chan]])
   (:require-macros [grub.macros :refer [log logs and-let]]
-                   [dommy.macros :refer [sel1]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn wait-for-new-recipe-input-click []
@@ -26,9 +24,7 @@
         {away-clicks :chan
          away-clicks-unlisten :unlisten} (dom/get-away-clicks dom/new-recipe)
         {done-clicks :chan
-         done-clicks-unlisten :unlisten} (dom/listen
-                                          (sel1 dom/new-recipe ".recipe-done-btn")
-                                          :click)]
+         done-clicks-unlisten :unlisten} (dom/get-clicks dom/new-recipe-done-btn)]
     (go (a/alts! [ctrl-enters away-clicks done-clicks])
         (ctrl-enters-unlisten)
         (away-clicks-unlisten)
@@ -51,9 +47,7 @@
     out))
 
 (defn wait-for-edit-recipe-input-click []
-  (->> (:chan (dom/listen-once (dom/recipes-selector) :click))
-       (a/filter< #(not (dommy/has-class? (.-selectedTarget %) :btn)))
-       (a/map< #(.-selectedTarget %))))
+  (dom/get-edit-recipe-input-click))
 
 (defn parse-update-recipe-event [elem]
   (let [id (.-id elem)
@@ -72,9 +66,7 @@
         {away-clicks :chan
          away-clicks-unlisten :unlisten} (dom/get-away-clicks elem)
         {done-clicks :chan
-         done-clicks-unlisten :unlisten} (dom/listen
-                                          (sel1 elem ".recipe-done-btn")
-                                          :click)]
+         done-clicks-unlisten :unlisten} (dom/get-clicks (dom/recipe-done-btn-selector elem))]
     (go (a/alts! [ctrl-enters away-clicks done-clicks])
         (ctrl-enters-unlisten)
         (away-clicks-unlisten)
@@ -97,11 +89,9 @@
 
 (defn get-add-grub-events []
   (let [out (chan)
-        clicks (:chan (dom/listen (dom/recipe-add-grubs-btns-selector) :click))]
+        recipe-add-grubs-clicks (dom/get-recipe-add-grubs-clicks)]
     (go-loop []
-             (let [e (<! clicks)
-                   elem (dommy/closest (.-selectedTarget e) :.recipe-panel)
-                   id (.-id elem)
+             (let [elem (<! recipe-add-grubs-clicks)
                    grub-texts (dom/-get-grubs elem)
                    grubs (map-indexed (fn [index g] {:id (str "grub-" (.now js/Date) index)
                                                      :grub g

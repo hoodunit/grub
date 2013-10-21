@@ -104,11 +104,17 @@
 
 (def new-recipe (make-recipe-node "new-recipe" "" "" true))
 
+(def new-recipe-done-btn 
+  (sel1 new-recipe ".recipe-done-btn"))
+
 (defn recipes-selector []
   [(sel1 :#recipe-list) :.recipe-panel])
 
 (defn recipe-done-btns-selector []
   [(sel1 :body) :.recipe-done-btn])
+
+(defn recipe-done-btn-selector [recipe-elem]
+  (sel1 recipe-elem :.recipe-done-btn))
 
 (defn recipe-add-grubs-btns-selector []
   [(sel1 :body) :.recipe-add-grubs-btn])
@@ -147,6 +153,14 @@
 (defn clear-add-grub-text []
   (dommy/set-value! add-grub-text ""))
 
+(defn get-recipe-add-grubs-clicks []
+  (->> (:chan (listen (recipe-add-grubs-btns-selector) :click))
+       (a/map< #(dommy/closest (.-selectedTarget %) :.recipe-panel))))
+
+(defn get-edit-recipe-input-click []
+  (->> (:chan (listen-once (recipes-selector) :click))
+       (a/filter< #(not (dommy/has-class? (.-selectedTarget %) :btn)))
+       (a/map< #(.-selectedTarget %))))
 
 (defprotocol IHideable
   (-hide! [this])
