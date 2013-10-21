@@ -45,7 +45,7 @@
 
 (defmethod handle-event :add-recipe [event]
   (let [recipe (-> event
-                   (select-keys [:id :name :steps])
+                   (select-keys [:id :name :grubs])
                    (clojure.set/rename-keys {:id :_id}))]
     (mc/insert recipe-collection recipe)))
 
