@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 [org.clojure/clojurescript "0.0-1909"]
+                 [org.clojure/clojurescript "0.0-2138"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
                  [http-kit "2.1.8"]
                  [compojure "1.1.5"]
@@ -16,8 +16,8 @@
                  [org.clojure/tools.cli "0.3.1"]]
   :profiles {:dev {:dependencies [[speclj "2.5.0"]
                                   [clj-webdriver "0.6.0"]]}}
-  :min-lein-version "2.0.0"
-  :plugins [[lein-cljsbuild "0.3.2"]
+  :min-lein-version "2.1.2"
+  :plugins [[lein-cljsbuild "1.0.1"]
             [lein-ring "0.8.6"]
             [speclj "2.5.0"]]
   :cljsbuild {:builds {:dev {:source-paths ["src/cljs"]
