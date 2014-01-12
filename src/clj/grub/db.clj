@@ -83,15 +83,19 @@
                   (handle-event event)
                   (recur))))
 
-(defn connect-and-handle-events [db-name]
+(defn connect-and-handle-events [db-name & [mongo-url]]
   (let [in (chan)]
     (handle-incoming-events in)
-    (m/connect!)
-    (m/set-db! (m/get-db db-name))
+    (if mongo-url
+      (do (println "Connected to mongo via url:" mongo-url)
+          (m/connect-via-uri! mongo-url))
+      (do (println "Connected to mongo at localhost:" db-name)
+          (m/connect!)
+          (m/set-db! (m/get-db db-name))))
     in))
 
-(defn connect-production-database []
-  (connect-and-handle-events production-db))
+(defn connect-production-database [mongo-url]
+  (connect-and-handle-events production-db mongo-url))
 
 (defn connect-development-database []
   (connect-and-handle-events development-db))

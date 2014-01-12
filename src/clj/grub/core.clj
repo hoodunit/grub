@@ -53,14 +53,14 @@
     (integration-test/run integration-test-port)
     (stop-server)))
 
-(defn start-production-server [port]
+(defn start-production-server [{:keys [port mongo-url]}]
   (reset! js-file "/js/grub.js")
-  (let [db-chan (db/connect-production-database)]
+  (let [db-chan (db/connect-production-database mongo-url)]
     (ws/pass-received-events-to-clients-and-db db-chan)
     (println (str "Starting production server on localhost:" port))
     (start-server port)))
 
-(defn start-development-server [port]
+(defn start-development-server [{:keys [port]}]
   (let [db-chan (db/connect-development-database)]
     (ws/pass-received-events-to-clients-and-db db-chan)
     (println (str "Starting development server on localhost:" port))
@@ -84,6 +84,8 @@
     :default default-port
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+   ["-m" "--mongo-url URL"
+    :default (System/getenv "MONGOHQ_URL")]
    ;; A boolean option defaulting to nil
    ["-h" "--help"]])
 
@@ -98,15 +100,16 @@
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
     ;; Handle help and error conditions
+    (println "options:" options)
     (cond
       (:help options) (exit 0 (usage summary))
       (not= (count arguments) 1) (exit 1 (usage summary))
       errors (exit 1 (error-msg errors)))
     ;; Execute program with options
     (case (first arguments)
-      "development" (start-development-server (:port options))
-      "dev"         (start-development-server (:port options))
-      "production"  (start-production-server (:port options))
-      "prod"        (start-production-server (:port options))
+      "development" (start-development-server options)
+      "dev"         (start-development-server options)
+      "production"  (start-production-server options)
+      "prod"        (start-production-server options)
       "integration" (run-integration-test)
       (exit 1 (usage summary)))))
