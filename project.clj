@@ -13,9 +13,10 @@
                  [hiccup "1.0.4"]
                  [prismatic/dommy "0.1.1"]
                  [com.novemberain/monger "1.5.0"]
-                 [org.clojure/tools.cli "0.3.1"]]
-  :profiles {:dev {:dependencies [[speclj "2.5.0"]
-                                  [clj-webdriver "0.6.0"]]}}
+                 [org.clojure/tools.cli "0.3.1"]
+                 [clj-webdriver "0.6.0"]]
+  :profiles {:dev {:dependencies [[speclj "2.5.0"]]}
+             :uberjar {:aot :all}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.1"]
             [lein-ring "0.8.6"]
