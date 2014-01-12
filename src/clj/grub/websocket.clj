@@ -50,7 +50,7 @@
                (httpkit/send! ws-channel (str event))
                (recur))))
 
-(defn setup-new-connection [ws-channel]
+(defn set-up-new-connection [ws-channel]
   (let [[ws-channel-id client-chan] (add-connected-client! ws-channel)]
     (println "Client connected:" (.toString ws-channel) (str "(" ws-channel-id ")"))
     (println (count @connected-clients) "client(s) connected")
@@ -59,7 +59,8 @@
     (forward-other-events-to-client client-chan ws-channel)))
 
 (defn websocket-handler [request]
-  (httpkit/with-channel request ws-channel (setup-new-connection ws-channel)))
+  (when (:websocket? request)
+    (httpkit/with-channel request channel (set-up-new-connection channel))))
 
 (defn get-other-client-channels [my-ws-channel-id]
   (-> @connected-clients

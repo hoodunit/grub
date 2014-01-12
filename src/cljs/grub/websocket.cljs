@@ -31,7 +31,7 @@
 
 
 (defn get-remote-chan [to-remote]
-  (let [server-url (str "ws://" (.-host (.-location js/document)) "/ws")
+  (let [server-url (str "ws://" (.-host (.-location js/document)))
         handler (goog.events.EventHandler.)
         remote-events (chan)]
     (reset! websocket* (goog.net.WebSocket.))

@@ -29,7 +29,7 @@
     (include-js @js-file)]))
 
 (defroutes routes
-  (GET "/ws" [] ws/websocket-handler)
+  (GET "/" [] ws/websocket-handler)
   (GET "/" [] (index-page))
   (GET "*/src/cljs/grub/:file" [file] (resp/file-response file {:root "src/cljs/grub"}))
   (GET "/js/public/js/:file" [file] (resp/redirect (str "/js/" file)))
