@@ -15,6 +15,8 @@
          (dommy/listen! el type push-fn)
          {:chan out :unlisten unlisten})))
 
+(def ENTER-KEYCODE 13)
+
 (defn listen-once
   ([el type] (listen el type nil))
   ([el type f] (listen el type f (chan)))
@@ -34,14 +36,14 @@
   (listen elem :click))
 
 (defn get-enters [elem]
-  (let [{c :chan unlisten :unlisten} 
-        (listen elem :keyup)]
+  (let [{c :chan unlisten :unlisten} (listen elem :keyup)
+        filtered-chan (a/filter< #(= (.-which %) ENTER-KEYCODE) c)]
     {:unlisten unlisten
-     :chan (a/filter< #(= (.-keyIdentifier %) "Enter") c)}))
+     :chan filtered-chan}))
 
 (defn get-ctrl-enters []
   (let [{c :chan unlisten :unlisten} (listen (sel1 :body) :keyup)
-        filtered-chan (a/filter< #(and (= (.-keyIdentifier %) "Enter")
+        filtered-chan (a/filter< #(and (= (.-which %) ENTER-KEYCODE)
                                        (.-ctrlKey %))
                                  c)]
     {:chan filtered-chan :unlisten unlisten}))
