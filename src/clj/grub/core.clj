@@ -11,7 +11,8 @@
             [org.httpkit.server :as httpkit]
             [hiccup
              [page :refer [html5]]
-             [page :refer [include-js include-css]]]))
+             [page :refer [include-js include-css]]]
+            [clojure.tools.cli :refer [parse-opts]]))
 
 (def js-file (atom "/js/grub_dev.js"))
 
@@ -45,7 +46,6 @@
 (def integration-test-port 3456)
 
 (defn start-server [port]
-  (println (str "Starting server on localhost:" port))
   (httpkit/run-server app {:port port}))
 
 (defn run-integration-test []
@@ -53,19 +53,60 @@
     (integration-test/run integration-test-port)
     (stop-server)))
 
-(defn start-production-server []
+(defn start-production-server [port]
   (reset! js-file "/js/grub.js")
   (let [db-chan (db/connect-production-database)]
     (ws/pass-received-events-to-clients-and-db db-chan)
-    (start-server default-port)))
+    (println (str "Starting production server on localhost:" port))
+    (start-server port)))
 
-(defn start-development-server []
+(defn start-development-server [port]
   (let [db-chan (db/connect-development-database)]
     (ws/pass-received-events-to-clients-and-db db-chan)
-    (start-server default-port)))
+    (println (str "Starting development server on localhost:" port))
+    (start-server port)))
+
+(defn usage [options-summary]
+  (->> ["Usage: grub [options] action"
+        ""
+        "Options:"
+        options-summary
+        ""
+        "Actions:"
+        "  dev[elopment]  Start development server"
+        "  prod[uction]   Start production server"
+        "  integration    Run integration tests"]
+       (clojure.string/join \newline)))
+
+(def cli-options
+  ;; An option with a required argument
+  [["-p" "--port PORT" "Port number"
+    :default default-port
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+   ;; A boolean option defaulting to nil
+   ["-h" "--help"]])
+
+(defn error-msg [errors]
+  (str "The following errors occurred while parsing your command:\n\n"
+       (clojure.string/join \newline errors)))
+
+(defn exit [status msg]
+  (println msg)
+  (System/exit status))
 
 (defn -main [& args]
-  (cond
-   (some #(= % "integration") args) (run-integration-test)
-   (some #(= % "production") args) (start-production-server)
-   :else (start-development-server)))
+  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    ;; Handle help and error conditions
+    (cond
+      (:help options) (exit 0 (usage summary))
+      (not= (count arguments) 1) (exit 1 (usage summary))
+      errors (exit 1 (error-msg errors)))
+    ;; Execute program with options
+    (case (first arguments)
+      "development" (start-development-server (:port options))
+      "dev"         (start-development-server (:port options))
+      "production"  (start-production-server (:port options))
+      "prod"        (start-production-server (:port options))
+      "integration" (run-integration-test)
+      (exit 1 (usage summary)))))
