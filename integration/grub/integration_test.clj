@@ -1,10 +1,13 @@
 (ns grub.integration-test
   (:require [grub.db :as db]
+            [grub.websocket :as ws]
             [clj-webdriver.taxi :as taxi]
             [clj-webdriver.core :as webdriver]
             [clojure.test :as test]))
 
-(def site-url "http://localhost:3000")
+;; Hard-code path to chromedriver
+(defn set-chromedriver-path! []
+  (System/setProperty "webdriver.chrome.driver" "bin/chromedriver"))
 
 (defn add-grub [driver grub-text]
   (taxi/input-text driver "#add-grub-input" grub-text)
@@ -16,7 +19,7 @@
 (defn get-rand-grub []
   (str "testgrub" (rand-int 10000)))
 
-(defn test-adding-grubs [url driver1 driver2]
+(defn test-adding-synced-grubs [url driver1 driver2]
   (taxi/to driver1 url)
   (taxi/to driver2 url)
   (let [grubs (repeatedly 4 get-rand-grub)]
@@ -42,13 +45,15 @@
   
 
 (defn run [port]
-  (db/connect-and-handle-events "grub-integration-test")
-  (let [site-url (str "http://localhost:" port)]
+  (set-chromedriver-path!)
+  (let [db-chan (db/connect-and-handle-events "grub-integration-test")
+        site-url (str "http://localhost:" port)]
     (println "Starting integration test")
+    (ws/pass-received-events-to-clients-and-db db-chan)
     (let [driver1 (get-driver site-url)
           driver2 (get-driver site-url)]
-      (test-adding-grubs site-url driver1 driver2)
       (test-grubs-are-stored-on-server site-url driver1)
+      (test-adding-synced-grubs site-url driver1 driver2)
       (taxi/quit driver1)
       (taxi/quit driver2)))
   (db/clear-grubs))
