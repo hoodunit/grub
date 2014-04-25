@@ -1,8 +1,7 @@
 (ns grub.core
   (:require [grub.view :as view]
             [grub.websocket :as ws]
-            [cljs.core.async :as a :refer [<! >! chan]]
-            [cljs.reader])
+            [cljs.core.async :as a :refer [<! >! chan]])
   (:require-macros [grub.macros :refer [log logs go-loop]]
                    [cljs.core.async.macros :refer [go]]))
 
