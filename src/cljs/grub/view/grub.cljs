@@ -140,6 +140,7 @@
     (dom/-show! dom/clear-all-btn)
     (sort-and-render-grub-list! new-grubs)
     (dom/clear-new-grub-input!)
+    (dom/focus-new-grub-input!)
     new-grubs))
 
 (defn assoc-new-grub [current new]

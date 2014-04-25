@@ -267,6 +267,9 @@
 (defn clear-new-grub-input! []
   (dommy/set-value! (sel1 :#add-grub-input) ""))
 
+(defn focus-new-grub-input! []
+  (.focus (sel1 :#add-grub-input)))
+
 (extend-type js/HTMLDivElement
   IRecipe
   (-expand! [this]
