@@ -14,7 +14,9 @@
                  [prismatic/dommy "0.1.2"]
                  [com.novemberain/monger "2.0.0"]
                  [org.clojure/tools.cli "0.3.1"]
-                 [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]]
+                 [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]
+                 [om "0.6.4"]
+                 [sablono "0.2.17"]]
   :profiles {:uberjar {:aot :all}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]

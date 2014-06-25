@@ -2,13 +2,14 @@
   (:require [grub.view.dom :as dom]
             [cljs.core.async :as a :refer [<! >! chan]])
   (:require-macros [grub.macros :refer [log logs and-let]]
-                   [cljs.core.async.macros :refer [go go-loop]]))
+                   [cljs.core.async.macros :refer [go go-loop]]
+                   [dommy.macros :refer [sel1]]))
 
 (defn get-add-grub-clicks []
-  (:chan (dom/get-clicks dom/add-grub-btn)))
+  (:chan (dom/get-clicks (sel1 :#add-grub-btn))))
 
 (defn get-add-grub-enters []
-  (:chan (dom/get-enters dom/add-grub-text)))
+  (:chan (dom/get-enters (sel1 :#add-grub-input))))
 
 (defn get-create-events []
   (let [events (a/merge [(get-add-grub-clicks)

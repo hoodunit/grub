@@ -1,6 +1,9 @@
 (ns grub.view.dom
   (:require [dommy.core :as dommy]
-            [cljs.core.async :as a :refer [<! >! chan]])
+            [cljs.core.async :as a :refer [<! >! chan]]
+            [om.core :as om :include-macros true]
+            [om.dom :as dom :include-macros true]
+            [sablono.core :as html :refer-macros [html]])
   (:require-macros [grub.macros :refer [log logs go-loop]]
                    [dommy.macros :refer [deftemplate sel1 node]]
                    [cljs.core.async.macros :refer [go]]))
@@ -52,10 +55,10 @@
   (get-enters (sel1 :body)))
 
 (def add-grub-text 
-  (node [:input.form-control {:id "add-grub-input" :type "text" :placeholder "2 grubs"}]))
+  [:input.form-control {:id "add-grub-input" :type "text" :placeholder "2 grubs"}])
 
 (def add-grub-btn 
-  (node [:button.btn.btn-primary {:id "add-grub-btn" :type "button"} "Add"]))
+  [:button.btn.btn-primary {:id "add-grub-btn" :type "button"} "Add"])
 
 (def clear-all-btn
   (node [:button.btn.hidden.pull-right 
@@ -126,10 +129,7 @@
    [:div.row
     [:div.col-sm-6.leftmost-column
      [:h3 "Grub List"]
-     [:div.input-group 
-      add-grub-text
-      [:span.input-group-btn
-       add-grub-btn]]
+     [:div#addGrubInput]
      [:ul#grub-list.list-group]
      clear-all-btn]
     [:div.col-sm-6
@@ -141,8 +141,19 @@
   (node (for [grub grubs] 
           (make-grub-node (:id grub) (:grub grub) (:completed grub)))))
 
+(defn add-grub-input [data]
+  (om/component
+   (html [:div.input-group 
+          add-grub-text
+          [:span.input-group-btn
+           add-grub-btn]])))
+
+(defn render-om []
+  (om/root add-grub-input {} {:target (.getElementById js/document "addGrubInput")}))
+
 (defn render-body []
-  (dommy/prepend! (sel1 :body) (main-template)))
+  (dommy/prepend! (sel1 :body) (main-template))
+  (render-om))
 
 (defn render-grub-list [grubs]
   (let [grub-list (sel1 :#grub-list)]
@@ -150,10 +161,10 @@
     (dommy/replace-contents! grub-list (grub-list-template grubs))))
 
 (defn get-add-grub-text []
-  (dommy/value add-grub-text))
+  (dommy/value (sel1 :#add-grub-input)))
 
 (defn clear-add-grub-text []
-  (dommy/set-value! add-grub-text ""))
+  (dommy/set-value! (sel1 :#add-grub-input) ""))
 
 (defn get-recipe-add-grubs-clicks []
   (->> (:chan (listen (recipe-add-grubs-btns-selector) :click))
