@@ -15,17 +15,15 @@
                  [com.novemberain/monger "2.0.0"]
                  [org.clojure/tools.cli "0.3.1"]
                  [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]]
-  :profiles {:dev {:dependencies []}
-             :uberjar {:aot :all}}
+  :profiles {:uberjar {:aot :all}}
   :min-lein-version "2.1.2"
-  :plugins [[lein-cljsbuild "1.0.0"]
+  :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.6"]]
   :cljsbuild {:builds {:dev {:source-paths ["src/cljs"]
-                             :compiler {:output-dir "out"
+                             :compiler {:output-dir "public/js/out"
                                         :output-to "public/js/grub_dev.js"
-                                        ;:source-map "public/js/grub_dev.js.map"
-                                        :optimizations :whitespace
-                                        :pretty-print true}}
+                                        :optimizations :none
+                                        :source-map true}}
                        :prod {:source-paths ["src/cljs"]
                               :compiler {:output-to "public/js/grub.js"
                                          :optimizations :advanced}}}}

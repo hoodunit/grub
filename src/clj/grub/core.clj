@@ -14,23 +14,38 @@
              [page :refer [include-js include-css]]]
             [clojure.tools.cli :refer [parse-opts]]))
 
-(def js-file (atom "/js/grub_dev.js"))
+(def index-page-header
+  [:head
+   [:title "Grub"]
+   [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+   (include-css "/css/bootstrap.css")
+   (include-css "/css/styles.css")])
 
-(defn index-page []
+(def prod-index-page
   (html5
-   [:head
-    [:title "Grub"]
-    [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    (include-css "/css/bootstrap.css")
-    (include-css "/css/styles.css")]
+   index-page-header
    [:body
+    (include-js "http://fb.me/react-0.9.0.js")
     (include-js "/js/jquery.js")
     (include-js "/js/bootstrap.js")
-    (include-js @js-file)]))
+    (include-js "/js/grub.js")]))
+
+(def dev-index-page
+  (html5
+   index-page-header
+   [:body
+    (include-js "http://fb.me/react-0.9.0.js")
+    (include-js "/js/out/goog/base.js")
+    (include-js "/js/jquery.js")
+    (include-js "/js/bootstrap.js")
+    (include-js "/js/grub_dev.js")
+    [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))
+
+(def index-page (atom dev-index-page))
 
 (defroutes routes
   (GET "/" [] ws/websocket-handler)
-  (GET "/" [] (index-page))
+  (GET "/" [] @index-page)
   (GET "*/src/cljs/grub/:file" [file] (resp/file-response file {:root "src/cljs/grub"}))
   (GET "/js/public/js/:file" [file] (resp/redirect (str "/js/" file)))
   (route/files "/")
@@ -54,16 +69,16 @@
     (stop-server)))
 
 (defn start-production-server [{:keys [port mongo-url]}]
-  (reset! js-file "/js/grub.js")
+  (reset! index-page prod-index-page)
   (let [db-chan (db/connect-production-database mongo-url)]
     (ws/pass-received-events-to-clients-and-db db-chan)
-    (println (str "Starting production server on localhost:" port))
+    (println "Starting production server on localhost:" port)
     (start-server port)))
 
 (defn start-development-server [{:keys [port]}]
   (let [db-chan (db/connect-development-database)]
     (ws/pass-received-events-to-clients-and-db db-chan)
-    (println (str "Starting development server on localhost:" port))
+    (println "Starting development server on localhost:" port)
     (start-server port)))
 
 (defn usage [options-summary]
@@ -79,14 +94,12 @@
        (clojure.string/join \newline)))
 
 (def cli-options
-  ;; An option with a required argument
   [["-p" "--port PORT" "Port number"
     :default default-port
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
    ["-m" "--mongo-url URL"
     :default (System/getenv "MONGOHQ_URL")]
-   ;; A boolean option defaulting to nil
    ["-h" "--help"]])
 
 (defn error-msg [errors]
@@ -99,13 +112,11 @@
 
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
-    ;; Handle help and error conditions
     (println "options:" options)
     (cond
       (:help options) (exit 0 (usage summary))
       (not= (count arguments) 1) (exit 1 (usage summary))
       errors (exit 1 (error-msg errors)))
-    ;; Execute program with options
     (case (first arguments)
       "development" (start-development-server options)
       "dev"         (start-development-server options)
