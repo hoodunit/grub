@@ -4,11 +4,13 @@
             [monger.operators :as mo]
             [clojure.core.async :as a :refer [<! >! chan go]]))
 
+(def conn (atom nil))
+(def db (atom nil))
 (def grub-collection "grubs")
 (def recipe-collection "recipes")
 
 (defn clear-grubs [] 
-  (mc/drop grub-collection))
+  (mc/drop @db grub-collection))
 
 (defmulti handle-event :event :default :unknown-event)
 
@@ -16,7 +18,7 @@
   (let [grub (-> event
                  (select-keys [:id :grub :completed])
                  (clojure.set/rename-keys {:id :_id}))]
-    (mc/insert grub-collection grub)))
+    (mc/insert @db grub-collection grub)))
 
 (defmethod handle-event :add-grub [event]
   (insert-grub event))
@@ -26,17 +28,17 @@
     (insert-grub grub-event)))
 
 (defmethod handle-event :complete-grub [event]
-  (mc/update grub-collection 
+  (mc/update @db grub-collection 
              {:_id (:id event)}
              {mo/$set {:completed true}}))
 
 (defmethod handle-event :uncomplete-grub [event]
-  (mc/update grub-collection 
+  (mc/update @db grub-collection 
              {:_id (:id event)}
              {mo/$set {:completed false}}))
 
 (defmethod handle-event :update-grub [event]
-  (mc/update grub-collection 
+  (mc/update @db grub-collection 
              {:_id (:id event)}
              {mo/$set {:grub (:grub event)}}))
 
@@ -47,10 +49,10 @@
   (let [recipe (-> event
                    (select-keys [:id :name :grubs])
                    (clojure.set/rename-keys {:id :_id}))]
-    (mc/insert recipe-collection recipe)))
+    (mc/insert @db recipe-collection recipe)))
 
 (defmethod handle-event :update-recipe [event]
-  (mc/update recipe-collection 
+  (mc/update @db recipe-collection 
              {:_id (:id event)}
              {mo/$set {:name (:name event) :grubs (:grubs event)}}))
 
@@ -58,7 +60,7 @@
   (println "Cannot handle unknown event:" event))
 
 (defn get-current-grubs []
-  (let [raw-grubs (mc/find-maps grub-collection)
+  (let [raw-grubs (mc/find-maps @db grub-collection)
         sorted-grubs (sort-by :_id (vec raw-grubs))
         grubs (map (fn [g] (-> g
                                 (select-keys [:_id :grub :completed])
@@ -67,7 +69,7 @@
     grubs))
 
 (defn get-current-recipes []
-  (let [raw-recipes (mc/find-maps recipe-collection)
+  (let [raw-recipes (mc/find-maps @db recipe-collection)
         sorted-recipes (sort-by :_id (vec raw-recipes))
         recipes (map (fn [r] (-> r
                                 (select-keys [:_id :name :grubs])
@@ -83,15 +85,19 @@
                   (handle-event event)
                   (recur))))
 
+(defn connect! [db-name mongo-url]
+  (if mongo-url
+    (do (println "Connected to mongo via url:" mongo-url)
+        (m/connect-via-uri mongo-url))
+    (do (println "Connected to mongo at localhost:" db-name)
+        (m/connect))))
+
 (defn connect-and-handle-events [db-name & [mongo-url]]
   (let [in (chan)]
     (handle-incoming-events in)
-    (if mongo-url
-      (do (println "Connected to mongo via url:" mongo-url)
-          (m/connect-via-uri! mongo-url))
-      (do (println "Connected to mongo at localhost:" db-name)
-          (m/connect!)
-          (m/set-db! (m/get-db db-name))))
+    (let [_conn (connect! db-name mongo-url)]
+      (reset! conn _conn)
+      (reset! db (m/get-db _conn db-name)))
     in))
 
 (defn connect-production-database [mongo-url]

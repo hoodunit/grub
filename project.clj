@@ -3,16 +3,16 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.5.1"]
-                 [org.clojure/clojurescript "0.0-2138"]
-                 [org.clojure/core.async "0.1.298.0-2a82a1-alpha"]
+  :dependencies [[org.clojure/clojure "1.6.0"]
+                 [org.clojure/clojurescript "0.0-2234"]
+                 [org.clojure/core.async "0.1.303.0-886421-alpha"]
                  [http-kit "2.1.18"]
-                 [compojure "1.1.6"]
-                 [ring/ring-core "1.2.2" :exclusions [org.clojure/tools.reader]]
-                 [ring/ring-devel "1.2.2" :exclusions [org.clojure/tools.reader]]
+                 [compojure "1.1.8"]
+                 [ring/ring-core "1.3.0" :exclusions [org.clojure/tools.reader]]
+                 [ring/ring-devel "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5"]
                  [prismatic/dommy "0.1.2"]
-                 [com.novemberain/monger "1.7.0"]
+                 [com.novemberain/monger "2.0.0"]
                  [org.clojure/tools.cli "0.3.1"]
                  [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]]
   :profiles {:dev {:dependencies []}
