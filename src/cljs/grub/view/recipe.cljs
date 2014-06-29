@@ -103,7 +103,6 @@
              (recur))
     out))
   
-
 (defmulti handle-event (fn [event recipes] (:event event))
   :default :unknown-event)
 

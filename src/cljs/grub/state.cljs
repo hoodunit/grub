@@ -7,17 +7,17 @@
 (def default-app-state {:grubs {}
                         :recipes {}})
 
-(defmulti handle-event (fn [event state] (:event event))
+(defmulti handle-grub-event (fn [event state] (:event event))
   :default :unknown-event)
 
-(defmethod handle-event :unknown-event [event grubs]
+(defmethod handle-grub-event :unknown-event [event grubs]
   (logs "Cannot handle unknown event:" event)
   grubs)
 
 (defn new-grub [id grub completed]
   {:id id :grub grub :completed completed})
 
-(defmethod handle-event :add-grub [event grubs]
+(defmethod handle-grub-event :add-grub [event grubs]
   (let [grub (new-grub (:id event) (:grub event) (:completed event))]
     (assoc grubs (:id grub) grub)))
 
@@ -28,32 +28,59 @@
 (defn make-add-grubs-map [grub-events]
   (reduce assoc-new-grub {} grub-events))
 
-(defmethod handle-event :add-grub-list [event grubs]
+(defmethod handle-grub-event :add-grub-list [event grubs]
   (let [add-grub-events (:grubs event)
         add-grubs (make-add-grubs-map add-grub-events)]
     (merge grubs add-grubs)))
 
-(defmethod handle-event :complete-grub [event grubs]
+(defmethod handle-grub-event :complete-grub [event grubs]
   (assoc-in grubs [(:id event) :completed] true))
 
-(defmethod handle-event :uncomplete-grub [event grubs]
+(defmethod handle-grub-event :uncomplete-grub [event grubs]
   (assoc-in grubs [(:id event) :completed] false))
 
-(defmethod handle-event :update-grub [event grubs]
+(defmethod handle-grub-event :update-grub [event grubs]
   (assoc-in grubs [(:id event) :grub] (:grub event)))
 
-(defmethod handle-event :clear-all-grubs [event grubs]
+(defmethod handle-grub-event :clear-all-grubs [event grubs]
   {})
+
+(defmulti handle-recipe-event (fn [event recipes] (:event event))
+  :default :unknown-event)
+
+(defmethod handle-recipe-event :unknown-event [event recipes]
+  (logs "Cannot handle unknown event:" event)
+  recipes)
+
+(defn new-recipe [id name grubs]
+  {:id id :name name :grubs grubs})
+
+(defmethod handle-recipe-event :add-recipe [event recipes]
+  (let [recipe (new-recipe (:id event) (:name event) (:grubs event))]
+    (assoc recipes (:id recipe) recipe)))
+
+(defmethod handle-recipe-event :add-recipe-list [event recipes]
+  (->> (:recipes event)
+       (map #(new-recipe (:id %) (:name %) (:grubs %)))
+       (reduce (fn [recipes r] (assoc recipes (:id r) r)) recipes)))
+
+(defmethod handle-recipe-event :update-recipe [event recipes]
+  (->> recipes
+       (assoc-in [(:id event) :name] (:name event))
+       (assoc-in [(:id event) :grubs] (:grubs event))))
 
 (defn update-state-and-render [remote-chan]
   (let [out (chan)]
     (go-loop [state default-app-state] 
              (let [event (<! remote-chan)
-                   new-grubs (handle-event event (:grubs state))
-                   new-state (assoc state :grubs new-grubs)]
+                   new-grubs (handle-grub-event event (:grubs state))
+                   new-recipes (handle-recipe-event event (:recipes state))
+                   new-state (assoc state 
+                               :grubs new-grubs
+                               :recipes new-recipes)]
                (logs "event:" event)
                (logs "new-state")
                (logs new-state)
-               (view/render-body new-state)
+               (view/render-app new-state)
                (recur new-state)))
     out))

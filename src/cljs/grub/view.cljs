@@ -296,6 +296,33 @@
     (dommy/append! recipe-list recipe)
     recipe))
 
+(defn recipe-view [recipe owner]
+  (reify
+    om/IRender
+    (render [this]
+      (let [{:keys [id name grubs]} recipe]
+        (log "render recipe view: " recipe)
+        (html
+         [:div.panel.panel-default.recipe-panel
+          {:id id}
+          [:div.panel-heading.recipe-header
+           [:input.form-control.recipe-header-input 
+            {:id "recipe-name"
+             :type "text" 
+             :placeholder "Grub pie"
+             :value name}]
+           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
+            {:type "button"}
+            "Add Grubs"]]
+          [:div.panel-body.recipe-grubs.hidden
+           [:textarea.form-control.recipe-grubs-input
+            {:id "recipe-grubs"
+             :rows 3 
+             :placeholder "2 grubs"}
+            grubs]
+           [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
+            {:type "button"} "Done"]]])))))
+
 (defn grub-view [grub-state owner]
   (reify
     om/IRender
@@ -323,9 +350,6 @@
     om/IRender
     (render [this]
       (let [sorted-grubs (sort-grubs (:grubs state))]
-        (logs "render app-view state:" state)
-        (logs "render app-view owner:" owner)
-        (logs "render grubs:" sorted-grubs)
         (html 
          [:div.container
           [:div.row
@@ -357,8 +381,10 @@
                 :placeholder "2 grubs"}]
               [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
                {:type "button"} "Done"]]]
-            [:ul#recipe-list.list-group.recipe-list]]]])))))
+            [:ul#recipe-list.list-group.recipe-list
+             (for [recipe (vals (:recipes state))]
+               (om/build recipe-view recipe))]]]])))))
     
-(defn render-body [state]
+(defn render-app [state]
   (logs state)
   (om/root app-view state {:target (.getElementById js/document "container")}))
