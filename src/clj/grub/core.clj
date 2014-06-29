@@ -25,7 +25,8 @@
   (html5
    index-page-header
    [:body
-    (include-js "http://fb.me/react-0.9.0.js")
+    [:div#container]
+    (include-js "/js/react-0.9.0.min.js")
     (include-js "/js/jquery.js")
     (include-js "/js/bootstrap.js")
     (include-js "/js/grub.js")]))
@@ -34,7 +35,8 @@
   (html5
    index-page-header
    [:body
-    (include-js "http://fb.me/react-0.9.0.js")
+    [:div#container]
+    (include-js "/js/react-0.9.0.js")
     (include-js "/js/out/goog/base.js")
     (include-js "/js/jquery.js")
     (include-js "/js/bootstrap.js")

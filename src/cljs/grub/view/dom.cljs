@@ -4,8 +4,8 @@
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [sablono.core :as html :refer-macros [html]])
-  (:require-macros [grub.macros :refer [log logs go-loop]]
-                   [dommy.macros :refer [deftemplate sel1 node]]
+  (:require-macros [grub.macros :refer [log logs]]
+                   [dommy.macros :refer [sel1]]
                    [cljs.core.async.macros :refer [go]]))
 
 (defn listen
@@ -54,33 +54,30 @@
 (defn get-body-enters []
   (get-enters (sel1 :body)))
 
-(def add-grub-text 
-  [:input.form-control {:id "add-grub-input" :type "text" :placeholder "2 grubs"}])
-
 (def add-grub-btn 
   [:button.btn.btn-primary {:id "add-grub-btn" :type "button"} "Add"])
 
 (def clear-all-btn
-  (node [:button.btn.hidden.pull-right 
-         {:id "clear-all-btn" :type "button"}
-         "Clear all"]))
+  [:button.btn.hidden.pull-right 
+   {:id "clear-all-btn" :type "button"}
+   "Clear all"])
 
 (defn clear-grubs! []
   (dommy/set-html! (sel1 :#grub-list) ""))
 
 (defn get-grub-completed-glyph [completed]
-  (node (if completed
+  (if completed
     [:span.glyphicon.glyphicon-check]
-    [:span.glyphicon.glyphicon-unchecked])))
+    [:span.glyphicon.glyphicon-unchecked]))
 
 (defn make-grub-node [id grub completed]
-  (node [:li.list-group-item.grub-item 
-         {:id id
-          :class (when completed "completed")} 
-         [:span.grub-static
-          (get-grub-completed-glyph completed)
-          [:span.grub-text grub]]
-         [:input.grub-input {:type "text" :value grub}]]))
+  [:li.list-group-item.grub-item 
+   {:id id
+    :class (when completed "completed")} 
+   [:span.grub-static
+    (get-grub-completed-glyph completed)
+    [:span.grub-text grub]]
+   [:input.grub-input {:type "text" :value grub}]])
 
 (defn grubs-selector []
   [(sel1 :#grub-list) :.grub-item])
@@ -88,24 +85,24 @@
 (defn make-recipe-node 
   ([id name grubs] (make-recipe-node id name grubs false))
   ([id name grubs new-recipe]
-    (node [:div.panel.panel-default.recipe-panel
-           {:id id}
-           [:div.panel-heading.recipe-header
-            [:input.form-control.recipe-header-input 
-             {:id "recipe-name"
-              :type "text" 
-              :placeholder "Grub pie"
-              :value name}]
-            (when-not new-recipe 
-              [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn {:type "button"} "Add Grubs"])]
-           [:div.panel-body.recipe-grubs.hidden
-            [:textarea.form-control.recipe-grubs-input
-             {:id "recipe-grubs"
-              :rows 3 
-              :placeholder "2 grubs"}
-             grubs]
-            [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
-             {:type "button"} "Done"]]])))
+     [:div.panel.panel-default.recipe-panel
+      {:id id}
+      [:div.panel-heading.recipe-header
+       [:input.form-control.recipe-header-input 
+        {:id "recipe-name"
+         :type "text" 
+         :placeholder "Grub pie"
+         :value name}]
+       (when-not new-recipe 
+         [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn {:type "button"} "Add Grubs"])]
+      [:div.panel-body.recipe-grubs.hidden
+       [:textarea.form-control.recipe-grubs-input
+        {:id "recipe-grubs"
+         :rows 3 
+         :placeholder "2 grubs"}
+        grubs]
+       [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
+        {:type "button"} "Done"]]]))
 
 (def new-recipe (make-recipe-node "new-recipe" "" "" true))
 
@@ -124,36 +121,9 @@
 (defn recipe-add-grubs-btns-selector []
   [(sel1 :body) :.recipe-add-grubs-btn])
 
-(deftemplate main-template []
-  [:div.container
-   [:div.row
-    [:div.col-sm-6.leftmost-column
-     [:h3 "Grub List"]
-     [:div#addGrubInput]
-     [:ul#grub-list.list-group]
-     clear-all-btn]
-    [:div.col-sm-6
-     [:h3.recipes-title "Recipes"]
-     new-recipe
-     [:ul#recipe-list.list-group.recipe-list]]]])
-
-(deftemplate grub-list-template [grubs]
-  (node (for [grub grubs] 
-          (make-grub-node (:id grub) (:grub grub) (:completed grub)))))
-
-(defn add-grub-input [data]
-  (om/component
-   (html [:div.input-group 
-          add-grub-text
-          [:span.input-group-btn
-           add-grub-btn]])))
-
-(defn render-om []
-  (om/root add-grub-input {} {:target (.getElementById js/document "addGrubInput")}))
-
-(defn render-body []
-  (dommy/prepend! (sel1 :body) (main-template))
-  (render-om))
+(defn grub-list-template [grubs]
+  (for [grub grubs] 
+    (make-grub-node (:id grub) (:grub grub) (:completed grub))))
 
 (defn render-grub-list [grubs]
   (let [grub-list (sel1 :#grub-list)]
@@ -325,4 +295,40 @@
         recipe-list (sel1 :#recipe-list)]
     (dommy/append! recipe-list recipe)
     recipe))
+
+(defn grub-view []
+  (om/component
+   (html 
+    [:div.container
+     [:div.row
+      [:div.col-sm-6.leftmost-column
+       [:h3 "Grub List"]
+       [:div.input-group.add-grub-input-form
+        [:span.input-group-btn
+         [:input.form-control#add-grub-input {:type "text" :placeholder "2 grubs"}]]
+        [:button.btn.btn-primary {:id "add-grub-btn" :type "button"} "Add"]]
+       [:ul#grub-list.list-group]
+       [:button.btn.hidden.pull-right 
+        {:id "clear-all-btn" :type "button"}
+        "Clear all"]]
+      [:div.col-sm-6
+       [:h3.recipes-title "Recipes"]
+       [:div.panel.panel-default.recipe-panel
+        [:div.panel-heading.recipe-header
+         [:input.form-control.recipe-header-input 
+          {:id "recipe-name"
+           :type "text" 
+           :placeholder "Grub pie"}]
+         [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn {:type "button"} "Add Grubs"]]
+        [:div.panel-body.recipe-grubs.hidden
+         [:textarea.form-control.recipe-grubs-input
+          {:id "recipe-grubs"
+           :rows 3 
+           :placeholder "2 grubs"}]
+         [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
+          {:type "button"} "Done"]]]
+       [:ul#recipe-list.list-group.recipe-list]]]])))
     
+(defn render-body [state]
+  (logs state)
+  (om/root grub-view state {:target (.getElementById js/document "container")}))

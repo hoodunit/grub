@@ -37,7 +37,7 @@
        (a/map< parse-complete-event)))
 
 (defn get-clear-all-events []
-  (->> (:chan (dom/listen dom/clear-all-btn :click))
+  (->> (:chan (dom/listen (sel1 :#clear-all-btn) :click))
        (a/map< (fn [e] {:event :clear-all-grubs}))))
 
 (defn get-grub-mousedown-events []
@@ -127,68 +127,3 @@
 (defn sort-and-render-grub-list! [grubs]
   (let [sorted-grubs (sort-by (juxt :completed get-grub-ingredient) (vals grubs))]
     (dom/render-grub-list sorted-grubs)))
-
-(defmulti handle-event (fn [event grubs] (:event event))
-  :default :unknown-event)
-
-(defmethod handle-event :unknown-event [event grubs]
-  ;(logs "Cannot handle unknown event:" event)
-  grubs)
-
-(defmethod handle-event :add-grub [event grubs]
-  (let [grub (dom/make-new-grub (:id event) (:grub event) (:completed event))
-        new-grubs (assoc grubs (:id grub) grub)]
-    (dom/-show! dom/clear-all-btn)
-    (sort-and-render-grub-list! new-grubs)
-    (dom/clear-new-grub-input!)
-    (dom/focus-new-grub-input!)
-    new-grubs))
-
-(defn assoc-new-grub [current new]
-  (assoc current (:id new)
-    (dom/make-new-grub (:id new) (:grub new) (:completed new))))
-
-(defn make-add-grubs-map [grub-events]
-  (reduce assoc-new-grub {} grub-events))
-
-(defmethod handle-event :add-grub-list [event grubs]
-  (let [add-grub-events (:grubs event)
-        add-grubs (make-add-grubs-map add-grub-events)
-        new-grubs (merge grubs add-grubs)]
-    (dom/-show! dom/clear-all-btn)
-    (sort-and-render-grub-list! new-grubs)
-    new-grubs))
-
-(defmethod handle-event :complete-grub [event grubs]
-  (let [grub (get grubs (:id event))
-        new-grubs (assoc-in grubs [(:id event) :completed] true)]
-    (sort-and-render-grub-list! new-grubs)
-    new-grubs))
-
-(defmethod handle-event :uncomplete-grub [event grubs]
-  (let [new-grubs (assoc-in grubs [(:id event) :completed] false)]
-    (sort-and-render-grub-list! new-grubs)
-    new-grubs))
-
-(defmethod handle-event :update-grub [event grubs]
-  (let [new-grubs (assoc-in grubs [(:id event) :grub] (:grub event))]
-    (sort-and-render-grub-list! new-grubs)
-    new-grubs))
-
-(defmethod handle-event :clear-all-grubs [event grubs]
-  (dom/-hide! dom/clear-all-btn)
-  (dom/clear-grubs!)
-  {})
-
-(defn handle-grubs [remote-events]
-  (let [out (chan)
-        local-events [(get-create-events)
-                      (get-complete-events)
-                      (get-clear-all-events)
-                      (get-update-events)]]
-    (go-loop [grubs {}] 
-             (let [[event c] (a/alts! (conj local-events remote-events))]
-               (when-not (= c remote-events)
-                 (>! out event))
-               (recur (handle-event event grubs))))
-    out))
