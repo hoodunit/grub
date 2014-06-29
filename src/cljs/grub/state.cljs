@@ -11,7 +11,6 @@
   :default :unknown-event)
 
 (defmethod handle-grub-event :unknown-event [event grubs]
-  (logs "Cannot handle unknown event:" event)
   grubs)
 
 (defn new-grub [id grub completed]
@@ -49,7 +48,6 @@
   :default :unknown-event)
 
 (defmethod handle-recipe-event :unknown-event [event recipes]
-  (logs "Cannot handle unknown event:" event)
   recipes)
 
 (defn new-recipe [id name grubs]
@@ -69,18 +67,14 @@
        (assoc-in [(:id event) :name] (:name event))
        (assoc-in [(:id event) :grubs] (:grubs event))))
 
-(defn update-state-and-render [remote-chan]
-  (let [out (chan)]
-    (go-loop [state default-app-state] 
-             (let [event (<! remote-chan)
-                   new-grubs (handle-grub-event event (:grubs state))
-                   new-recipes (handle-recipe-event event (:recipes state))
-                   new-state (assoc state 
-                               :grubs new-grubs
-                               :recipes new-recipes)]
-               (logs "event:" event)
-               (logs "new-state")
-               (logs new-state)
-               (view/render-app new-state)
-               (recur new-state)))
-    out))
+(defn update-state-and-render [remote]
+  (go-loop [state default-app-state] 
+           (let [event (<! (a/merge [remote view/out]))
+                 new-grubs (handle-grub-event event (:grubs state))
+                 new-recipes (handle-recipe-event event (:recipes state))
+                 new-state (assoc state 
+                             :grubs new-grubs
+                             :recipes new-recipes)]
+             (view/render-app new-state)
+             (recur new-state)))
+  view/out)

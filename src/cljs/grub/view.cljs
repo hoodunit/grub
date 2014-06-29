@@ -1,14 +1,18 @@
 (ns grub.view
   (:require [om.core :as om :include-macros true]
-            [sablono.core :as html :refer-macros [html]])
-  (:require-macros [grub.macros :refer [log logs]]))
+            [sablono.core :as html :refer-macros [html]]
+            [cljs.core.async :as a :refer [<! put! chan]])
+  (:require-macros [grub.macros :refer [log logs]]
+                   [cljs.core.async.macros :refer [go go-loop]]))
+
+(def add (chan))
+(def out add)
 
 (defn recipe-view [recipe owner]
   (reify
     om/IRender
     (render [this]
       (let [{:keys [id name grubs]} recipe]
-        (log "render recipe view: " recipe)
         (html
          [:div.panel.panel-default.recipe-panel
           {:id id}
@@ -79,23 +83,51 @@
 (defn sort-grubs [grubs]
   (sort-by (juxt :completed get-grub-ingredient) (vals grubs)))
 
+(defn add-grub-event [grub]
+  {:event :add-grub 
+   :id (str "grub-" (.now js/Date))
+   :grub grub
+   :completed false})
+
+(defn add-grub [add owner]
+  (let [new-grub (.-value (om/get-node owner :new-grub))]
+    (when (not (empty? new-grub))
+      (put! add (add-grub-event new-grub)))))
+
+(defn enter-pressed? [event]
+  (let [enter-keycode 13]
+    (= (.-which event) enter-keycode)))
+
+(defn add-grub-on-enter [add owner event]
+  (when (enter-pressed? event)
+    (add-grub add owner)))
+
 (defn grubs-view [grubs owner]
   (reify
     om/IRender
     (render [this]
-      (html 
-       [:div 
-        [:h3 "Grub List"]
-        [:div.input-group.add-grub-input-form
-         [:span.input-group-btn
-          [:input.form-control#add-grub-input {:type "text" :placeholder "2 grubs"}]]
-         [:button.btn.btn-primary {:id "add-grub-btn" :type "button"} "Add"]]
-        [:ul#grub-list.list-group
-         (for [grub (sort-grubs grubs)]
-           (om/build grub-view grub))]
-        [:button.btn.hidden.pull-right 
-         {:id "clear-all-btn" :type "button"}
-         "Clear all"]]))))
+      (let [add (:add (om/get-shared owner))]
+        (html 
+         [:div 
+          [:h3 "Grub List"]
+          [:div.input-group.add-grub-input-form
+           [:span.input-group-btn
+            [:input.form-control#add-grub-input 
+             {:ref :new-grub
+              :type "text" 
+              :placeholder "2 grubs"
+              :on-key-up #(add-grub-on-enter add owner %)}]]
+           [:button.btn.btn-primary 
+            {:id "add-grub-btn" 
+             :type "button"
+             :on-click #(add-grub add owner)}
+            "Add"]]
+          [:ul#grub-list.list-group
+           (for [grub (sort-grubs grubs)]
+             (om/build grub-view grub))]
+          [:button.btn.hidden.pull-right 
+           {:id "clear-all-btn" :type "button"}
+           "Clear all"]])))))
 
 (defn app-view [state owner]
   (reify
@@ -110,4 +142,7 @@
           (om/build recipes-view (:recipes state))]]]))))
     
 (defn render-app [state]
-  (om/root app-view state {:target (.getElementById js/document "container")}))
+  (om/root app-view 
+           state 
+           {:target (.getElementById js/document "container")
+            :shared {:add add}}))
