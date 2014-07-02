@@ -99,7 +99,6 @@
 
 (defn add-grub-on-enter [event add state owner]
   (when (enter-pressed? event)
-    (log "enter pressed:" (:new-grub state))
     (add-grub add state owner)))
 
 (defn handle-new-grub-change [event owner]
@@ -132,8 +131,11 @@
           [:ul#grub-list.list-group
            (for [grub (sort-grubs grubs)]
              (om/build grub-view grub))]
-          [:button.btn.hidden.pull-right 
-           {:id "clear-all-btn" :type "button"}
+          [:button.btn.pull-right 
+           {:id "clear-all-btn" 
+            :class (when (empty? grubs) "hidden")
+            :type "button"
+            :on-click #(put! (:clear-all (om/get-shared owner)) {:event :clear-all-grubs})}
            "Clear all"]])))))
 
 (defn app-view [state owner]
@@ -149,10 +151,12 @@
           (om/build recipes-view (:recipes state))]]]))))
     
 (defn render-app [state]
-  (let [out (chan)
-        add out]
+  (let [add (chan)
+        clear-all (chan)
+        out (a/merge [add clear-all])]
     (om/root app-view 
              state 
              {:target (.getElementById js/document "container")
-              :shared {:add add}})
+              :shared {:add add
+                       :clear-all clear-all}})
     out))
