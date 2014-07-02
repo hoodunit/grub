@@ -88,14 +88,10 @@
    :completed false})
 
 (defn add-grub [add {:keys [new-grub]} owner]
-  (logs "add-grub:" new-grub)
   (when (not (empty? new-grub))
     (let [new-grub-event (add-grub-event new-grub)]
-      (logs "put event:" new-grub-event)
-      (go (>! add new-grub-event))
-      (om/set-state! owner :new-grub ""))
-    ;(put! add (add-grub-event new-grub))
-    ))
+      (om/set-state! owner :new-grub "")
+      (put! add (add-grub-event new-grub)))))
 
 (defn enter-pressed? [event]
   (let [enter-keycode 13]
@@ -106,8 +102,8 @@
     (log "enter pressed:" (:new-grub state))
     (add-grub add state owner)))
 
-(defn handle-new-grub-change [e owner {:keys [new-grub]}]
-  (om/set-state! owner :new-grub (.. e -target -value)))
+(defn handle-new-grub-change [event owner]
+  (om/set-state! owner :new-grub (.. event -target -value)))
 
 (defn grubs-view [grubs owner]
   (reify
@@ -115,7 +111,7 @@
     (init-state [_]
       {:new-grub ""})
     om/IRenderState
-    (render-state [this state]
+    (render-state [this {:keys [new-grub] :as state}]
       (let [add (:add (om/get-shared owner))]
         (html 
          [:div 
@@ -123,15 +119,15 @@
           [:div.input-group.add-grub-input-form
            [:span.input-group-btn
             [:input.form-control#add-grub-input 
-             {:ref :new-grub
-              :type "text" 
+             {:type "text" 
               :placeholder "2 grubs"
+              :value new-grub
               :on-key-up #(add-grub-on-enter % add state owner)
-              :on-change #(handle-new-grub-change % owner state)}]]
+              :on-change #(handle-new-grub-change % owner)}]]
            [:button.btn.btn-primary 
             {:id "add-grub-btn" 
              :type "button"
-             :on-click #(add-grub (:add (om/get-shared owner)) (:new-grub state) owner)}
+             :on-click #(add-grub (:add (om/get-shared owner)) new-grub owner)}
             "Add"]]
           [:ul#grub-list.list-group
            (for [grub (sort-grubs grubs)]
