@@ -5,9 +5,6 @@
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(def add (chan))
-(def out add)
-
 (defn recipe-view [recipe owner]
   (reify
     om/IRender
@@ -76,9 +73,10 @@
           [:input.grub-input {:type "text" :value grub}]])))))
 
 (defn get-grub-ingredient [grub]
-  (let [text (clojure.string/lower-case (:grub grub))
-        match (re-find #"[a-z]{3}.*$" text)]
-    match))
+  (when-not (nil? (:grub grub))
+    (let [text (clojure.string/lower-case (:grub grub))
+          match (re-find #"[a-z]{3}.*$" text)]
+      match)))
 
 (defn sort-grubs [grubs]
   (sort-by (juxt :completed get-grub-ingredient) (vals grubs)))
@@ -89,23 +87,35 @@
    :grub grub
    :completed false})
 
-(defn add-grub [add owner]
-  (let [new-grub (.-value (om/get-node owner :new-grub))]
-    (when (not (empty? new-grub))
-      (put! add (add-grub-event new-grub)))))
+(defn add-grub [add {:keys [new-grub]} owner]
+  (logs "add-grub:" new-grub)
+  (when (not (empty? new-grub))
+    (let [new-grub-event (add-grub-event new-grub)]
+      (logs "put event:" new-grub-event)
+      (go (>! add new-grub-event))
+      (om/set-state! owner :new-grub ""))
+    ;(put! add (add-grub-event new-grub))
+    ))
 
 (defn enter-pressed? [event]
   (let [enter-keycode 13]
     (= (.-which event) enter-keycode)))
 
-(defn add-grub-on-enter [add owner event]
+(defn add-grub-on-enter [event add state owner]
   (when (enter-pressed? event)
-    (add-grub add owner)))
+    (log "enter pressed:" (:new-grub state))
+    (add-grub add state owner)))
+
+(defn handle-new-grub-change [e owner {:keys [new-grub]}]
+  (om/set-state! owner :new-grub (.. e -target -value)))
 
 (defn grubs-view [grubs owner]
   (reify
-    om/IRender
-    (render [this]
+    om/IInitState
+    (init-state [_]
+      {:new-grub ""})
+    om/IRenderState
+    (render-state [this state]
       (let [add (:add (om/get-shared owner))]
         (html 
          [:div 
@@ -116,11 +126,12 @@
              {:ref :new-grub
               :type "text" 
               :placeholder "2 grubs"
-              :on-key-up #(add-grub-on-enter add owner %)}]]
+              :on-key-up #(add-grub-on-enter % add state owner)
+              :on-change #(handle-new-grub-change % owner state)}]]
            [:button.btn.btn-primary 
             {:id "add-grub-btn" 
              :type "button"
-             :on-click #(add-grub add owner)}
+             :on-click #(add-grub (:add (om/get-shared owner)) (:new-grub state) owner)}
             "Add"]]
           [:ul#grub-list.list-group
            (for [grub (sort-grubs grubs)]
@@ -142,7 +153,10 @@
           (om/build recipes-view (:recipes state))]]]))))
     
 (defn render-app [state]
-  (om/root app-view 
-           state 
-           {:target (.getElementById js/document "container")
-            :shared {:add add}}))
+  (let [out (chan)
+        add out]
+    (om/root app-view 
+             state 
+             {:target (.getElementById js/document "container")
+              :shared {:add add}})
+    out))

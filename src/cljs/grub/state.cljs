@@ -4,21 +4,21 @@
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(def default-app-state {:grubs {}
-                        :recipes {}})
+(def app-state (atom {:grubs {}
+                      :recipes {}}))
 
-(defmulti handle-grub-event (fn [event state] (:event event))
+(defmulti handle-event (fn [event state] (:event event))
   :default :unknown-event)
 
-(defmethod handle-grub-event :unknown-event [event grubs]
-  grubs)
+(defmethod handle-event :unknown-event [event state]
+  state)
 
 (defn new-grub [id grub completed]
   {:id id :grub grub :completed completed})
 
-(defmethod handle-grub-event :add-grub [event grubs]
+(defmethod handle-event :add-grub [event state]
   (let [grub (new-grub (:id event) (:grub event) (:completed event))]
-    (assoc grubs (:id grub) grub)))
+    (assoc-in state [:grubs (:id grub)] grub)))
 
 (defn assoc-new-grub [current new]
   (assoc current (:id new)
@@ -27,54 +27,49 @@
 (defn make-add-grubs-map [grub-events]
   (reduce assoc-new-grub {} grub-events))
 
-(defmethod handle-grub-event :add-grub-list [event grubs]
+(defmethod handle-event :add-grub-list [event state]
   (let [add-grub-events (:grubs event)
         add-grubs (make-add-grubs-map add-grub-events)]
-    (merge grubs add-grubs)))
+    (assoc state :grubs (merge (:grubs state) add-grubs))))
 
-(defmethod handle-grub-event :complete-grub [event grubs]
-  (assoc-in grubs [(:id event) :completed] true))
+(defmethod handle-event :complete-grub [event state]
+  (assoc-in state [:grubs (:id event) :completed] true))
 
-(defmethod handle-grub-event :uncomplete-grub [event grubs]
-  (assoc-in grubs [(:id event) :completed] false))
+(defmethod handle-event :uncomplete-grub [event state]
+  (assoc-in state [:grubs (:id event) :completed] false))
 
-(defmethod handle-grub-event :update-grub [event grubs]
-  (assoc-in grubs [(:id event) :grub] (:grub event)))
+(defmethod handle-event :update-grub [event state]
+  (assoc-in state [:grubs (:id event) :grub] (:grub event)))
 
-(defmethod handle-grub-event :clear-all-grubs [event grubs]
-  {})
-
-(defmulti handle-recipe-event (fn [event recipes] (:event event))
-  :default :unknown-event)
-
-(defmethod handle-recipe-event :unknown-event [event recipes]
-  recipes)
+(defmethod handle-event :clear-all-grubs [event state]
+  (assoc state :grubs {})) 
 
 (defn new-recipe [id name grubs]
   {:id id :name name :grubs grubs})
 
-(defmethod handle-recipe-event :add-recipe [event recipes]
+(defmethod handle-event :add-recipe [event state]
   (let [recipe (new-recipe (:id event) (:name event) (:grubs event))]
-    (assoc recipes (:id recipe) recipe)))
+    (assoc-in state [:recipes (:id recipe)] recipe)))
 
-(defmethod handle-recipe-event :add-recipe-list [event recipes]
+(defmethod handle-event :add-recipe-list [event state]
   (->> (:recipes event)
        (map #(new-recipe (:id %) (:name %) (:grubs %)))
-       (reduce (fn [recipes r] (assoc recipes (:id r) r)) recipes)))
+       (reduce (fn [recipes r] (assoc recipes (:id r) r)) (:recipes state))
+       (assoc state :recipes)))
 
-(defmethod handle-recipe-event :update-recipe [event recipes]
-  (->> recipes
-       (assoc-in [(:id event) :name] (:name event))
-       (assoc-in [(:id event) :grubs] (:grubs event))))
+(defmethod handle-event :update-recipe [event state]
+  (->> state
+       (assoc-in [:recipes (:id event) :name] (:name event))
+       (assoc-in [:recipes (:id event) :grubs] (:grubs event))))
 
 (defn update-state-and-render [remote]
-  (go-loop [state default-app-state] 
-           (let [event (<! (a/merge [remote view/out]))
-                 new-grubs (handle-grub-event event (:grubs state))
-                 new-recipes (handle-recipe-event event (:recipes state))
-                 new-state (assoc state 
-                             :grubs new-grubs
-                             :recipes new-recipes)]
-             (view/render-app new-state)
-             (recur new-state)))
-  view/out)
+  (let [out (chan)
+        view-events (view/render-app app-state)]
+    (go-loop [] 
+             (let [[event ch] (alts! [remote view-events])
+                   new-state (handle-event event @app-state)]
+               (reset! app-state new-state)
+               (when (= ch view-events) 
+                 (>! out event))
+               (recur)))
+    out))
