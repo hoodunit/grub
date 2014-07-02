@@ -79,7 +79,7 @@
       match)))
 
 (defn sort-grubs [grubs]
-  (sort-by (juxt :completed get-grub-ingredient) (vals grubs)))
+  (sort-by (juxt :completed get-grub-ingredient :grub) (vals grubs)))
 
 (defn add-grub-event [grub]
   {:event :add-grub 
