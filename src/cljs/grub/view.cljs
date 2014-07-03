@@ -56,6 +56,11 @@
          (for [recipe (vals recipes)]
            (om/build recipe-view recipe))]]))))
 
+(defn complete-event [{:keys [id completed]}]
+  {:event :update-grub
+   :id id
+   :completed (not completed)})
+
 (defn grub-view [grub-state owner]
   (reify
     om/IRender
@@ -64,7 +69,8 @@
         (html
          [:li.list-group-item.grub-item 
           {:id id
-           :class (when completed "completed")} 
+           :class (when completed "completed")
+           :on-click #(put! (:update (om/get-shared owner)) (complete-event @grub-state))} 
           [:span.grub-static
            (if completed
              [:span.glyphicon.glyphicon-check]
@@ -152,11 +158,13 @@
     
 (defn render-app [state]
   (let [add (chan)
+        update (chan)
         clear-all (chan)
-        out (a/merge [add clear-all])]
+        out (a/merge [add update clear-all])]
     (om/root app-view 
              state 
              {:target (.getElementById js/document "container")
               :shared {:add add
+                       :update update
                        :clear-all clear-all}})
     out))

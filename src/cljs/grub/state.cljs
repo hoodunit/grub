@@ -32,14 +32,10 @@
         add-grubs (make-add-grubs-map add-grub-events)]
     (assoc state :grubs (merge (:grubs state) add-grubs))))
 
-(defmethod handle-event :complete-grub [event state]
-  (assoc-in state [:grubs (:id event) :completed] true))
-
-(defmethod handle-event :uncomplete-grub [event state]
-  (assoc-in state [:grubs (:id event) :completed] false))
-
 (defmethod handle-event :update-grub [event state]
-  (assoc-in state [:grubs (:id event) :grub] (:grub event)))
+  (let [new-grub-info (dissoc event :event-type)
+        orig-grub (get-in state [:grubs (:id event)])]
+    (assoc-in state [:grubs (:id event)] (merge orig-grub new-grub-info))))
 
 (defmethod handle-event :clear-all-grubs [event state]
   (assoc state :grubs {})) 

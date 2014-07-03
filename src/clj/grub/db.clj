@@ -38,9 +38,9 @@
              {mo/$set {:completed false}}))
 
 (defmethod handle-event :update-grub [event]
-  (mc/update @db grub-collection 
-             {:_id (:id event)}
-             {mo/$set {:grub (:grub event)}}))
+  (let [orig (mc/find-one-as-map @db grub-collection {:_id (:id event)})
+        new (dissoc event :event-type :id)]
+    (mc/update-by-id @db grub-collection (:id event) (merge orig new))))
 
 (defmethod handle-event :clear-all-grubs [event]
   (clear-grubs))
@@ -60,13 +60,11 @@
   (println "Cannot handle unknown event:" event))
 
 (defn get-current-grubs []
-  (let [raw-grubs (mc/find-maps @db grub-collection)
-        sorted-grubs (sort-by :_id (vec raw-grubs))
-        grubs (map (fn [g] (-> g
-                                (select-keys [:_id :grub :completed])
-                                (clojure.set/rename-keys {:_id :id})))
-                    sorted-grubs)]
-    grubs))
+  (->> (mc/find-maps @db grub-collection)
+       (sort-by :_id)
+       (map #(select-keys % [:_id :grub :completed]))
+       (map #(clojure.set/rename-keys % {:_id :id}))
+       (vec)))
 
 (defn get-current-recipes []
   (let [raw-recipes (mc/find-maps @db recipe-collection)
