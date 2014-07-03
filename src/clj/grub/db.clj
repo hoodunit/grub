@@ -67,13 +67,11 @@
        (vec)))
 
 (defn get-current-recipes []
-  (let [raw-recipes (mc/find-maps @db recipe-collection)
-        sorted-recipes (sort-by :_id (vec raw-recipes))
-        recipes (map (fn [r] (-> r
-                                (select-keys [:_id :name :grubs])
-                                (clojure.set/rename-keys {:_id :id})))
-                    sorted-recipes)]
-    recipes))
+  (->> (mc/find-maps @db recipe-collection)
+       (sort-by :_id)
+       (map #(select-keys % [:_id :name :grubs]))
+       (map #(clojure.set/rename-keys % {:_id :id}))
+       (vec)))
 
 (def production-db "grub")
 (def development-db "grub-dev")
