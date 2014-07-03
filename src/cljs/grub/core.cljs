@@ -2,7 +2,7 @@
   (:require [grub.state :as state]
             [grub.websocket :as ws]
             [cljs.core.async :as a :refer [<! >! chan]])
-  (:require-macros [grub.macros :refer [log logs go-loop]]
+  (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go]]))
 
 (defn wire-channels-together []
