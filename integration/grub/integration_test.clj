@@ -5,7 +5,7 @@
             [clj-webdriver.core :as webdriver]
             [clojure.test :as test]))
 
-;; Hard-code path to chromedriver
+;; Hard-coded path to chromedriver
 (defn set-chromedriver-path! []
   (System/setProperty "webdriver.chrome.driver" "bin/chromedriver"))
 

@@ -12,7 +12,8 @@
       (let [{:keys [id name grubs]} recipe]
         (html
          [:div.panel.panel-default.recipe-panel
-          {:id id}
+          {:id id
+           :key id}
           [:div.panel-heading.recipe-header
            [:input.form-control.recipe-header-input 
             {:id "recipe-name"
@@ -54,4 +55,4 @@
            {:type "button"} "Done"]]]
         [:ul#recipe-list.list-group.recipe-list
          (for [recipe (vals recipes)]
-           (om/build recipe-view recipe))]]))))
+           (om/build recipe-view recipe {:key :id}))]]))))

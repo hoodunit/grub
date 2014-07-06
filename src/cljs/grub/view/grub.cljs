@@ -1,51 +1,49 @@
 (ns grub.view.grub
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
-            [cljs.core.async :as a :refer [<! put! chan]])
+            [cljs.core.async :as a :refer [<! put! chan]]
+            [grub.view.dom :as dom])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(defn enter-pressed? [event]
-  (let [enter-keycode 13]
-    (= (.-which event) enter-keycode)))
-
-(defn complete-event [{:keys [id completed]}]
-  {:event :update-grub
-   :id id
-   :completed (not completed)})
-
-(defn click-on-self? [{:keys [event]} node]
-  (or (= (.-target event) node) (.contains node (.-target event))))
+(defn add-event [grub]
+  {:event :add-grub 
+   :id (str "grub-" (.now js/Date))
+   :grub grub
+   :completed false})
 
 (defn edit-event [id grub]
   {:event :update-grub
    :id id
    :grub grub})
 
-(defn grub-view [{:keys [id grub completed] :as grub-state} owner]
+(defn complete-event [{:keys [id completed]}]
+  {:event :update-grub
+   :id id
+   :completed (not completed)})
+
+(defn grub-view [{:keys [id grub completed] :as props} owner]
   (reify
     om/IInitState
     (init-state [_]
       (let [publisher (chan)]
         {:edit-state :waiting
-         :events-in publisher
-         :events (a/pub publisher identity)
+         :>local-events publisher
+         :<local-events (a/pub publisher identity)
          :grub grub}))
 
     om/IRenderState
-    (render-state [_ {:keys [edit-state events-in events pressed] :as state}]
-      (logs id edit-state)
+    (render-state [_ {:keys [edit-state >local-events] :as state}]
       (html
        [:li.list-group-item.grub-item 
-        {:id id
-         :class [(when completed "completed")
+        {:class [(when completed "completed")
                  (when (= edit-state :pressed) "grub-active")
                  (when (= edit-state :editing) "edit")]
-         :on-mouse-down #(put! events-in :mouse-down) 
-         :on-mouse-up #(put! events-in :mouse-up) 
-         :on-mouse-leave #(put! events-in :mouse-leave)
+         :on-mouse-down #(put! >local-events :mouse-down) 
+         :on-mouse-up #(put! >local-events :mouse-up) 
+         :on-mouse-leave #(put! >local-events :mouse-leave)
          :on-click #(when (#{:waiting :pressed} edit-state)
-                      (put! (om/get-shared owner :update) (complete-event @grub-state)))} 
+                      (put! (om/get-shared owner :update) (complete-event @props)))} 
         [:span.grub-static
          (if completed
            [:span.glyphicon.glyphicon-check]
@@ -55,37 +53,40 @@
          {:type "text" 
           :value (:grub state)
           :on-change #(om/set-state! owner :grub (.. % -target -value))
-          :on-key-up #(when (enter-pressed? %) (put! events-in :enter))}]]))
+          :on-key-up #(when (dom/enter-pressed? %) (put! >local-events :enter))}]]))
 
     om/IWillMount
     (will-mount [_] 
-      (let [local-events (om/get-state owner :events)
-            events (om/get-shared owner :events)
+      (let [<local-events (om/get-state owner :<local-events)
+            <events (om/get-shared owner :<events)
             subscriber (chan)]
         (go-loop []
                  (om/set-state! owner :edit-state :waiting)
-                 (a/sub local-events :mouse-down subscriber)
-                 (<! subscriber)
-                 (a/unsub local-events :mouse-down subscriber)
+                 (let [subscriber (chan)]
+                   (a/sub <local-events :mouse-down subscriber)
+                   (<! subscriber)
+                   (a/unsub <local-events :mouse-down subscriber)
+                   (a/close! subscriber))
                  (om/set-state! owner :edit-state :pressed)
-                 (a/sub local-events :mouse-leave subscriber)
-                 (a/sub local-events :mouse-up subscriber)
+                 (a/sub <local-events :mouse-leave subscriber)
+                 (a/sub <local-events :mouse-up subscriber)
                  (let [timeout (a/timeout 500)
                        [event c] (a/alts! [timeout subscriber])]
-                   (a/unsub local-events :mouse-leave subscriber)
-                   (a/unsub local-events :mouse-up subscriber)
+                   (a/unsub <local-events :mouse-leave subscriber)
+                   (a/unsub <local-events :mouse-up subscriber)
                    (if (= c timeout)
                      (do (om/set-state! owner :edit-state :editing)
-                         (a/sub events :body-mousedown subscriber)
-                         (a/sub local-events :enter subscriber)
+                         (a/sub <events :body-mousedown subscriber)
+                         (a/sub <local-events :enter subscriber)
                          (loop []
                            (let [event (<! subscriber)]
                              (when (and (= (:type event) :body-mousedown)
-                                        (click-on-self? event (om/get-node owner)))
+                                        (dom/click-on-self? (:event event) (om/get-node owner)))
                                (recur))))
-                         (a/unsub events :body-mousedown subscriber)
-                         (a/unsub local-events :enter subscriber)
-                         (put! (om/get-shared owner :update) (edit-event id (om/get-state owner :grub))))
+                         (a/unsub <events :body-mousedown subscriber)
+                         (a/unsub <local-events :enter subscriber)
+                         (put! (om/get-shared owner :update)
+                               (edit-event id (om/get-state owner :grub))))
                      (om/set-state! owner :edit-state :waiting)))
                  (recur))))))
 
@@ -98,26 +99,15 @@
 (defn sort-grubs [grubs]
   (sort-by (juxt :completed get-grub-ingredient :grub) (vals grubs)))
 
-(defn add-grub-event [grub]
-  {:event :add-grub 
-   :id (str "grub-" (.now js/Date))
-   :grub grub
-   :completed false})
-
-(defn add-grub [add {:keys [new-grub]} owner]
+(defn add-grub [add new-grub owner]
   (when (not (empty? new-grub))
-    (let [new-grub-event (add-grub-event new-grub)]
-      (om/set-state! owner :new-grub "")
-      (put! add (add-grub-event new-grub)))))
+    (om/set-state! owner :new-grub "")
+    (put! add (add-event new-grub))))
 
-(defn add-grub-on-enter [event add state owner]
-  (when (enter-pressed? event)
-    (add-grub add state owner)))
-
-(defn handle-new-grub-change [event owner]
+(defn update-new-grub-value [event owner]
   (om/set-state! owner :new-grub (.. event -target -value)))
 
-(defn grubs-view [grubs owner]
+(defn grubs-view [props owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -134,19 +124,20 @@
              {:type "text" 
               :placeholder "2 grubs"
               :value new-grub
-              :on-key-up #(add-grub-on-enter % add state owner)
-              :on-change #(handle-new-grub-change % owner)}]]
+              :on-key-up #(when (dom/enter-pressed? %)
+                            (add-grub add new-grub owner))
+              :on-change #(update-new-grub-value % owner)}]]
            [:button.btn.btn-primary 
             {:id "add-grub-btn" 
              :type "button"
-             :on-click #(add-grub (om/get-shared owner :add) new-grub owner)}
+             :on-click #(add-grub add new-grub owner)}
             "Add"]]
           [:ul#grub-list.list-group
-           (for [grub (sort-grubs grubs)]
-             (om/build grub-view grub))]
+           (for [grub (sort-grubs props)]
+             (om/build grub-view grub {:key :id}))]
           [:button.btn.pull-right 
            {:id "clear-all-btn" 
-            :class (when (empty? grubs) "hidden")
+            :class (when (empty? props) "hidden")
             :type "button"
             :on-click #(put! (om/get-shared owner :clear-all) {:event :clear-all-grubs})}
            "Clear all"]])))))
