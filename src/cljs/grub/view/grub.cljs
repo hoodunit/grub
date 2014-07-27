@@ -104,9 +104,6 @@
     (om/set-state! owner :new-grub "")
     (put! add (add-event new-grub))))
 
-(defn update-new-grub-value [event owner]
-  (om/set-state! owner :new-grub (.. event -target -value)))
-
 (defn grubs-view [props owner]
   (reify
     om/IInitState
@@ -126,7 +123,7 @@
               :value new-grub
               :on-key-up #(when (dom/enter-pressed? %)
                             (add-grub add new-grub owner))
-              :on-change #(update-new-grub-value % owner)}]]
+              :on-change #(om/set-state! owner :new-grub (dom/event-val %))}]]
            [:button.btn.btn-primary 
             {:id "add-grub-btn" 
              :type "button"
