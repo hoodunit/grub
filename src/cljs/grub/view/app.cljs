@@ -25,18 +25,20 @@
         (dom/on-body-mousedown #(put! >events {:type :body-mousedown :event %}))))))
     
 (defn render-app [state]
-  (let [add (chan)
-        update (chan)
-        clear-all (chan)
-        out (a/merge [add update clear-all])
+  (let [grub-add (chan)
+        grub-update (chan)
+        grub-clear-all (chan)
+        recipe-add (chan)
+        out (a/merge [grub-add grub-update grub-clear-all recipe-add])
         >events (chan)
         <events (a/pub >events :type)]
     (om/root app-view 
              state 
              {:target (.getElementById js/document "container")
-              :shared {:add add
-                       :update update
-                       :clear-all clear-all
+              :shared {:grub-add grub-add
+                       :grub-update grub-update
+                       :grub-clear-all grub-clear-all
+                       :recipe-add recipe-add
                        :>events >events
                        :<events <events}})
     out))

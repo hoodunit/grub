@@ -43,7 +43,7 @@
          :on-mouse-up #(put! >local-events :mouse-up) 
          :on-mouse-leave #(put! >local-events :mouse-leave)
          :on-click #(when (#{:waiting :pressed} edit-state)
-                      (put! (om/get-shared owner :update) (complete-event @props)))} 
+                      (put! (om/get-shared owner :grub-update) (complete-event @props)))} 
         [:span.grub-static
          (if completed
            [:span.glyphicon.glyphicon-check]
@@ -85,7 +85,7 @@
                                (recur))))
                          (a/unsub <events :body-mousedown subscriber)
                          (a/unsub <local-events :enter subscriber)
-                         (put! (om/get-shared owner :update)
+                         (put! (om/get-shared owner :grub-update)
                                (edit-event id (om/get-state owner :grub))))
                      (om/set-state! owner :edit-state :waiting)))
                  (recur))))))
@@ -114,7 +114,7 @@
       {:new-grub ""})
     om/IRenderState
     (render-state [this {:keys [new-grub] :as state}]
-      (let [add (om/get-shared owner :add)]
+      (let [add (om/get-shared owner :grub-add)]
         (html 
          [:div 
           [:h3 "Grub List"]
@@ -139,5 +139,6 @@
            {:id "clear-all-btn" 
             :class (when (empty? props) "hidden")
             :type "button"
-            :on-click #(put! (om/get-shared owner :clear-all) {:event :clear-all-grubs})}
+            :on-click #(put! (om/get-shared owner :grub-clear-all)
+                             {:event :clear-all-grubs})}
            "Clear all"]])))))
