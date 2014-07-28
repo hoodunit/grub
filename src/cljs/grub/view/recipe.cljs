@@ -59,9 +59,10 @@
              (not (empty? grubs)))
     (om/set-state! owner :new-recipe-name "")
     (om/set-state! owner :new-recipe-grubs "")
+    (om/set-state! owner :editing false)
     (put! ch (add-event name grubs))))
 
-(defn recipes-view [recipes owner]
+(defn new-recipe-view [_ owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -76,31 +77,26 @@
     (render-state [this {:keys [editing >local-events new-recipe-name new-recipe-grubs]}]
       (let [add (om/get-shared owner :recipe-add)]
         (html
-         [:div
-          [:h3.recipes-title "Recipes"]
-          [:div.panel.panel-default.recipe-panel
-           {:on-click #(put! >local-events :click)}
-           [:div.panel-heading.recipe-header
-            [:input.form-control.recipe-header-input 
-             {:type "text" 
-              :placeholder "New recipe"
-              :value new-recipe-name
-              :on-change #(om/set-state! owner :new-recipe-name (dom/event-val %))}]]
-           [:div.panel-body.recipe-grubs
-            {:class (when (not editing) "hidden")}
-            [:textarea.form-control.recipe-grubs-input
-             {:id "recipe-grubs"
-              :rows 3 
-              :placeholder "Recipe ingredients"
-              :value new-recipe-grubs
-              :on-change #(om/set-state! owner :new-recipe-grubs (dom/event-val %))}]
-            [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
-             {:type "button"
-              :on-click #(add-recipe add new-recipe-name new-recipe-grubs owner)}
-             "Done"]]]
-          [:ul#recipe-list.list-group.recipe-list
-           (for [recipe (vals recipes)]
-             (om/build recipe-view recipe {:key :id}))]])))
+         [:div.panel.panel-default.recipe-panel
+          {:on-click #(put! >local-events :click)}
+          [:div.panel-heading.recipe-header
+           [:input.form-control.recipe-header-input 
+            {:type "text" 
+             :placeholder "New recipe"
+             :value new-recipe-name
+             :on-change #(om/set-state! owner :new-recipe-name (dom/event-val %))}]]
+          [:div.panel-body.recipe-grubs
+           {:class (when (not editing) "hidden")}
+           [:textarea.form-control.recipe-grubs-input
+            {:id "recipe-grubs"
+             :rows 3 
+             :placeholder "Recipe ingredients"
+             :value new-recipe-grubs
+             :on-change #(om/set-state! owner :new-recipe-grubs (dom/event-val %))}]
+           [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
+            {:type "button"
+             :on-click #(add-recipe add new-recipe-name new-recipe-grubs owner)}
+            "Done"]]])))
     
     om/IWillMount
     (will-mount [_]
@@ -124,3 +120,15 @@
                    (a/close! subscriber))
                  (om/set-state! owner :editing false)
                  (recur))))))
+
+(defn recipes-view [recipes owner]
+  (reify
+    om/IRender
+    (render [this]
+      (html
+       [:div
+        [:h3.recipes-title "Recipes"]
+        (om/build new-recipe-view recipes)
+        [:ul#recipe-list.list-group.recipe-list
+         (for [recipe (vals recipes)]
+           (om/build recipe-view recipe {:key :id}))]]))))

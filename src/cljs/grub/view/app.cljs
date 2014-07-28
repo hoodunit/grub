@@ -22,7 +22,7 @@
     om/IWillMount
     (will-mount [_]
       (let [>events (om/get-shared owner :>events)]
-        (dom/on-body-mousedown #(put! >events {:type :body-mousedown :event %}))))))
+        (dom/on-document-mousedown #(put! >events {:type :body-mousedown :event %}))))))
     
 (defn render-app [state]
   (let [grub-add (chan)

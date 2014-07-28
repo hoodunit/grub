@@ -7,9 +7,8 @@
 (defn click-on-self? [event node]
   (.contains node (.-target event)))
 
-(defn on-body-mousedown [f]
-  (let [body-elem (aget (.getElementsByTagName js/document "body") 0)]
-    (.addEventListener body-elem "mousedown" f)))
+(defn on-document-mousedown [f]
+  (.addEventListener js/document "mousedown" f))
 
 (defn event-val [event]
   (.. event -target -value))
