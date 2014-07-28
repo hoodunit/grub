@@ -29,7 +29,8 @@
         grub-update (chan)
         grub-clear-all (chan)
         recipe-add (chan)
-        out (a/merge [grub-add grub-update grub-clear-all recipe-add])
+        recipe-add-grubs (chan)
+        out (a/merge [grub-add grub-update grub-clear-all recipe-add recipe-add-grubs])
         >events (chan)
         <events (a/pub >events :type)]
     (om/root app-view 
@@ -39,6 +40,7 @@
                        :grub-update grub-update
                        :grub-clear-all grub-clear-all
                        :recipe-add recipe-add
+                       :recipe-add-grubs recipe-add-grubs
                        :>events >events
                        :<events <events}})
     out))

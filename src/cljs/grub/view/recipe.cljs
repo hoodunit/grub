@@ -2,21 +2,35 @@
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
-            [grub.view.dom :as dom])
+            [cljs-uuid.core :as uuid]
+            [grub.view.dom :as dom]
+            [grub.view.grub :as grub-view])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn add-event [name grubs]
   {:event :add-recipe 
-   :id (str "recipe-" (.now js/Date))
+   :id (str "recipe-" (uuid/make-random))
    :name name
    :grubs grubs})
+
+(defn parse-grubs-from-str [grubs-str]
+  (->> grubs-str
+       (clojure.string/split-lines)
+       (map grub-view/new-grub)
+       (into [])))
+
+(defn add-grubs [add-grubs-ch grubs-str]
+  (let [grubs (parse-grubs-from-str grubs-str)
+        event (grub-view/add-list-event grubs)]
+    (put! add-grubs-ch event)))
 
 (defn recipe-view [recipe owner]
   (reify
     om/IRender
     (render [this]
-      (let [{:keys [id name grubs]} recipe]
+      (let [{:keys [id name grubs]} recipe
+            add-grubs-ch (om/get-shared owner :recipe-add-grubs)]
         (html
          [:div.panel.panel-default.recipe-panel
           {:id id
@@ -28,7 +42,8 @@
              :placeholder "Grub pie"
              :value name}]
            [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
-            {:type "button"}
+            {:type "button"
+             :on-click #(add-grubs add-grubs-ch grubs)}
             "Add Grubs"]]
           [:div.panel-body.recipe-grubs.hidden
            [:textarea.form-control.recipe-grubs-input
@@ -43,7 +58,7 @@
   (when (and (not (empty? name))
              (not (empty? grubs)))
     (om/set-state! owner :new-recipe-name "")
-    (om/set-state! owner :new-recipe-grubs [])
+    (om/set-state! owner :new-recipe-grubs "")
     (put! ch (add-event name grubs))))
 
 (defn recipes-view [recipes owner]

@@ -20,16 +20,16 @@
   (let [grub (new-grub (:id event) (:grub event) (:completed event))]
     (assoc-in state [:grubs (:id grub)] grub)))
 
-(defn assoc-new-grub [current new]
-  (assoc current (:id new)
-    (new-grub (:id new) (:grub new) (:completed new))))
-
-(defn make-add-grubs-map [grub-events]
-  (reduce assoc-new-grub {} grub-events))
+(defn map-by-key [key coll]
+  (->> coll
+       (map (fn [a] [(get a key) a]))
+       (into {})))
 
 (defmethod handle-event :add-grub-list [event state]
   (let [add-grub-events (:grubs event)
-        add-grubs (make-add-grubs-map add-grub-events)]
+        add-grubs (->> event
+                       :grubs
+                       (map-by-key :id))]
     (assoc state :grubs (merge (:grubs state) add-grubs))))
 
 (defmethod handle-event :update-grub [event state]

@@ -2,15 +2,22 @@
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
-            [grub.view.dom :as dom])
+            [grub.view.dom :as dom]
+            [cljs-uuid.core :as uuid])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(defn add-event [grub]
-  {:event :add-grub 
-   :id (str "grub-" (.now js/Date))
+(defn new-grub [grub]
+  {:id (str "grub-" (uuid/make-random))
    :grub grub
    :completed false})
+
+(defn add-event [grub]
+  (assoc (new-grub grub) :event :add-grub))
+
+(defn add-list-event [grubs]
+  {:event :add-grub-list
+   :grubs grubs})
 
 (defn edit-event [id grub]
   {:event :update-grub
@@ -119,7 +126,7 @@
            [:span.input-group-btn
             [:input.form-control#add-grub-input 
              {:type "text" 
-              :placeholder "2 grubs"
+              :placeholder "What do you need?"
               :value new-grub
               :on-key-up #(when (dom/enter-pressed? %)
                             (add-grub add new-grub owner))
