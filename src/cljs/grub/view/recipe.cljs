@@ -14,6 +14,12 @@
    :name name
    :grubs grubs})
 
+(defn update-event [id name grubs]
+  {:event :update-recipe 
+   :id id
+   :name name
+   :grubs grubs})
+
 (defn parse-grubs-from-str [grubs-str]
   (->> grubs-str
        (clojure.string/split-lines)
@@ -52,7 +58,75 @@
              :placeholder "2 grubs"
              :value grubs}]
            [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
-            {:type "button"} "Done"]]])))))
+            {:type "button"} "Save"]]])))))
+
+(defn update-recipe [ch id name grubs owner]
+  (when (and (not (empty? name))
+             (not (empty? grubs)))
+    (om/set-state! owner :editing false)
+    (put! ch (update-event id name grubs))))
+
+(defn recipe-view [{:keys [id] :as props} owner]
+  (reify
+    om/IInitState
+    (init-state [_]
+      (let [publisher (chan)]
+        {:editing false
+         :>local-events publisher
+         :<local-events (a/pub publisher identity)
+         :name (:name props)
+         :grubs (:grubs props)}))
+
+    om/IWillReceiveProps
+    (will-receive-props [this next-props]
+      (om/set-state! owner :name (:name next-props))
+      (om/set-state! owner :grubs (:grubs next-props)))
+
+    om/IRenderState
+    (render-state [this {:keys [editing >local-events name grubs]}]
+      (let [update (om/get-shared owner :recipe-update)]
+        (html
+         [:div.panel.panel-default.recipe-panel
+          {:on-click #(put! >local-events :click)}
+          [:div.panel-heading.recipe-header
+           [:input.form-control.recipe-header-input 
+            {:type "text" 
+             :value name
+             :on-change #(om/set-state! owner :name (dom/event-val %))}]]
+          [:div.panel-body.recipe-grubs
+           {:class (when (not editing) "hidden")}
+           [:textarea.form-control.recipe-grubs-input
+            {:id "recipe-grubs"
+             :rows 3 
+             :value grubs
+             :on-change #(om/set-state! owner :grubs (dom/event-val %))}]
+           [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
+            {:type "button"
+             :on-click #(update-recipe update id name grubs owner)}
+            "Save"]]])))
+    
+    om/IWillMount
+    (will-mount [_]
+      (let [<local-events (om/get-state owner :<local-events)
+            <events (om/get-shared owner :<events)]
+        (go-loop []
+                 (let [subscriber (chan)]
+                   (a/sub <local-events :click subscriber)
+                   (<! subscriber)
+                   (a/unsub <local-events :click subscriber)
+                   (a/close! subscriber))
+                 (om/set-state! owner :editing true)
+                 (let [subscriber (chan)]
+                   (a/sub <events :body-mousedown subscriber)
+                   (loop []
+                     (let [event (<! subscriber)]
+                       (when (and (= (:type event) :body-mousedown)
+                                  (dom/click-on-self? (:event event) (om/get-node owner)))
+                         (recur))))
+                   (a/unsub <events :body-mousedown subscriber)
+                   (a/close! subscriber))
+                 (om/set-state! owner :editing false)
+                 (recur))))))
 
 (defn add-recipe [ch name grubs owner]
   (when (and (not (empty? name))

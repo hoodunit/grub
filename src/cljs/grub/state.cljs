@@ -26,11 +26,11 @@
        (into {})))
 
 (defmethod handle-event :add-grub-list [event state]
-  (let [add-grub-events (:grubs event)
-        add-grubs (->> event
-                       :grubs
-                       (map-by-key :id))]
-    (assoc state :grubs (merge (:grubs state) add-grubs))))
+  (->> event
+       :grubs
+       (map-by-key :id)
+       (merge (:grubs state))
+       (assoc state :grubs)))
 
 (defmethod handle-event :update-grub [event state]
   (let [new-grub-info (dissoc event :event-type)
@@ -48,15 +48,16 @@
     (assoc-in state [:recipes (:id recipe)] recipe)))
 
 (defmethod handle-event :add-recipe-list [event state]
-  (->> (:recipes event)
-       (map #(new-recipe (:id %) (:name %) (:grubs %)))
-       (reduce (fn [recipes r] (assoc recipes (:id r) r)) (:recipes state))
+  (->> event
+       :recipes
+       (map-by-key :id)
+       (merge (:recipes state))
        (assoc state :recipes)))
 
 (defmethod handle-event :update-recipe [event state]
-  (->> state
-       (assoc-in [:recipes (:id event) :name] (:name event))
-       (assoc-in [:recipes (:id event) :grubs] (:grubs event))))
+  (-> state
+      (assoc-in [:recipes (:id event) :name] (:name event))
+      (assoc-in [:recipes (:id event) :grubs] (:grubs event))))
 
 (defn update-state-and-render [remote]
   (let [out (chan)
