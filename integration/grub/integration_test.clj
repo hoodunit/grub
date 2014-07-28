@@ -9,28 +9,17 @@
 (defn set-chromedriver-path! []
   (System/setProperty "webdriver.chrome.driver" "bin/chromedriver"))
 
-(defn add-grub [driver grub-text]
-  (taxi/input-text driver "#add-grub-input" grub-text)
-  (taxi/click driver {:text "Add"}))
-
 (defn get-driver [url]
   (webdriver/start {:browser :chrome} url))
 
 (defn get-rand-grub []
   (str "testgrub" (rand-int 10000)))
 
-(defn test-adding-synced-grubs [url driver1 driver2]
-  (taxi/to driver1 url)
-  (taxi/to driver2 url)
-  (let [grubs (repeatedly 4 get-rand-grub)]
-    (doseq [grub grubs]
-      (add-grub driver1 grub))
-    (doseq [grub grubs]
-      (test/is (taxi/find-element driver2 {:text grub})
-               "Added grubs should appear in other browser")))
-  (db/clear-grubs))
+(defn add-grub [driver grub-text]
+  (taxi/input-text driver "#add-grub-input" grub-text)
+  (taxi/click driver {:text "Add"}))
 
-(defn test-grubs-are-stored-on-server [url driver]
+(defn test-grubs-saved-to-server [url driver]
   (taxi/to driver url)
   (let [grubs (repeatedly 4 get-rand-grub)]
     (doseq [grub grubs]
@@ -42,7 +31,41 @@
       (test/is (taxi/find-element driver {:text grub})
                "Previously added grubs should be loaded on refresh")))
   (db/clear-grubs))
-  
+
+(defn test-added-grubs-sync [url driver1 driver2]
+  (taxi/to driver1 url)
+  (taxi/to driver2 url)
+  (let [grubs (repeatedly 4 get-rand-grub)]
+    (doseq [grub grubs]
+      (add-grub driver1 grub))
+    (doseq [grub grubs]
+      (test/is (taxi/find-element driver2 {:text grub})
+               "Added grubs should appear in other browser"))))
+
+(defn get-rand-recipe []
+  {:name (str "recipe" (rand-int 10000))
+   :grubs "grubs\nstuff\nmorestuff"})
+
+(defn add-recipe [driver {:keys [name grubs]}]
+  (taxi/click driver "#new-recipe-name")
+  (taxi/input-text driver "#new-recipe-name" name)
+  (taxi/input-text driver "#new-recipe-grubs" grubs)
+  (taxi/click driver {:text "Done"}))
+ 
+(defn test-added-recipes-sync [url driver1 driver2]
+  (taxi/to driver1 url)
+  (taxi/to driver2 url)
+  (let [recipes (repeatedly 4 get-rand-recipe )]
+    (doseq [recipe recipes]
+      (add-recipe driver2 recipe))
+    (doseq [{:keys [name]} recipes]
+      (test/is (taxi/find-element driver2 {:text name})
+               "Added recipes should appear in other browser"))))
+
+(defn run-tests [site-url driver1 driver2]
+  (test-grubs-saved-to-server site-url driver1)
+  (test-added-grubs-sync site-url driver1 driver2)
+  (test-added-recipes-sync site-url driver1 driver2))
 
 (defn run [port]
   (set-chromedriver-path!)
@@ -52,8 +75,7 @@
     (ws/pass-received-events-to-clients-and-db db-chan)
     (let [driver1 (get-driver site-url)
           driver2 (get-driver site-url)]
-      (test-grubs-are-stored-on-server site-url driver1)
-      (test-adding-synced-grubs site-url driver1 driver2)
+      (run-tests site-url driver1 driver2)
       (taxi/quit driver1)
       (taxi/quit driver2)))
   (db/clear-grubs))
