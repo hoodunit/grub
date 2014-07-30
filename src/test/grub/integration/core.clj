@@ -1,4 +1,4 @@
-(ns grub.integration-test
+(ns grub.test.integration.core
   (:require [grub.db :as db]
             [grub.websocket :as ws]
             [clj-webdriver.taxi :as taxi]

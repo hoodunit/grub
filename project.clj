@@ -30,7 +30,7 @@
                        :prod {:source-paths ["src/cljs"]
                               :compiler {:output-to "public/js/grub.js"
                                          :optimizations :advanced}}}}
-  :source-paths ["src/clj" "integration"]
+  :source-paths ["src/clj" "src/test"]
   :test-paths ["spec/clj"]
   :ring {:handler grub.core/app}
   :uberjar-name "grub-standalone.jar"

@@ -1,7 +1,7 @@
 (ns grub.core
   (:require [grub.websocket :as ws]
             [grub.db :as db]
-            [grub.integration-test :as integration-test]
+            [grub.test.integration.core :as integration-test]
             [ring.middleware.reload :as reload]
             [ring.middleware.file :as file]
             [ring.util.response :as resp]
