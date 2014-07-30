@@ -31,31 +31,6 @@
         event (grub-view/add-list-event grubs)]
     (put! add-grubs-ch event)))
 
-(defn recipe-view [recipe owner]
-  (reify
-    om/IRender
-    (render [this]
-      (let [{:keys [id name grubs]} recipe
-            add-grubs-ch (om/get-shared owner :recipe-add-grubs)]
-        (html
-         [:div.panel.panel-default.recipe-panel
-          {:id id
-           :key id}
-          [:div.panel-heading.recipe-header
-           [:input.form-control.recipe-header-input 
-            {:type "text" 
-             :value name}]
-           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
-            {:type "button"
-             :on-click #(add-grubs add-grubs-ch grubs)}
-            "Add Grubs"]]
-          [:div.panel-body.recipe-grubs.hidden
-           [:textarea.form-control.recipe-grubs-input
-            {:rows 3 
-             :value grubs}]
-           [:button.btn.btn-primary.hidden.pull-right.recipe-btn.recipe-done-btn
-            {:type "button"} "Save"]]])))))
-
 (defn update-recipe [ch id name grubs owner]
   (when (and (not (empty? name))
              (not (empty? grubs)))
@@ -80,7 +55,8 @@
 
     om/IRenderState
     (render-state [this {:keys [editing >local-events name grubs]}]
-      (let [update (om/get-shared owner :recipe-update)]
+      (let [update (om/get-shared owner :recipe-update)
+            add-grubs-ch (om/get-shared owner :recipe-add-grubs)]
         (html
          [:div.panel.panel-default.recipe-panel
           {:on-click #(put! >local-events :click)}
@@ -88,7 +64,11 @@
            [:input.form-control.recipe-header-input 
             {:type "text" 
              :value name
-             :on-change #(om/set-state! owner :name (dom/event-val %))}]]
+             :on-change #(om/set-state! owner :name (dom/event-val %))}]
+           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
+            {:type "button"
+             :on-click #(add-grubs add-grubs-ch grubs)}
+            "Add Grubs"]]
           [:div.panel-body.recipe-grubs
            {:class (when (not editing) "hidden")}
            [:textarea.form-control.recipe-grubs-input

@@ -113,7 +113,7 @@ tr:hover .grub-close {
 
 .recipe-panel {
   padding: 0px;
-  margin-bottom: -1px;
+  margin-bottom: 0px;
 }
 
 .recipe-panel > .recipe-header {
@@ -131,8 +131,8 @@ tr:hover .grub-close {
   box-shadow: none;
   transition: none;
   border-bottom: none;
-  width: inherit;
   display: inline;
+  width: inherit;
 }
 
 .recipe-header-input:focus {
@@ -144,9 +144,6 @@ tr:hover .grub-close {
 
 .recipe-btn {
   margin-top: 10px;
-}
-
-.recipe-grubs {
 }
 
 .recipe-grubs-input {
