@@ -5,6 +5,9 @@
             [clj-webdriver.core :as webdriver]
             [clojure.test :as test]))
 
+(def server-port 3456)
+(def site-url (str "http://localhost:" server-port))
+
 ;; Hard-coded path to chromedriver
 (defn set-chromedriver-path! []
   (System/setProperty "webdriver.chrome.driver" "bin/chromedriver"))
@@ -57,9 +60,9 @@
   (taxi/to driver2 url)
   (let [recipes (repeatedly 4 get-rand-recipe )]
     (doseq [recipe recipes]
-      (add-recipe driver2 recipe))
+      (add-recipe driver1 recipe))
     (doseq [{:keys [name]} recipes]
-      (test/is (taxi/find-element driver2 {:text name})
+      (test/is (taxi/find-element driver2 {:value name})
                "Added recipes should appear in other browser"))))
 
 (defn run-tests [site-url driver1 driver2]
@@ -67,15 +70,18 @@
   (test-added-grubs-sync site-url driver1 driver2)
   (test-added-recipes-sync site-url driver1 driver2))
 
-(defn run [port]
+(defn start-db-and-websocket-server! []
+  (let [db-chan (db/connect-and-handle-events "grub-integration-test")]
+    (db/clear-all)
+    (ws/pass-received-events-to-clients-and-db db-chan)))
+
+(defn run []
+  (println "Starting integration test")
   (set-chromedriver-path!)
-  (let [db-chan (db/connect-and-handle-events "grub-integration-test")
-        site-url (str "http://localhost:" port)]
-    (println "Starting integration test")
-    (ws/pass-received-events-to-clients-and-db db-chan)
-    (let [driver1 (get-driver site-url)
-          driver2 (get-driver site-url)]
-      (run-tests site-url driver1 driver2)
-      (taxi/quit driver1)
-      (taxi/quit driver2)))
-  (db/clear-grubs))
+  (start-db-and-websocket-server!)
+  (let [driver1 (get-driver site-url)
+        driver2 (get-driver site-url)]
+    (run-tests site-url driver1 driver2)
+    (taxi/quit driver1)
+    (taxi/quit driver2))
+  (db/clear-all))

@@ -60,14 +60,13 @@
       (handler/site routes))))
 
 (def default-port 3000)
-(def integration-test-port 3456)
 
 (defn start-server [port]
   (httpkit/run-server app {:port port}))
 
 (defn run-integration-test []
-  (let [stop-server (start-server integration-test-port)]
-    (integration-test/run integration-test-port)
+  (let [stop-server (start-server integration-test/server-port)]
+    (integration-test/run)
     (stop-server)))
 
 (defn start-production-server [{:keys [port mongo-url]}]

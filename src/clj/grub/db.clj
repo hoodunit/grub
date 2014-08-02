@@ -12,6 +12,13 @@
 (defn clear-grubs [] 
   (mc/drop @db grub-collection))
 
+(defn clear-recipes [] 
+  (mc/drop @db recipe-collection))
+
+(defn clear-all []
+  (clear-grubs)
+  (clear-recipes))
+
 (defmulti handle-event :event :default :unknown-event)
 
 (defn insert-grub [event]
