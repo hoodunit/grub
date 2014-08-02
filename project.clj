@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/clojurescript "0.0-2234"]
+                 [org.clojure/clojurescript "0.0-2277"]
                  [org.clojure/core.async "0.1.303.0-886421-alpha"]
                  [http-kit "2.1.18"]
                  [compojure "1.1.8"]
@@ -15,7 +15,7 @@
                  [com.novemberain/monger "2.0.0"]
                  [org.clojure/tools.cli "0.3.1"]
                  [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]
-                 [om "0.6.4"]
+                 [om "0.7.0"]
                  [sablono "0.2.17"]
                  [cljs-uuid "0.0.4"]]
   :profiles {:uberjar {:aot :all}}
