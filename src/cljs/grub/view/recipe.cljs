@@ -1,152 +1,194 @@
 (ns grub.view.recipe
-  (:require [grub.view.dom :as dom]
-            [cljs.core.async :as a :refer [<! >! chan]])
-  (:require-macros [grub.macros :refer [log logs and-let]]
+  (:require [om.core :as om :include-macros true]
+            [sablono.core :as html :refer-macros [html]]
+            [cljs.core.async :as a :refer [<! put! chan]]
+            [cljs-uuid.core :as uuid]
+            [grub.view.dom :as dom]
+            [grub.view.grub :as grub-view])
+  (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(defn wait-for-new-recipe-input-click []
-  (:chan (dom/listen-once dom/new-recipe :click)))
+(defn add-event [name grubs]
+  {:event :add-recipe 
+   :id (str "recipe-" (uuid/make-random))
+   :name name
+   :grubs grubs})
 
-(defn parse-new-recipe-event []
-  (let [name (dom/-get-name dom/new-recipe)
-        grubs (dom/-get-grubs-str dom/new-recipe)]
-    (when (not (or (empty? name) (empty? grubs)))
-      (let [id (str "recipe-" (.now js/Date))]
-        {:event :add-recipe 
-         :name name 
-         :grubs grubs 
-         :id id}))))
+(defn update-event [id name grubs]
+  {:event :update-recipe 
+   :id id
+   :name name
+   :grubs grubs})
 
-(defn wait-for-create-event []
-  (let [out (chan)
-        {ctrl-enters :chan
-         ctrl-enters-unlisten :unlisten} (dom/get-ctrl-enters)
-        {away-clicks :chan
-         away-clicks-unlisten :unlisten} (dom/get-away-clicks dom/new-recipe)
-        {done-clicks :chan
-         done-clicks-unlisten :unlisten} (dom/get-clicks dom/new-recipe-done-btn)]
-    (go (a/alts! [ctrl-enters away-clicks done-clicks])
-        (ctrl-enters-unlisten)
-        (away-clicks-unlisten)
-        (done-clicks-unlisten)
-        (when-let [event (parse-new-recipe-event)]
-          (>! out event))
-        (a/close! out))
-    out))
+(defn parse-grubs-from-str [grubs-str]
+  (->> grubs-str
+       (clojure.string/split-lines)
+       (map grub-view/new-grub)
+       (into [])))
 
-(defn get-create-events []
-  (let [out (chan)]
-    (go-loop []
-             (<! (wait-for-new-recipe-input-click))
-             (dom/-expand! dom/new-recipe)
-             (when-let [create-event (<! (wait-for-create-event))]
-               (>! out create-event)
-               (dom/-clear! dom/new-recipe))
-             (dom/-unexpand! dom/new-recipe)
-             (recur))
-    out))
+(defn add-grubs [add-grubs-ch grubs-str]
+  (let [grubs (parse-grubs-from-str grubs-str)
+        event (grub-view/add-list-event grubs)]
+    (put! add-grubs-ch event)))
 
-(defn wait-for-edit-recipe-input-click []
-  (dom/get-edit-recipe-input-click))
+(defn update-recipe [ch id name grubs owner]
+  (when (and (not (empty? name))
+             (not (empty? grubs)))
+    (om/set-state! owner :editing false)
+    (put! ch (update-event id name grubs))))
 
-(defn parse-update-recipe-event [elem]
-  (let [id (.-id elem)
-        name (dom/-get-name elem)
-        grubs (dom/-get-grubs-str elem)]
-    (when (not (or (empty? name) (empty? grubs)))
-        {:event :update-recipe 
-         :name name 
-         :grubs grubs 
-         :id id})))
+(defn recipe-view [{:keys [id] :as props} owner]
+  (reify
+    om/IInitState
+    (init-state [_]
+      (let [publisher (chan)]
+        {:editing false
+         :>local-events publisher
+         :<local-events (a/pub publisher identity)
+         :name (:name props)
+         :grubs (:grubs props)}))
 
-(defn wait-for-update-event [elem]
-  (let [out (chan)
-        {ctrl-enters :chan
-         ctrl-enters-unlisten :unlisten} (dom/get-ctrl-enters)
-        {away-clicks :chan
-         away-clicks-unlisten :unlisten} (dom/get-away-clicks elem)
-        {done-clicks :chan
-         done-clicks-unlisten :unlisten} (dom/get-clicks (dom/recipe-done-btn-selector elem))]
-    (go (a/alts! [ctrl-enters away-clicks done-clicks])
-        (ctrl-enters-unlisten)
-        (away-clicks-unlisten)
-        (done-clicks-unlisten)
-        (when-let [event (parse-update-recipe-event elem)]
-          (>! out event))
-        (a/close! out))
-    out))
+    om/IWillReceiveProps
+    (will-receive-props [this next-props]
+      (om/set-state! owner :name (:name next-props))
+      (om/set-state! owner :grubs (:grubs next-props)))
 
-(defn get-update-events []
-  (let [out (chan)]
-    (go-loop []
-             (let [recipe-elem (<! (wait-for-edit-recipe-input-click))]
-               (dom/-expand! recipe-elem)
-               (when-let [update-event (<! (wait-for-update-event recipe-elem))]
-                 (>! out update-event))
-               (dom/-unexpand! recipe-elem)
-               (recur)))
-    out))
+    om/IRenderState
+    (render-state [this {:keys [editing >local-events name grubs]}]
+      (let [update (om/get-shared owner :recipe-update)
+            add-grubs-ch (om/get-shared owner :recipe-add-grubs)]
+        (html
+         [:div.panel.panel-default.recipe-panel
+          {:on-click #(put! >local-events :click)}
+          [:div.panel-heading.recipe-header
+           [:input.form-control.recipe-header-input 
+            {:type "text" 
+             :value name
+             :on-change #(om/set-state! owner :name (dom/event-val %))}]
+           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
+            {:type "button"
+             :on-click #(add-grubs add-grubs-ch grubs)}
+            "Add Grubs"]]
+          [:div.panel-body.recipe-grubs
+           {:class (when (not editing) "hidden")}
+           [:textarea.form-control.recipe-grubs-input
+            {:id "recipe-grubs"
+             :rows 3 
+             :value grubs
+             :on-change #(om/set-state! owner :grubs (dom/event-val %))}]
+           [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
+            {:type "button"
+             :on-click #(update-recipe update id name grubs owner)}
+            "Save"]]])))
+    
+    om/IWillMount
+    (will-mount [_]
+      (let [<local-events (om/get-state owner :<local-events)
+            <events (om/get-shared owner :<events)]
+        (go-loop []
+                 (let [subscriber (chan)]
+                   (a/sub <local-events :click subscriber)
+                   (<! subscriber)
+                   (a/unsub <local-events :click subscriber)
+                   (a/close! subscriber))
+                 (om/set-state! owner :editing true)
+                 (let [subscriber (chan)]
+                   (a/sub <events :body-mousedown subscriber)
+                   (loop []
+                     (let [event (<! subscriber)]
+                       (when (and (= (:type event) :body-mousedown)
+                                  (dom/click-on-self? (:event event) (om/get-node owner)))
+                         (recur))))
+                   (a/unsub <events :body-mousedown subscriber)
+                   (a/close! subscriber))
+                 (om/set-state! owner :editing false)
+                 (recur))))))
 
-(defn get-add-grub-events []
-  (let [out (chan)
-        recipe-add-grubs-clicks (dom/get-recipe-add-grubs-clicks)]
-    (go-loop []
-             (let [elem (<! recipe-add-grubs-clicks)
-                   grub-texts (dom/-get-grubs elem)
-                   grubs (map-indexed (fn [index g] {:id (str "grub-" (.now js/Date) index)
-                                                     :grub g
-                                                     :completed false})
-                                      grub-texts)
-                   event {:event :add-grub-list
-                          :grubs grubs}]
-               (>! out event))
-             (recur))
-    out))
-  
+(defn add-recipe [ch name grubs owner]
+  (when (and (not (empty? name))
+             (not (empty? grubs)))
+    (om/set-state! owner :new-recipe-name "")
+    (om/set-state! owner :new-recipe-grubs "")
+    (om/set-state! owner :editing false)
+    (put! ch (add-event name grubs))))
 
-(defmulti handle-event (fn [event recipes] (:event event))
-  :default :unknown-event)
+(defn new-recipe-view [_ owner]
+  (reify
+    om/IInitState
+    (init-state [_]
+      (let [publisher (chan)]
+        {:editing false
+         :>local-events publisher
+         :<local-events (a/pub publisher identity)
+         :new-recipe-name ""
+         :new-recipe-grubs ""}))
 
-(defmethod handle-event :unknown-event [event recipes]
-  ;(logs "Cannot handle unknown event:" event)
-  recipes)
+    om/IRenderState
+    (render-state [this {:keys [editing >local-events new-recipe-name new-recipe-grubs]}]
+      (let [add (om/get-shared owner :recipe-add)]
+        (html
+         [:div.panel.panel-default.recipe-panel
+          {:on-click #(put! >local-events :click)}
+          [:div.panel-heading.recipe-header
+           [:input.form-control.recipe-header-input 
+            {:id "new-recipe-name"
+             :type "text" 
+             :placeholder "New recipe"
+             :value new-recipe-name
+             :on-change #(om/set-state! owner :new-recipe-name (dom/event-val %))}]]
+          [:div.panel-body.recipe-grubs
+           {:class (when (not editing) "hidden")}
+           [:textarea.form-control.recipe-grubs-input
+            {:id "new-recipe-grubs"
+             :rows 3 
+             :placeholder "Recipe ingredients"
+             :value new-recipe-grubs
+             :on-change #(om/set-state! owner :new-recipe-grubs (dom/event-val %))}]
+           [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
+            {:type "button"
+             :on-click #(put! >local-events :done)}
+            "Done"]]])))
+    
+    om/IWillMount
+    (will-mount [_]
+      (let [<local-events (om/get-state owner :<local-events)
+            <events (om/get-shared owner :<events)
+            add (om/get-shared owner :recipe-add)
+            ]
+        (go-loop []
+                 (let [subscriber (chan)]
+                   (a/sub <local-events :click subscriber)
+                   (<! subscriber)
+                   (a/unsub <local-events :click subscriber)
+                   (a/close! subscriber))
+                 (om/set-state! owner :editing true)
+                 (let [subscriber (chan)]
+                   (a/sub <events :body-mousedown subscriber)
+                   (a/sub <local-events :done subscriber)
+                   (loop []
+                     (let [event (<! subscriber)]
+                       (if-not (and (= (:type event) :body-mousedown)
+                                  (dom/click-on-self? (:event event) (om/get-node owner)))
+                         (when (= event :done)
+                           (add-recipe add 
+                                       (om/get-state owner :new-recipe-name)
+                                       (om/get-state owner :new-recipe-grubs)
+                                       owner))
+                         (recur))))
+                   (a/unsub <events :body-mousedown subscriber)
+                   (a/unsub <local-events :done subscriber)
+                   (a/close! subscriber))
+                 (om/set-state! owner :editing false)
+                 (recur))))))
 
-(defmethod handle-event :add-recipe [event recipes]
-  (let [recipe (dom/add-new-recipe! (:id event)
-                                   (:name event)
-                                   (:grubs event))]
-    (assoc recipes (:id recipe) recipe)))
-
-(defn assoc-new-recipe! [current new]
-  (assoc current (:id new)
-    (dom/add-new-recipe! (:id new) (:name new) (:grubs new))))
-
-(defn add-new-recipes! [recipe-events]
-  (reduce assoc-new-recipe! {} recipe-events))
-
-(defmethod handle-event :add-recipe-list [event recipes]
-  (let [add-recipe-events (:recipes event)
-        added-recipes (add-new-recipes! add-recipe-events)
-        new-recipes (merge recipes added-recipes)]
-    new-recipes))
-
-(defmethod handle-event :update-recipe [event recipes]
-  (let [recipe (get recipes (:id event))
-        updated-recipe (-> recipe
-                       (assoc :name (:name event))
-                       (assoc :grubs (:grubs event)))]
-    (dom/-update-recipe! updated-recipe)
-    (assoc recipes (:id recipes) updated-recipe)))
-  
-(defn handle-recipes [remote-events]
-  (let [out (chan)
-        local-events [(get-create-events)
-                      (get-update-events)]
-        add-grub-events (get-add-grub-events)]
-    (a/pipe add-grub-events out)
-    (go-loop [recipes {}] 
-             (let [[event c] (a/alts! (conj local-events remote-events))]
-               (when-not (= c remote-events)
-                 (>! out event))
-               (recur (handle-event event recipes))))
-    out))
+(defn recipes-view [recipes owner]
+  (reify
+    om/IRender
+    (render [this]
+      (html
+       [:div
+        [:h3.recipes-title "Recipes"]
+        (om/build new-recipe-view recipes)
+        [:ul#recipe-list.list-group.recipe-list
+         (for [recipe (vals recipes)]
+           (om/build recipe-view recipe {:key :id}))]]))))

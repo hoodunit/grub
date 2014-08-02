@@ -1,7 +1,7 @@
 (ns grub.core
   (:require [grub.websocket :as ws]
             [grub.db :as db]
-            [grub.integration-test :as integration-test]
+            [grub.test.integration.core :as integration-test]
             [ring.middleware.reload :as reload]
             [ring.middleware.file :as file]
             [ring.util.response :as resp]
@@ -25,7 +25,8 @@
   (html5
    index-page-header
    [:body
-    (include-js "http://fb.me/react-0.9.0.js")
+    [:div#container]
+    (include-js "/js/react-0.9.0.min.js")
     (include-js "/js/jquery.js")
     (include-js "/js/bootstrap.js")
     (include-js "/js/grub.js")]))
@@ -34,7 +35,8 @@
   (html5
    index-page-header
    [:body
-    (include-js "http://fb.me/react-0.9.0.js")
+    [:div#container]
+    (include-js "/js/react-0.9.0.js")
     (include-js "/js/out/goog/base.js")
     (include-js "/js/jquery.js")
     (include-js "/js/bootstrap.js")
@@ -58,14 +60,13 @@
       (handler/site routes))))
 
 (def default-port 3000)
-(def integration-test-port 3456)
 
 (defn start-server [port]
   (httpkit/run-server app {:port port}))
 
 (defn run-integration-test []
-  (let [stop-server (start-server integration-test-port)]
-    (integration-test/run integration-test-port)
+  (let [stop-server (start-server integration-test/server-port)]
+    (integration-test/run)
     (stop-server)))
 
 (defn start-production-server [{:keys [port mongo-url]}]

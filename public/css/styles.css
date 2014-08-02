@@ -1,161 +1,162 @@
 html, body {
-    height: 100%;
-    min-height: 100%;
-    width: 100%;
-    min-width: 100%;
-    margin: 0px;
+  height: 100%;
+  min-height: 100%;
+  width: 100%;
+  min-width: 100%;
+  margin: 0px;
 }
 
 h3 {
-    margin-top: 10px;
+  margin-top: 10px;
 }
 
 .recipes-title {
-    clear: right;
+  clear: right;
 }
 
 .recipe-list {
-    margin-top: 10px;
+  margin-top: 10px;
 }
 
 #recipe-grubs {
-    width: 100%;
+  width: 100%;
 }
 
 .recipe-add-grubs-btn {
-    float: right;
-    clear: both;
-    margin: 2px;
+  float: right;
+  clear: both;
+  margin: 2px;
 }
 
 .hidden {
-    display: none;
+  display: none;
 }
 
 .leftmost-column {
-    margin-bottom: 45px;
+  margin-bottom: 45px;
 }
 
 .grub-close {
-    display: none;
+  display: none;
 }
 
 tr:hover .grub-close {
-    display: block;
+  display: block;
 }
 
 #grub-list {
-    margin-top: 10px;
-    margin-bottom: 10px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.add-grub-input-form .input-group-btn {
+  width: 100%;
 }
 
 .grub-item {
-    cursor: default;
-    -webkit-user-select: none;  
-    -moz-user-select: none;    
-    -ms-user-select: none;      
-    user-select: none;
+  cursor: default;
+  -webkit-user-select: none;  
+  -moz-user-select: none;    
+  -ms-user-select: none;      
+  user-select: none;
 }
 
 .grub-item.grub-active {
-    color: #ffffff;
-    background-color: rgb(71, 73, 73);
+  color: #ffffff;
+  background-color: rgb(71, 73, 73);
 }
 
 .grub-item .input-span {
-    display: block;
-    overflow: hidden;
+  display: block;
+  overflow: hidden;
 }
 
 .grub-item .grub-static {
-    display: inline;
+  display: inline;
 }
 
 .grub-item .grub-input {
-    display: none;
+  display: none;
 }
 
 .grub-item.edit .grub-static {
-    display: none;
+  display: none;
 }
 
 .grub-item.edit .grub-input {
-    display: inline;
-    width: 100%;
+  display: inline;
+  width: 100%;
 }
 
 .grub-item .glyphicon {
-    margin-right: 5px;
+  margin-right: 5px;
 }
 
 .completed {
-    text-decoration: line-through;
-    color: #a9a9a9;
+  text-decoration: line-through;
+  color: #a9a9a9;
 }
 
 .completed.edit {
-    text-decoration: none;
-    color: default;
+  text-decoration: none;
+  color: default;
 }
 
 .panel-body {
-    padding: 10px;
-    padding-top: 0px;
+  padding: 10px;
+  padding-top: 0px;
 }
 
 .panel-heading {
-    background-color: #ffffff;
+  background-color: #ffffff;
 }
 
 .recipe-panel {
-    padding: 0px;
-    margin-bottom: -1px;
+  padding: 0px;
+  margin-bottom: 0px;
 }
 
 .recipe-panel > .recipe-header {
-    background-color: #ffffff;
+  background-color: #ffffff;
 }
 
 .recipe-header {
-    margin: 0px;
-    padding: 0px;
-    border-bottom: none;
+  margin: 0px;
+  padding: 0px;
+  border-bottom: none;
 }
 
 .recipe-header-input {
-    border: none;
-    box-shadow: none;
-    transition: none;
-    border-bottom: none;
-    width: inherit;
-    display: inline;
+  border: none;
+  box-shadow: none;
+  transition: none;
+  border-bottom: none;
+  display: inline;
+  width: inherit;
 }
 
 .recipe-header-input:focus {
-    border: none;
-    box-shadow: none;
-    transition: none;
-    outline: none;
+  border: none;
+  box-shadow: none;
+  transition: none;
+  outline: none;
 }
 
 .recipe-btn {
-    margin-top: 10px;
-}
-
-.recipe-grubs {
+  margin-top: 10px;
 }
 
 .recipe-grubs-input {
-    border: none;
-    box-shadow: none;
-    transition: none;
-    border-bottom: none;
-    resize: none;
+  border: none;
+  box-shadow: none;
+  transition: none;
+  border-bottom: none;
+  resize: none;
 }
 
 .recipe-grubs-input:focus {
-    border: none;
-    box-shadow: none;
-    transition: none;
-    border-bottom: none;
+  border: none;
+  box-shadow: none;
+  transition: none;
+  border-bottom: none;
 }
