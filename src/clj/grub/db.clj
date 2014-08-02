@@ -91,7 +91,7 @@
 (defn connect! [db-name mongo-url]
   (if mongo-url
     (do (println "Connected to mongo via url:" mongo-url)
-        (m/connect-via-uri mongo-url))
+        (:conn (m/connect-via-uri mongo-url)))
     (do (println "Connected to mongo at localhost:" db-name)
         (m/connect))))
 
