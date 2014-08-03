@@ -1,5 +1,7 @@
 /target
 /public/js/out
+/public/js/grub.js
+/public/js/grub.min.js
 /lib
 /classes
 /checkouts

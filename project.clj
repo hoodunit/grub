@@ -24,12 +24,15 @@
             [lein-ring "0.8.6"]]
   :cljsbuild {:builds {:dev {:source-paths ["src/cljs"]
                              :compiler {:output-dir "public/js/out"
-                                        :output-to "public/js/grub_dev.js"
+                                        :output-to "public/js/grub.js"
                                         :optimizations :none
                                         :source-map true}}
                        :prod {:source-paths ["src/cljs"]
-                              :compiler {:output-to "public/js/grub.js"
-                                         :optimizations :advanced}}}}
+                              :compiler {:output-to "public/js/grub.min.js"
+                                         :optimizations :advanced
+                                         :pretty-print false
+                                         :preamble ["react/react.min.js"]
+                                         :externs ["react/externs/react.js"]}}}}
   :source-paths ["src/clj" "src/test"]
   :test-paths ["spec/clj"]
   :ring {:handler grub.core/app}

@@ -14,33 +14,29 @@
              [page :refer [include-js include-css]]]
             [clojure.tools.cli :refer [parse-opts]]))
 
-(def index-page-header
-  [:head
-   [:title "Grub"]
-   [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-   (include-css "/css/bootstrap.css")
-   (include-css "/css/styles.css")])
-
 (def prod-index-page
   (html5
-   index-page-header
+   [:head
+    [:title "Grub"]
+    [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+    (include-css "/css/bootstrap.min.css")
+    (include-css "/css/styles.css")]
    [:body
     [:div#container]
-    (include-js "/js/react-0.9.0.min.js")
-    (include-js "/js/jquery.js")
-    (include-js "/js/bootstrap.js")
-    (include-js "/js/grub.js")]))
+    (include-js "/js/grub.min.js")]))
 
 (def dev-index-page
   (html5
-   index-page-header
+   [:head
+    [:title "Grub"]
+    [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+    (include-css "/css/bootstrap.css")
+    (include-css "/css/styles.css")]
    [:body
     [:div#container]
-    (include-js "/js/react-0.9.0.js")
+    (include-js "/js/react-0.11.1.js")
     (include-js "/js/out/goog/base.js")
-    (include-js "/js/jquery.js")
-    (include-js "/js/bootstrap.js")
-    (include-js "/js/grub_dev.js")
+    (include-js "/js/grub.js")
     [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))
 
 (def index-page (atom dev-index-page))
