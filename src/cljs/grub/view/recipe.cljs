@@ -55,8 +55,6 @@
     (init-state [_]
       (let [publisher (chan)]
         {:edit-state :waiting
-         :>local-events publisher
-         :<local-events (a/pub publisher identity)
          :name (:name props)
          :grubs (:grubs props)}))
 
@@ -66,7 +64,7 @@
       (om/set-state! owner :grubs (:grubs next-props)))
 
     om/IRenderState
-    (render-state [this {:keys [edit-state >local-events name grubs]}]
+    (render-state [this {:keys [edit-state name grubs]}]
       (let [update (om/get-shared owner :recipe-update)
             add-grubs-ch (om/get-shared owner :recipe-add-grubs)]
         (html

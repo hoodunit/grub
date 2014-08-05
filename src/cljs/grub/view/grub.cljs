@@ -62,12 +62,10 @@
     (init-state [_]
       (let [publisher (chan)]
         {:edit-state :waiting
-         :>local-events publisher
-         :<local-events (a/pub publisher identity)
          :grub grub}))
 
     om/IRenderState
-    (render-state [_ {:keys [edit-state >local-events] :as state}]
+    (render-state [_ {:keys [edit-state] :as state}]
       (html
        [:li.list-group-item.grub-item 
         {:class [(when completed "completed")
