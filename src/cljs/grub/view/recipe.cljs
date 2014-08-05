@@ -181,7 +181,7 @@
                  (om/set-state! owner :editing false)
                  (recur))))))
 
-(defn recipes-view [recipes owner]
+(defn view [recipes owner]
   (reify
     om/IRender
     (render [this]

@@ -1,9 +1,9 @@
 (ns grub.view.app
   (:require [om.core :as om :include-macros true]
-            [sablono.core :as html :refer-macros [html]]
+            [sablono.core :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
             [grub.view.dom :as dom]
-            [grub.view.grub :as grub]
+            [grub.view.grub-list :as grub-list]
             [grub.view.recipe :as recipe])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
@@ -16,9 +16,9 @@
        [:div.container
         [:div.row
          [:div.col-sm-6.leftmost-column
-          (om/build grub/grubs-view (:grubs props))]
+          (om/build grub-list/view (:grubs props))]
          [:div.col-sm-6
-          (om/build recipe/recipes-view (:recipes props))]]]))
+          (om/build recipe/view (:recipes props))]]]))
     om/IWillMount
     (will-mount [_]
       (let [>events (om/get-shared owner :>events)]
