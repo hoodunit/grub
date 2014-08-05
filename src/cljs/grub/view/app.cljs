@@ -4,7 +4,7 @@
             [cljs.core.async :as a :refer [<! put! chan]]
             [grub.view.dom :as dom]
             [grub.view.grub-list :as grub-list]
-            [grub.view.recipe :as recipe])
+            [grub.view.recipe-list :as recipe-list])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -18,7 +18,7 @@
          [:div.col-sm-6.leftmost-column
           (om/build grub-list/view (:grubs props))]
          [:div.col-sm-6
-          (om/build recipe/view (:recipes props))]]]))
+          (om/build recipe-list/view (:recipes props))]]]))
     om/IWillMount
     (will-mount [_]
       (let [>events (om/get-shared owner :>events)]
