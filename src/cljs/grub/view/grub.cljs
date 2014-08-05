@@ -79,7 +79,6 @@
          :on-mouse-up #(transition-state owner :mouse-up) 
          :on-mouse-leave #(transition-state owner :mouse-leave)
          :on-touch-start #(transition-state owner :touch-start)
-         :on-touch-move #(transition-state owner :touch-move)
          :on-touch-cancel #(transition-state owner :touch-cancel)
          :on-touch-end #(transition-state owner :touch-end)} 
         [:span.grub-static
