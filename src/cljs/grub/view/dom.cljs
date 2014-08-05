@@ -5,6 +5,9 @@
     (= (.-which event) enter-keycode)))
 
 (defn click-on-self? [event node]
+  (click-on-elem? event node))
+
+(defn click-on-elem? [event node]
   (.contains node (.-target event)))
 
 (defn on-document-mousedown [f]

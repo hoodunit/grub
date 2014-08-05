@@ -31,18 +31,30 @@
         event (grub-view/add-list-event grubs)]
     (put! add-grubs-ch event)))
 
-(defn update-recipe [ch id name grubs owner]
-  (when (and (not (empty? name))
-             (not (empty? grubs)))
-    (om/set-state! owner :editing false)
-    (put! ch (update-event id name grubs))))
+(def transitions
+  {:waiting {:click :editing}
+   :editing {:body-mousedown :waiting
+             :save :waiting}})
+
+(defn transition-state [owner event]
+  (let [current (om/get-state owner :edit-state)
+        next (or (get-in transitions [current event]) current)]
+    (condp = [current next]
+      [:editing :waiting] (let [update-ch (om/get-shared owner :recipe-update)
+                                id (:id @(om/get-props owner))
+                                name (om/get-state owner :name)
+                                grubs (om/get-state owner :grubs)
+                                event (update-event id name grubs)]
+                            (put! update-ch event))
+      nil)
+    (om/set-state! owner :edit-state next)))
 
 (defn view [{:keys [id] :as props} owner]
   (reify
     om/IInitState
     (init-state [_]
       (let [publisher (chan)]
-        {:editing false
+        {:edit-state :waiting
          :>local-events publisher
          :<local-events (a/pub publisher identity)
          :name (:name props)
@@ -54,12 +66,15 @@
       (om/set-state! owner :grubs (:grubs next-props)))
 
     om/IRenderState
-    (render-state [this {:keys [editing >local-events name grubs]}]
+    (render-state [this {:keys [edit-state >local-events name grubs]}]
       (let [update (om/get-shared owner :recipe-update)
             add-grubs-ch (om/get-shared owner :recipe-add-grubs)]
         (html
          [:div.panel.panel-default.recipe-panel
-          {:on-click #(put! >local-events :click)}
+          {:on-click 
+           #(when (not (or (dom/click-on-elem? % (om/get-node owner :add-grubs-btn))
+                           (dom/click-on-elem? % (om/get-node owner :save-btn))))
+              (transition-state owner :click))}
           [:div.panel-heading.recipe-header
            [:input.form-control.recipe-header-input 
             {:type "text" 
@@ -67,10 +82,11 @@
              :on-change #(om/set-state! owner :name (dom/event-val %))}]
            [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
             {:type "button"
+             :ref :add-grubs-btn
              :on-click #(add-grubs add-grubs-ch grubs)}
             "Add Grubs"]]
           [:div.panel-body.recipe-grubs
-           {:class (when (not editing) "hidden")}
+           {:class (when (= edit-state :waiting) "hidden")}
            [:textarea.form-control.recipe-grubs-input
             {:id "recipe-grubs"
              :rows 3 
@@ -78,28 +94,16 @@
              :on-change #(om/set-state! owner :grubs (dom/event-val %))}]
            [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
             {:type "button"
-             :on-click #(update-recipe update id name grubs owner)}
+             :ref :save-btn
+             :on-click #(transition-state owner :save)}
             "Save"]]])))
     
     om/IWillMount
     (will-mount [_]
-      (let [<local-events (om/get-state owner :<local-events)
-            <events (om/get-shared owner :<events)]
-        (go-loop []
-                 (let [subscriber (chan)]
-                   (a/sub <local-events :click subscriber)
-                   (<! subscriber)
-                   (a/unsub <local-events :click subscriber)
-                   (a/close! subscriber))
-                 (om/set-state! owner :editing true)
-                 (let [subscriber (chan)]
-                   (a/sub <events :body-mousedown subscriber)
-                   (loop []
-                     (let [event (<! subscriber)]
-                       (when (and (= (:type event) :body-mousedown)
-                                  (dom/click-on-self? (:event event) (om/get-node owner)))
-                         (recur))))
-                   (a/unsub <events :body-mousedown subscriber)
-                   (a/close! subscriber))
-                 (om/set-state! owner :editing false)
-                 (recur))))))
+      (let [<events (om/get-shared owner :<events)
+            subscriber (chan)]
+        (a/sub <events :body-mousedown subscriber)
+        (go-loop [] (let [event (<! subscriber)]
+                      (when-not (dom/click-on-self? (:event event) (om/get-node owner))
+                        (transition-state owner :body-mousedown))
+                      (recur)))))))
