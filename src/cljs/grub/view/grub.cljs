@@ -37,7 +37,8 @@
              :mouse-out :waiting
              :touch-cancel :waiting
              :touch-end :waiting
-             :timeout :editing}
+             :timeout :editing
+             :scroll :waiting}
    :editing {:enter :waiting
              :body-mousedown :waiting}})
 
@@ -95,7 +96,12 @@
       (let [<events (om/get-shared owner :<events)
             subscriber (chan)]
         (a/sub <events :body-mousedown subscriber)
+        (a/sub <events :body-scroll subscriber)
         (go-loop [] (let [event (<! subscriber)]
-                      (when-not (dom/click-on-self? (:event event) (om/get-node owner))
+                      (when (and (= (:type event) :body-mousedown)
+                                 (not (dom/click-on-self? (:event event) 
+                                                          (om/get-node owner))))
                         (transition-state owner :body-mousedown))
+                      (when (= (:type event) :body-scroll)
+                        (transition-state owner :scroll))
                       (recur)))))))

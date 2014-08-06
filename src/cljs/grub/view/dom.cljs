@@ -13,5 +13,8 @@
 (defn on-document-mousedown [f]
   (.addEventListener js/document "mousedown" f))
 
+(defn on-window-scroll [f]
+  (.addEventListener js/window "scroll" f))
+
 (defn event-val [event]
   (.. event -target -value))
