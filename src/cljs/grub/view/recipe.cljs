@@ -49,6 +49,9 @@
       nil)
     (om/set-state! owner :edit-state next)))
 
+(defn num-newlines [str]
+  (count (re-seq #"\n" str)))
+
 (defn view [{:keys [id] :as props} owner]
   (reify
     om/IInitState
@@ -87,10 +90,11 @@
            {:class (when (= edit-state :waiting) "hidden")}
            [:textarea.form-control.recipe-grubs-input
             {:id "recipe-grubs"
-             :rows 3 
+             :ref :textarea
+             :rows (inc (num-newlines grubs))
              :value grubs
              :on-change #(om/set-state! owner :grubs (dom/event-val %))}]
-           [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
+           [:button.btn.btn-primary.pull-right.recipe-done-btn
             {:type "button"
              :ref :save-btn
              :on-click #(transition-state owner :save)}

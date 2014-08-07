@@ -58,11 +58,11 @@
          {:class (when (= edit-state :waiting) "hidden")}
          [:textarea.form-control.recipe-grubs-input
           {:id "new-recipe-grubs"
-           :rows 3 
+           :rows (inc (recipe/num-newlines new-recipe-grubs))
            :placeholder "Recipe ingredients"
            :value new-recipe-grubs
            :on-change #(om/set-state! owner :new-recipe-grubs (dom/event-val %))}]
-         [:button.btn.btn-primary.pull-right.recipe-btn.recipe-done-btn
+         [:button.btn.btn-primary.pull-right.recipe-done-btn
           {:type "button"
            :ref :save-btn
            :on-click #(transition-state owner :save)}

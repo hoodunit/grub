@@ -142,10 +142,6 @@ tr:hover .grub-close {
   outline: none;
 }
 
-.recipe-btn {
-  margin-top: 10px;
-}
-
 .recipe-grubs-input {
   border: none;
   box-shadow: none;
