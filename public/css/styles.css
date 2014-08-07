@@ -71,30 +71,24 @@ tr:hover .grub-close {
   overflow: hidden;
 }
 
-.grub-item .grub-static {
-  display: inline;
-}
-
 .grub-item .grub-input {
-  display: none;
-}
-
-.grub-item.edit .grub-static {
-  display: none;
+  display: inline;
+  width: 100%;
+  border: none;
+  outline: none;
+  background: none;
 }
 
 .grub-item.edit .grub-input {
-  display: inline;
-  width: 100%;
-}
-
-.grub-item .glyphicon {
-  margin-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  border-bottom-color: lightgray;
 }
 
 .completed {
   text-decoration: line-through;
   color: #a9a9a9;
+  background: #f7f7f7;
 }
 
 .completed.edit {
@@ -135,6 +129,11 @@ tr:hover .grub-close {
   width: inherit;
 }
 
+.recipe-header-input[readonly] {
+  background: white;
+  cursor: default;
+}
+
 .recipe-header-input:focus {
   border: none;
   box-shadow: none;
@@ -148,6 +147,11 @@ tr:hover .grub-close {
   transition: none;
   border-bottom: none;
   resize: none;
+}
+
+.recipe-grubs-input[readonly] {
+  background: white;
+  cursor: default;
 }
 
 .recipe-grubs-input:focus {

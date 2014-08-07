@@ -80,13 +80,9 @@
          :on-touch-start #(transition-state owner :touch-start)
          :on-touch-cancel #(transition-state owner :touch-cancel)
          :on-touch-end #(transition-state owner :touch-end)} 
-        [:span.grub-static
-         (if completed
-           [:span.glyphicon.glyphicon-check]
-           [:span.glyphicon.glyphicon-unchecked])
-         [:span.grub-text grub]]
         [:input.grub-input 
          {:type "text" 
+          :readOnly (if (= edit-state :editing) "" "readonly")
           :value (:grub state)
           :on-change #(om/set-state! owner :grub (.. % -target -value))
           :on-key-up #(when (dom/enter-pressed? %) (transition-state owner :enter))}]]))

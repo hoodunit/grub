@@ -79,6 +79,7 @@
           [:div.panel-heading.recipe-header
            [:input.form-control.recipe-header-input 
             {:type "text" 
+             :readOnly (if (= edit-state :editing) "" "readonly")
              :value name
              :on-change #(om/set-state! owner :name (dom/event-val %))}]
            [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
