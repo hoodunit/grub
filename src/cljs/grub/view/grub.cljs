@@ -63,7 +63,8 @@
     (init-state [_]
       (let [publisher (chan)]
         {:edit-state :waiting
-         :grub grub}))
+         :grub grub
+         :unmounted false}))
 
     om/IRenderState
     (render-state [_ {:keys [edit-state] :as state}]
@@ -87,17 +88,27 @@
           :on-change #(om/set-state! owner :grub (.. % -target -value))
           :on-key-up #(when (dom/enter-pressed? %) (transition-state owner :enter))}]]))
 
-    om/IWillMount
-    (will-mount [_]
+    om/IDidMount
+    (did-mount [_]
       (let [<events (om/get-shared owner :<events)
             subscriber (chan)]
+        (om/set-state! owner :subscriber subscriber)
         (a/sub <events :body-mousedown subscriber)
         (a/sub <events :body-scroll subscriber)
         (go-loop [] (let [event (<! subscriber)]
-                      (when (and (= (:type event) :body-mousedown)
-                                 (not (dom/click-on-self? (:event event) 
-                                                          (om/get-node owner))))
-                        (transition-state owner :body-mousedown))
-                      (when (= (:type event) :body-scroll)
-                        (transition-state owner :scroll))
-                      (recur)))))))
+                      (when-not (or (om/get-state owner :unmounted)
+                                    (nil? event))
+                        (when (and (= (:type event) :body-mousedown)
+                                   (not (dom/click-on-self? (:event event) 
+                                                            (om/get-node owner))))
+                          (transition-state owner :body-mousedown))
+                        (when (= (:type event) :body-scroll)
+                          (transition-state owner :scroll)))))))
+    om/IWillUnmount
+    (will-unmount [_]
+      (let [<events (om/get-shared owner :<events)
+            subscriber (om/get-state owner :subscriber)]
+        (om/set-state! owner :unmounted true)
+        (a/unsub <events :body-mousedown subscriber)
+        (a/unsub <events :body-scroll subscriber)
+        (a/close! (om/get-state owner :subscriber))))))

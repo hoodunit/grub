@@ -59,7 +59,8 @@
       (let [publisher (chan)]
         {:edit-state :waiting
          :name (:name props)
-         :grubs (:grubs props)}))
+         :grubs (:grubs props)
+         :unmounted false}))
 
     om/IWillReceiveProps
     (will-receive-props [this next-props]
@@ -101,12 +102,23 @@
              :on-click #(transition-state owner :save)}
             "Save"]]])))
     
-    om/IWillMount
-    (will-mount [_]
+    om/IDidMount
+    (did-mount [_]
       (let [<events (om/get-shared owner :<events)
             subscriber (chan)]
+        (om/set-state! owner :subscriber subscriber)
         (a/sub <events :body-mousedown subscriber)
         (go-loop [] (let [event (<! subscriber)]
-                      (when-not (dom/click-on-self? (:event event) (om/get-node owner))
-                        (transition-state owner :body-mousedown))
-                      (recur)))))))
+                      (when-not (or (nil? event)
+                                    (om/get-state owner :unmounted))
+                        (when-not (dom/click-on-self? (:event event) (om/get-node owner))
+                          (transition-state owner :body-mousedown))
+                        (recur))))))
+    
+    om/IWillUnmount
+    (will-unmount [_]
+      (let [<events (om/get-shared owner :<events)
+            subscriber (om/get-state owner :subscriber)]
+        (om/set-state! owner :unmounted true)
+        (a/unsub <events :body-mousedown subscriber)
+        (a/close! (om/get-state owner :subscriber))))))

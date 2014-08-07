@@ -39,7 +39,8 @@
       (let [publisher (chan)]
         {:edit-state :waiting
          :new-recipe-name ""
-         :new-recipe-grubs ""}))
+         :new-recipe-grubs ""
+         :unmounted false}))
 
     om/IRenderState
     (render-state [this {:keys [edit-state new-recipe-name new-recipe-grubs]}]
@@ -73,10 +74,21 @@
       (let [<events (om/get-shared owner :<events)
             subscriber (chan)]
         (a/sub <events :body-mousedown subscriber)
+        (om/set-state! owner :subscriber subscriber)
         (go-loop [] (let [event (<! subscriber)]
-                      (when-not (dom/click-on-self? (:event event) (om/get-node owner))
-                        (transition-state owner :body-mousedown))
-                      (recur)))))))
+                      (when-not (or (nil? event)
+                                    (om/get-state owner :unmounted))
+                        (when-not (dom/click-on-self? (:event event) (om/get-node owner))
+                          (transition-state owner :body-mousedown))
+                        (recur))))))
+    
+    om/IWillUnmount
+    (will-unmount [_]
+      (let [<events (om/get-shared owner :<events)
+            subscriber (om/get-state owner :subscriber)]
+        (om/set-state! owner :unmounted true)
+        (a/unsub <events :body-mousedown subscriber)
+        (a/close! (om/get-state owner :subscriber))))))
 
 (defn view [recipes owner]
   (reify
