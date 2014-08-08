@@ -62,6 +62,9 @@
       (assoc-in [:recipes (:id event) :name] (:name event))
       (assoc-in [:recipes (:id event) :grubs] (:grubs event))))
 
+(defmethod handle-event :remove-recipe [event state]
+  (assoc state :recipes (dissoc (:recipes state) (:id event)))) 
+
 (defn update-state-and-render [remote]
   (let [out (chan)
         view-events (view/render-app app-state)]

@@ -20,6 +20,10 @@
    :name name
    :grubs grubs})
 
+(defn remove-event [id]
+  {:event :remove-recipe 
+   :id id})
+
 (defn parse-grubs-from-str [grubs-str]
   (->> grubs-str
        (clojure.string/split-lines)
@@ -96,6 +100,10 @@
              :rows (inc (num-newlines grubs))
              :value grubs
              :on-change #(om/set-state! owner :grubs (dom/event-val %))}]
+           [:button.btn.btn-danger.pull-left.recipe-remove-btn
+            {:type "button"
+             :on-click #(put! (om/get-shared owner :recipe-remove) (remove-event id))}
+            "Delete"]
            [:button.btn.btn-primary.pull-right.recipe-done-btn
             {:type "button"
              :ref :save-btn

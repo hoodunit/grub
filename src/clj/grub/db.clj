@@ -66,6 +66,9 @@
              {:_id (:id event)}
              {mo/$set {:name (:name event) :grubs (:grubs event)}}))
 
+(defmethod handle-event :remove-recipe [event]
+  (mc/remove-by-id @db recipe-collection (:id event)))
+
 (defmethod handle-event :unknown-event [event]
   (println "Cannot handle unknown event:" event))
 
