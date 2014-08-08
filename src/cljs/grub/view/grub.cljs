@@ -96,14 +96,15 @@
         (a/sub <events :body-mousedown subscriber)
         (a/sub <events :body-scroll subscriber)
         (go-loop [] (let [event (<! subscriber)]
-                      (when-not (or (om/get-state owner :unmounted)
-                                    (nil? event))
+                      (when-not (or (nil? event)
+                                    (om/get-state owner :unmounted))
                         (when (and (= (:type event) :body-mousedown)
                                    (not (dom/click-on-self? (:event event) 
                                                             (om/get-node owner))))
                           (transition-state owner :body-mousedown))
                         (when (= (:type event) :body-scroll)
-                          (transition-state owner :scroll)))))))
+                          (transition-state owner :scroll))
+                        (recur))))))
     om/IWillUnmount
     (will-unmount [_]
       (let [<events (om/get-shared owner :<events)
