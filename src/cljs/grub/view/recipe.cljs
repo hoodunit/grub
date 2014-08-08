@@ -47,6 +47,7 @@
       [:editing :waiting] (let [update-ch (om/get-shared owner :recipe-update)
                                 id (:id @(om/get-props owner))
                                 name (om/get-state owner :name)
+
                                 grubs (om/get-state owner :grubs)
                                 event (update-event id name grubs)]
                             (put! update-ch event))
@@ -89,9 +90,10 @@
              :on-change #(om/set-state! owner :name (dom/event-val %))}]
            [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
             {:type "button"
+             :class (when (= edit-state :editing) "hidden")
              :ref :add-grubs-btn
              :on-click #(add-grubs add-grubs-ch grubs)}
-            "Add Grubs"]]
+            "Add grubs"]]
           [:div.panel-body.recipe-grubs
            {:class (when (= edit-state :waiting) "hidden")}
            [:textarea.form-control.recipe-grubs-input
