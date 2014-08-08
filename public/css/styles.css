@@ -66,6 +66,10 @@ tr:hover .grub-close {
   background-color: rgb(71, 73, 73);
 }
 
+.grub-item.edit {
+  padding-right: 40px;
+}
+
 .grub-item .input-span {
   display: block;
   overflow: hidden;
@@ -80,9 +84,21 @@ tr:hover .grub-close {
 }
 
 .grub-item.edit .grub-input {
+  margin-right: 10px;
   border-bottom-style: solid;
   border-bottom-width: 1px;
   border-bottom-color: lightgray;
+}
+
+.grub-item .glyphicon-remove {
+  position: absolute;
+  right: 14px;
+  margin-top: 14px;
+  color: #5c5c5c;
+}
+
+.grub-item .glyphicon-remove:hover, .grub-item .glyphicon-remove:focus, .grub-item .glyphicon-remove:active {
+  color: #000000;
 }
 
 .completed {

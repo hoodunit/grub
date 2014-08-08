@@ -40,6 +40,9 @@
 (defmethod handle-event :clear-all-grubs [event state]
   (assoc state :grubs {})) 
 
+(defmethod handle-event :remove-grub [event state]
+  (assoc state :grubs (dissoc (:grubs state) (:id event)))) 
+
 (defn new-recipe [id name grubs]
   {:id id :name name :grubs grubs})
 

@@ -52,6 +52,9 @@
 (defmethod handle-event :clear-all-grubs [event]
   (clear-grubs))
 
+(defmethod handle-event :remove-grub [event]
+  (mc/remove-by-id @db grub-collection (:id event)))
+
 (defmethod handle-event :add-recipe [event]
   (let [recipe (-> event
                    (select-keys [:id :name :grubs])

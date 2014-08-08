@@ -29,6 +29,10 @@
    :id id
    :completed (not completed)})
 
+(defn remove-event [id]
+  {:event :remove-grub
+   :id id})
+
 (def transitions
   {:waiting {:mouse-down :pressed
              :touch-start :pressed}
@@ -88,7 +92,10 @@
           :ref :grub-input
           :value (:grub state)
           :on-change #(om/set-state! owner :grub (.. % -target -value))
-          :on-key-up #(when (dom/enter-pressed? %) (transition-state owner :enter))}]]))
+          :on-key-up #(when (dom/enter-pressed? %) (transition-state owner :enter))}]
+         (when (= edit-state :editing) 
+           [:span.glyphicon.glyphicon-remove.pull-right
+            {:on-click #(put! (om/get-shared owner :grub-remove) (remove-event id))}])]))
 
     om/IDidMount
     (did-mount [_]

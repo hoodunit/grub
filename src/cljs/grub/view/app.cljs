@@ -29,10 +29,12 @@
   (let [grub-add (chan)
         grub-update (chan)
         grub-clear-all (chan)
+        grub-remove (chan)
         recipe-add (chan)
         recipe-add-grubs (chan)
         recipe-update (chan)
-        out (a/merge [grub-add grub-update grub-clear-all recipe-add recipe-add-grubs recipe-update])
+        out (a/merge [grub-add grub-update grub-clear-all grub-remove
+                      recipe-add recipe-add-grubs recipe-update])
         >events (chan)
         <events (a/pub >events :type)]
     (om/root app-view 
@@ -41,6 +43,7 @@
               :shared {:grub-add grub-add
                        :grub-update grub-update
                        :grub-clear-all grub-clear-all
+                       :grub-remove grub-remove
                        :recipe-add recipe-add
                        :recipe-add-grubs recipe-add-grubs
                        :recipe-update recipe-update
