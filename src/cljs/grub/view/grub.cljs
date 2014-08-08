@@ -74,7 +74,8 @@
                  (when (= edit-state :pressed) "grub-active")
                  (when (= edit-state :editing) "edit")]
          :on-click #(when (#{:waiting :pressed} edit-state)
-                      (put! (om/get-shared owner :grub-update) (complete-event @props)))
+                      (put! (om/get-shared owner :grub-update) (complete-event @props))
+                      (.blur (om/get-node owner :grub-input)))
          :on-mouse-down #(transition-state owner :mouse-down) 
          :on-mouse-up #(transition-state owner :mouse-up) 
          :on-mouse-leave #(transition-state owner :mouse-leave)
@@ -84,6 +85,7 @@
         [:input.grub-input 
          {:type "text" 
           :readOnly (if (= edit-state :editing) "" "readonly")
+          :ref :grub-input
           :value (:grub state)
           :on-change #(om/set-state! owner :grub (.. % -target -value))
           :on-key-up #(when (dom/enter-pressed? %) (transition-state owner :enter))}]]))
