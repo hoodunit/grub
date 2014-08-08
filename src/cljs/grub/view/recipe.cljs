@@ -93,7 +93,8 @@
              :class (when (= edit-state :editing) "hidden")
              :ref :add-grubs-btn
              :on-click #(add-grubs add-grubs-ch grubs)}
-            "Add grubs"]]
+            [:span.glyphicon.glyphicon-plus]
+            " Grubs"]]
           [:div.panel-body.recipe-grubs
            {:class (when (= edit-state :waiting) "hidden")}
            [:textarea.form-control.recipe-grubs-input
@@ -105,12 +106,12 @@
            [:button.btn.btn-danger.pull-left.recipe-remove-btn
             {:type "button"
              :on-click #(put! (om/get-shared owner :recipe-remove) (remove-event id))}
-            "Delete"]
+            [:span.glyphicon.glyphicon-trash]]
            [:button.btn.btn-primary.pull-right.recipe-done-btn
             {:type "button"
              :ref :save-btn
              :on-click #(transition-state owner :save)}
-            "Save"]]])))
+            [:span.glyphicon.glyphicon-ok]]]])))
     
     om/IDidMount
     (did-mount [_]

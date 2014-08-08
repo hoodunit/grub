@@ -46,7 +46,7 @@
             {:id "add-grub-btn" 
              :type "button"
              :on-click #(add-grub add new-grub owner)}
-            "Add"]]
+            [:span.glyphicon.glyphicon-plus]]]
           [:ul#grub-list.list-group
            (for [grub (sort-grubs props)]
              (om/build grub-view/view grub {:key :id}))]
