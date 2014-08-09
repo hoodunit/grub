@@ -1,6 +1,8 @@
 (ns grub.test.integration.core
   (:require [grub.db :as db]
             [grub.websocket :as ws]
+            [grub.state :as state]
+            [clojure.core.async :as a :refer [<! >! chan go]]
             [clj-webdriver.taxi :as taxi]
             [clj-webdriver.core :as webdriver]
             [clojure.test :as test]))
@@ -20,7 +22,7 @@
 
 (defn add-grub [driver grub-text]
   (taxi/input-text driver "#add-grub-input" grub-text)
-  (taxi/click driver {:text "Add"}))
+  (taxi/click driver "#add-grub-btn"))
 
 (defn test-grubs-saved-to-server [url driver]
   (taxi/to driver url)
@@ -31,7 +33,7 @@
     (taxi/refresh driver)
     (Thread/sleep 200)
     (doseq [grub grubs]
-      (test/is (taxi/find-element driver {:text grub})
+      (test/is (taxi/find-element driver {:value grub})
                "Previously added grubs should be loaded on refresh")))
   (db/clear-grubs))
 
@@ -42,7 +44,7 @@
     (doseq [grub grubs]
       (add-grub driver1 grub))
     (doseq [grub grubs]
-      (test/is (taxi/find-element driver2 {:text grub})
+      (test/is (taxi/find-element driver2 {:value grub})
                "Added grubs should appear in other browser"))))
 
 (defn get-rand-recipe []
@@ -53,7 +55,7 @@
   (taxi/click driver "#new-recipe-name")
   (taxi/input-text driver "#new-recipe-name" name)
   (taxi/input-text driver "#new-recipe-grubs" grubs)
-  (taxi/click driver {:text "Done"}))
+  (taxi/click driver "#save-recipe-btn"))
  
 (defn test-added-recipes-sync [url driver1 driver2]
   (taxi/to driver1 url)
@@ -71,9 +73,9 @@
   (test-added-recipes-sync site-url driver1 driver2))
 
 (defn start-db-and-websocket-server! []
-  (let [db-chan (db/connect-and-handle-events "grub-integration-test")]
-    (db/clear-all)
-    (ws/pass-received-events-to-clients-and-db db-chan)))
+  (let [to-db (chan)]
+    (db/connect-and-handle-events to-db "grub-integration-test")
+    (state/init to-db (db/get-current-grubs) (db/get-current-recipes))))
 
 (defn run []
   (println "Starting integration test")

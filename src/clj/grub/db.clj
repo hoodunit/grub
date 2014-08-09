@@ -1,5 +1,6 @@
 (ns grub.db
-  (:require [monger.core :as m]
+  (:require [grub.util :as util]
+            [monger.core :as m]
             [monger.collection :as mc]
             [monger.operators :as mo]
             [clojure.core.async :as a :refer [<! >! chan go]]))
@@ -8,6 +9,8 @@
 (def db (atom nil))
 (def grub-collection "grubs")
 (def recipe-collection "recipes")
+(def production-db "grub")
+(def development-db "grub-dev")
 
 (defn clear-grubs [] 
   (mc/drop @db grub-collection))
@@ -19,80 +22,33 @@
   (clear-grubs)
   (clear-recipes))
 
-(defmulti handle-event :event :default :unknown-event)
-
-(defn insert-grub [event]
-  (let [grub (-> event
-                 (select-keys [:id :grub :completed])
-                 (clojure.set/rename-keys {:id :_id}))]
-    (mc/insert @db grub-collection grub)))
-
-(defmethod handle-event :add-grub [event]
-  (insert-grub event))
-
-(defmethod handle-event :add-grub-list [event]
-  (doseq [grub-event (:grubs event)]
-    (insert-grub grub-event)))
-
-(defmethod handle-event :complete-grub [event]
-  (mc/update @db grub-collection 
-             {:_id (:id event)}
-             {mo/$set {:completed true}}))
-
-(defmethod handle-event :uncomplete-grub [event]
-  (mc/update @db grub-collection 
-             {:_id (:id event)}
-             {mo/$set {:completed false}}))
-
-(defmethod handle-event :update-grub [event]
-  (let [orig (mc/find-one-as-map @db grub-collection {:_id (:id event)})
-        new (dissoc event :event-type :id)]
-    (mc/update-by-id @db grub-collection (:id event) (merge orig new))))
-
-(defmethod handle-event :clear-all-grubs [event]
-  (clear-grubs))
-
-(defmethod handle-event :remove-grub [event]
-  (mc/remove-by-id @db grub-collection (:id event)))
-
-(defmethod handle-event :add-recipe [event]
-  (let [recipe (-> event
-                   (select-keys [:id :name :grubs])
-                   (clojure.set/rename-keys {:id :_id}))]
-    (mc/insert @db recipe-collection recipe)))
-
-(defmethod handle-event :update-recipe [event]
-  (mc/update @db recipe-collection 
-             {:_id (:id event)}
-             {mo/$set {:name (:name event) :grubs (:grubs event)}}))
-
-(defmethod handle-event :remove-recipe [event]
-  (mc/remove-by-id @db recipe-collection (:id event)))
-
-(defmethod handle-event :unknown-event [event]
-  (println "Cannot handle unknown event:" event))
+(defn update-db! [{:keys [grubs recipes]}]
+  (let [deleted-grubs (:deleted grubs)
+        updated-grubs (->> (:updated grubs)
+                           (seq)
+                           (map (fn [[k v]] (assoc v :_id v))))
+        deleted-recipes (:deleted recipes)
+        updated-recipes (->> (:updated recipes)
+                             (seq)
+                             (map (fn [[k v]] (assoc v :_id v))))]
+    (doseq [g deleted-grubs] 
+      (mc/remove-by-id @db grub-collection g))
+    (doseq [g updated-grubs] 
+      (mc/update-by-id @db grub-collection (:_id g) g {:upsert true}))
+    (doseq [r deleted-recipes]
+      (mc/remove-by-id @db recipe-collection r))
+    (doseq [r updated-recipes]
+      (mc/update-by-id @db recipe-collection (:_id r) r {:upsert true}))))
 
 (defn get-current-grubs []
   (->> (mc/find-maps @db grub-collection)
        (sort-by :_id)
-       (map #(select-keys % [:_id :grub :completed]))
-       (map #(clojure.set/rename-keys % {:_id :id}))
-       (vec)))
+       (map #(clojure.set/rename-keys % {:_id :id}))))
 
 (defn get-current-recipes []
   (->> (mc/find-maps @db recipe-collection)
        (sort-by :_id)
-       (map #(select-keys % [:_id :name :grubs]))
-       (map #(clojure.set/rename-keys % {:_id :id}))
-       (vec)))
-
-(def production-db "grub")
-(def development-db "grub-dev")
-
-(defn handle-incoming-events [in]
-  (a/go-loop [] (let [event (<! in)]
-                  (handle-event event)
-                  (recur))))
+       (map #(clojure.set/rename-keys % {:_id :id}))))
 
 (defn connect! [db-name mongo-url]
   (if mongo-url
@@ -101,16 +57,18 @@
     (do (println "Connected to mongo at localhost:" db-name)
         (m/connect))))
 
-(defn connect-and-handle-events [db-name & [mongo-url]]
-  (let [in (chan)]
-    (handle-incoming-events in)
-    (let [_conn (connect! db-name mongo-url)]
-      (reset! conn _conn)
-      (reset! db (m/get-db _conn db-name)))
-    in))
+(defn connect-and-handle-events [to-db db-name & [mongo-url]]
+  (a/go-loop []
+             (if-let [diff (<! to-db)]
+               (do (update-db! diff)
+                   (recur))
+               (println "Database disconnected")))
+  (let [_conn (connect! db-name mongo-url)]
+    (reset! conn _conn)
+    (reset! db (m/get-db _conn db-name))))
 
-(defn connect-production-database [mongo-url]
-  (connect-and-handle-events production-db mongo-url))
+(defn connect-production-database [to-db mongo-url]
+  (connect-and-handle-events to-db production-db mongo-url))
 
-(defn connect-development-database []
-  (connect-and-handle-events development-db))
+(defn connect-development-database [to-db]
+  (connect-and-handle-events to-db development-db))

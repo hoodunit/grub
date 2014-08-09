@@ -1,8 +1,8 @@
 (ns grub.view.grub
-  (:require [om.core :as om :include-macros true]
+  (:require [grub.view.dom :as dom]
+            [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
-            [grub.view.dom :as dom]
             [cljs-uuid.core :as uuid])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
@@ -45,6 +45,10 @@
       {:edit-state :waiting
        :grub-text text
        :unmounted false})
+
+    om/IWillReceiveProps
+    (will-receive-props [this {:keys [text]}]
+      (om/set-state! owner :grub-text text))
 
     om/IRenderState
     (render-state [_ {:keys [edit-state] :as state}]

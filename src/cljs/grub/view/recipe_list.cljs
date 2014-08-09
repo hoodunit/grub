@@ -1,11 +1,11 @@
 (ns grub.view.recipe-list
-  (:require [om.core :as om :include-macros true]
+  (:require [grub.view.dom :as dom]
+            [grub.view.grub :as grub-view]
+            [grub.view.recipe :as recipe]
+            [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs.core.async :as a :refer [<! chan]]
-            [cljs-uuid.core :as uuid]
-            [grub.view.dom :as dom]
-            [grub.view.grub :as grub-view]
-            [grub.view.recipe :as recipe])
+            [cljs-uuid.core :as uuid])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -68,7 +68,7 @@
           {:type "button"
            :ref :save-btn
            :on-click #(transition-state owner :save)}
-          [:span.glyphicon.glyphicon-ok]]]]))
+          [:span.glyphicon.glyphicon-ok#save-recipe-btn]]]]))
 
     om/IWillMount
     (will-mount [_]

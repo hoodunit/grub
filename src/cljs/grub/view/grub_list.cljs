@@ -1,20 +1,22 @@
 (ns grub.view.grub-list
-  (:require [om.core :as om :include-macros true]
+  (:require [grub.view.dom :as dom]
+            [grub.view.grub :as grub-view]
+            [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
-            [cljs.core.async :as a :refer [<! chan]]
-            [grub.view.dom :as dom]
-            [grub.view.grub :as grub-view])
+            [cljs.core.async :as a :refer [<! chan]])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn get-grub-ingredient [grub]
-  (when-not (nil? (:grub grub))
-    (let [text (clojure.string/lower-case (:grub grub))
+  (when-not (nil? (:text grub))
+    (let [text (clojure.string/lower-case (:text grub))
           match (re-find #"[a-z]{3}.*$" text)]
       match)))
 
 (defn sort-grubs [grubs]
-  (sort-by (juxt :completed get-grub-ingredient :grub) (vals grubs)))
+  (->> grubs
+       (vals)
+       (sort-by (juxt :completed get-grub-ingredient :text))))
 
 (defn add-grub [owner grubs new-grub-text]
   (when (not (empty? new-grub-text))
@@ -47,7 +49,7 @@
             {:id "add-grub-btn" 
              :type "button"
              :on-click #(add-grub owner grubs new-grub-text)}
-            [:span.glyphicon.glyphicon-plus]]]
+            [:span.glyphicon.glyphicon-plus#add-grub-btn]]]
           [:ul#grub-list.list-group
            (for [grub (sort-grubs grubs)]
              (om/build grub-view/view grub {:key :id :opts {:remove-ch remove-grub-ch}}))]

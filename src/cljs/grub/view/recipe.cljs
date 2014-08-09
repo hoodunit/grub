@@ -1,10 +1,11 @@
 (ns grub.view.recipe
-  (:require [om.core :as om :include-macros true]
+  (:require [grub.view.dom :as dom]
+            [grub.view.grub :as grub-view]
+            [grub.util :as util]
+            [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
-            [cljs-uuid.core :as uuid]
-            [grub.view.dom :as dom]
-            [grub.view.grub :as grub-view])
+            [cljs-uuid.core :as uuid])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -19,14 +20,9 @@
        (map grub-view/new-grub)
        (into [])))
 
-(defn map-by-key [key coll]
-  (->> coll
-       (map (fn [a] [(get a key) a]))
-       (into {})))
-
 (defn add-grubs [add-grubs-ch grubs-str]
   (let [grubs (parse-grubs-from-str grubs-str)
-        grubs-map (map-by-key :id grubs)]
+        grubs-map (util/map-by-key :id grubs)]
     (put! add-grubs-ch grubs-map)))
 
 (def transitions

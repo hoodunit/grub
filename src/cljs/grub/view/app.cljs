@@ -1,10 +1,10 @@
 (ns grub.view.app
-  (:require [om.core :as om :include-macros true]
-            [sablono.core :refer-macros [html]]
-            [cljs.core.async :as a :refer [<! put! chan]]
-            [grub.view.dom :as dom]
+  (:require [grub.view.dom :as dom]
             [grub.view.grub-list :as grub-list]
-            [grub.view.recipe-list :as recipe-list])
+            [grub.view.recipe-list :as recipe-list]
+            [om.core :as om :include-macros true]
+            [sablono.core :refer-macros [html]]
+            [cljs.core.async :as a :refer [<! put! chan]])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 

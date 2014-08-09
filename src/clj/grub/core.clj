@@ -2,13 +2,14 @@
   (:require [grub.websocket :as ws]
             [grub.db :as db]
             [grub.test.integration.core :as integration-test]
-            [ring.middleware.reload :as reload]
+            [grub.state :as state]
             [ring.middleware.file :as file]
             [ring.util.response :as resp]
             [compojure.core :refer [defroutes GET POST]]
             [compojure.handler :as handler]
             [compojure.route :as route]
             [org.httpkit.server :as httpkit]
+            [clojure.core.async :as a :refer [<! >! chan go]]
             [hiccup
              [page :refer [html5]]
              [page :refer [include-js include-css]]]
@@ -41,40 +42,45 @@
 
 (def index-page (atom dev-index-page))
 
+(defn websocket-handler [request]
+  (when (:websocket? request)
+    (httpkit/with-channel request ws-channel
+      (let [to-client (chan)
+            from-client (chan)]
+        (ws/add-client! ws-channel to-client from-client)
+        (state/add-client! to-client from-client)))))
+
 (defroutes routes
-  (GET "/" [] ws/websocket-handler)
+  (GET "/" [] websocket-handler)
   (GET "/" [] @index-page)
   (GET "*/src/cljs/grub/:file" [file] (resp/file-response file {:root "src/cljs/grub"}))
   (GET "/js/public/js/:file" [file] (resp/redirect (str "/js/" file)))
   (route/files "/")
   (route/not-found "<p>Page not found.</p>"))
 
-(def app 
-  (let [dev? true]
-    (if dev?
-      (reload/wrap-reload (handler/site #'routes) {:dirs ["src/clj"]})
-      (handler/site routes))))
-
 (def default-port 3000)
 
 (defn start-server [port]
-  (httpkit/run-server app {:port port}))
+  (httpkit/run-server (handler/site routes) {:port port}))
 
 (defn run-integration-test []
   (let [stop-server (start-server integration-test/server-port)]
+    (println "Starting integration test server on localhost:" integration-test/server-port)
     (integration-test/run)
     (stop-server)))
 
 (defn start-production-server [{:keys [port mongo-url]}]
   (reset! index-page prod-index-page)
-  (let [db-chan (db/connect-production-database mongo-url)]
-    (ws/pass-received-events-to-clients-and-db db-chan)
+  (let [to-db (chan)]
+    (db/connect-production-database to-db mongo-url)
+    (state/init to-db (db/get-current-grubs) (db/get-current-recipes))
     (println "Starting production server on localhost:" port)
     (start-server port)))
 
 (defn start-development-server [{:keys [port]}]
-  (let [db-chan (db/connect-development-database)]
-    (ws/pass-received-events-to-clients-and-db db-chan)
+  (let [to-db (chan)]
+    (db/connect-development-database to-db)
+    (state/init to-db (db/get-current-grubs) (db/get-current-recipes))
     (println "Starting development server on localhost:" port)
     (start-server port)))
 

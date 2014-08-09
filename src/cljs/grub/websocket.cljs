@@ -40,6 +40,5 @@
     (.listen handler @websocket* goog.net.WebSocket.EventType.CLOSED #(log "Closed:" %) false)
     (.listen handler @websocket* goog.net.WebSocket.EventType.ERROR #(log "Error:" %) false)
     (send-outgoing-events to-remote)
-    (go (>! to-remote {:event :send-all-items}))
     (.open @websocket* server-url)
     remote-events))

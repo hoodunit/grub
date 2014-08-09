@@ -1,6 +1,5 @@
 (ns grub.sync
   (:require [clojure.data :as data]
-            [clojure.pprint :as pprint :refer [pprint]]
             [clojure.set :as set]))
 
 (defn deleted [a b]
@@ -11,7 +10,7 @@
 
 (defn diff-maps [a b]
   {:deleted (deleted a b)
-   :updated (changed a b)})
+   :updated (updated a b)})
 
 (defn diff-states [prev next]
   (->> prev
@@ -29,4 +28,3 @@
        (keys)
        (map (fn [k] [k (patch-map (k state) (k diff))]))
        (into {})))
-

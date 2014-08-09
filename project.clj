@@ -21,18 +21,26 @@
   :profiles {:uberjar {:aot :all}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
-            [lein-ring "0.8.6"]]
-  :cljsbuild {:builds {:dev {:source-paths ["src/cljs"]
+            [lein-ring "0.8.6"]
+            [com.keminglabs/cljx "0.4.0"]]
+  :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "target/generated/cljs"]
                              :compiler {:output-dir "public/js/out"
                                         :output-to "public/js/grub.js"
                                         :optimizations :none
                                         :source-map true}}
-                       :prod {:source-paths ["src/cljs"]
+                       :prod {:source-paths ["src/cljs" "target/generated/cljs"]
                               :compiler {:output-to "public/js/grub.min.js"
                                          :optimizations :advanced
                                          :pretty-print false
                                          :preamble ["react/react.min.js"]
                                          :externs ["react/externs/react.js"]}}}}
+  :cljx {:builds [{:source-paths ["src/cljx"]
+                   :output-path "target/classes"
+                   :rules :clj}
+                  {:source-paths ["src/cljx"]
+                   :output-path "target/generated/cljs"
+                   :rules :cljs}]}
+  :hooks [cljx.hooks]
   :source-paths ["src/clj" "src/test"]
   :test-paths ["spec/clj"]
   :ring {:handler grub.core/app}
