@@ -7,31 +7,10 @@
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(defn new-grub [grub]
+(defn new-grub [text]
   {:id (str "grub-" (uuid/make-random))
-   :grub grub
+   :text text
    :completed false})
-
-(defn add-event [grub]
-  (assoc (new-grub grub) :event :add-grub))
-
-(defn add-list-event [grubs]
-  {:event :add-grub-list
-   :grubs grubs})
-
-(defn edit-event [id grub]
-  {:event :update-grub
-   :id id
-   :grub grub})
-
-(defn complete-event [{:keys [id completed]}]
-  {:event :update-grub
-   :id id
-   :completed (not completed)})
-
-(defn remove-event [id]
-  {:event :remove-grub
-   :id id})
 
 (def transitions
   {:waiting {:mouse-down :pressed
@@ -54,21 +33,18 @@
                                 timeout-id (js/setTimeout timeout-fn 500)]
                             (om/set-state! owner :timeout-id timeout-id))
       [:pressed :waiting] (js/clearTimeout (om/get-state owner :timeout-id)) 
-      [:editing :waiting] (let [update-ch (om/get-shared owner :grub-update)
-                                id (:id @(om/get-props owner))
-                                edit-event (edit-event id (om/get-state owner :grub))]
-                            (put! update-ch edit-event))
+      [:editing :waiting] (let [grub (om/get-props owner)]
+                            (om/transact! grub #(assoc % :text (om/get-state owner :grub-text))))
       nil)
     (om/set-state! owner :edit-state next)))
 
-(defn view [{:keys [id grub completed] :as props} owner]
+(defn view [{:keys [id text completed] :as grub} owner {:keys [remove-ch]}]
   (reify
     om/IInitState
     (init-state [_]
-      (let [publisher (chan)]
-        {:edit-state :waiting
-         :grub grub
-         :unmounted false}))
+      {:edit-state :waiting
+       :grub-text text
+       :unmounted false})
 
     om/IRenderState
     (render-state [_ {:keys [edit-state] :as state}]
@@ -77,9 +53,9 @@
         {:class [(when completed "completed")
                  (when (= edit-state :pressed) "grub-active")
                  (when (= edit-state :editing) "edit")]
-         :on-click #(when (#{:waiting :pressed} edit-state)
-                      (put! (om/get-shared owner :grub-update) (complete-event @props))
-                      (.blur (om/get-node owner :grub-input)))
+         :on-click (fn [e] (when (#{:waiting :pressed} edit-state)
+                             (om/transact! grub #(assoc % :completed (not completed)))
+                             (.blur (om/get-node owner :grub-input))))
          :on-mouse-down #(transition-state owner :mouse-down) 
          :on-mouse-up #(transition-state owner :mouse-up) 
          :on-mouse-leave #(transition-state owner :mouse-leave)
@@ -90,12 +66,12 @@
          {:type "text" 
           :readOnly (if (= edit-state :editing) "" "readonly")
           :ref :grub-input
-          :value (:grub state)
-          :on-change #(om/set-state! owner :grub (.. % -target -value))
+          :value (:grub-text state)
+          :on-change #(om/set-state! owner :grub-text (.. % -target -value))
           :on-key-up #(when (dom/enter-pressed? %) (transition-state owner :enter))}]
          (when (= edit-state :editing) 
            [:span.glyphicon.glyphicon-remove.pull-right
-            {:on-click #(put! (om/get-shared owner :grub-remove) (remove-event id))}])]))
+            {:on-click #(put! remove-ch id)}])]))
 
     om/IDidMount
     (did-mount [_]

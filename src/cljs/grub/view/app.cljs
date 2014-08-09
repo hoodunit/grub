@@ -26,29 +26,12 @@
         (dom/on-window-scroll #(put! >events {:type :body-scroll :event %}))))))
     
 (defn render-app [state]
-  (let [grub-add (chan)
-        grub-update (chan)
-        grub-clear-all (chan)
-        grub-remove (chan)
-        recipe-add (chan)
-        recipe-add-grubs (chan)
-        recipe-update (chan)
-        recipe-remove (chan)
-        out (a/merge [grub-add grub-update grub-clear-all grub-remove
-                      recipe-add recipe-add-grubs recipe-update recipe-remove])
-        >events (chan)
-        <events (a/pub >events :type)]
+  (let [>events (chan)
+        <events (a/pub >events :type)
+        add-grubs-ch (chan)]
     (om/root app-view 
              state 
              {:target (.getElementById js/document "container")
-              :shared {:grub-add grub-add
-                       :grub-update grub-update
-                       :grub-clear-all grub-clear-all
-                       :grub-remove grub-remove
-                       :recipe-add recipe-add
-                       :recipe-add-grubs recipe-add-grubs
-                       :recipe-update recipe-update
-                       :recipe-remove recipe-remove
-                       :>events >events
-                       :<events <events}})
-    out))
+              :shared {:>events >events
+                       :<events <events
+                       :add-grubs-ch add-grubs-ch}})))

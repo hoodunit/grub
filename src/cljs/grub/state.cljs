@@ -66,13 +66,11 @@
   (assoc state :recipes (dissoc (:recipes state) (:id event)))) 
 
 (defn update-state-and-render [remote]
-  (let [out (chan)
-        view-events (view/render-app app-state)]
+  (view/render-app app-state)
+  (let [out (chan)]
     (go-loop [] 
-             (let [[event ch] (alts! [remote view-events])
+             (let [event (<! remote)
                    new-state (handle-event event @app-state)]
                (reset! app-state new-state)
-               (when (= ch view-events) 
-                 (>! out event))
                (recur)))
     out))

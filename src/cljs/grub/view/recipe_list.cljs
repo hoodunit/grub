@@ -1,7 +1,7 @@
 (ns grub.view.recipe-list
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
-            [cljs.core.async :as a :refer [<! put! chan]]
+            [cljs.core.async :as a :refer [<! chan]]
             [cljs-uuid.core :as uuid]
             [grub.view.dom :as dom]
             [grub.view.grub :as grub-view]
@@ -9,12 +9,14 @@
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(defn add-recipe [ch name grubs owner]
+(defn add-recipe [owner name grubs]
   (when (and (not (empty? name))
              (not (empty? grubs)))
-    (om/set-state! owner :new-recipe-name "")
-    (om/set-state! owner :new-recipe-grubs "")
-    (put! ch (recipe/add-event name grubs))))
+    (let [recipes (om/get-props owner)
+          new-recipe (recipe/new-recipe name grubs)]
+      (om/set-state! owner :new-recipe-name "")
+      (om/set-state! owner :new-recipe-grubs "")
+      (om/transact! recipes #(assoc % (:id new-recipe) new-recipe)))))
 
 (def transitions
   {:waiting {:click :editing}
@@ -28,7 +30,7 @@
       [:editing :save :waiting] (let [add-ch (om/get-shared owner :recipe-add)
                                       name (om/get-state owner :new-recipe-name)
                                       grubs (om/get-state owner :new-recipe-grubs)]
-                                  (add-recipe add-ch name grubs owner))
+                                  (add-recipe owner name grubs))
       nil)
     (om/set-state! owner :edit-state next)))
 
@@ -36,11 +38,10 @@
   (reify
     om/IInitState
     (init-state [_]
-      (let [publisher (chan)]
-        {:edit-state :waiting
-         :new-recipe-name ""
-         :new-recipe-grubs ""
-         :unmounted false}))
+      {:edit-state :waiting
+       :new-recipe-name ""
+       :new-recipe-grubs ""
+       :unmounted false})
 
     om/IRenderState
     (render-state [this {:keys [edit-state new-recipe-name new-recipe-grubs]}]
@@ -67,7 +68,7 @@
           {:type "button"
            :ref :save-btn
            :on-click #(transition-state owner :save)}
-          "Save"]]]))
+          [:span.glyphicon.glyphicon-ok]]]]))
 
     om/IWillMount
     (will-mount [_]
@@ -92,12 +93,24 @@
 
 (defn view [recipes owner]
   (reify
-    om/IRender
-    (render [this]
+    om/IInitState
+    (init-state [_]
+      {:remove-recipe-ch (chan)})
+    om/IRenderState
+    (render-state [_ {:keys [remove-recipe-ch]}]
       (html
        [:div
         [:h3.recipes-title "Recipes"]
         (om/build new-recipe-view recipes)
         [:ul#recipe-list.list-group.recipe-list
          (for [recipe (vals recipes)]
-           (om/build recipe/view recipe {:key :id}))]]))))
+           (om/build recipe/view 
+                     recipe 
+                     {:key :id :opts {:remove-recipe-ch remove-recipe-ch}}))]]))
+    om/IWillMount
+    (will-mount [_]
+      (let [remove-recipe-ch (om/get-state owner :remove-recipe-ch)]
+        (go-loop []
+                 (let [removed-id (<! remove-recipe-ch)]
+                   (when-not (nil? removed-id)
+                     (om/transact! recipes #(dissoc % removed-id)))))))))
