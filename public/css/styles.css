@@ -23,9 +23,9 @@ h3 {
 }
 
 .recipe-add-grubs-btn {
-  float: right;
-  clear: both;
+  position: absolute;
   margin: 2px;
+  right: 16px;
 }
 
 .hidden {
@@ -133,7 +133,16 @@ tr:hover .grub-close {
 .recipe-header {
   margin: 0px;
   padding: 0px;
+  padding-right: 72px;
   border-bottom: none;
+}
+
+.recipe-header.edit {
+  padding-right: 0px;
+}
+
+.recipe-header.new {
+  padding-right: 0px;
 }
 
 .recipe-header-input {
@@ -142,7 +151,7 @@ tr:hover .grub-close {
   transition: none;
   border-bottom: none;
   display: inline;
-  width: inherit;
+  width: 100%;
 }
 
 .recipe-header-input[readonly] {

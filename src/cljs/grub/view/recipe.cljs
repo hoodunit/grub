@@ -74,12 +74,13 @@
                            (dom/click-on-elem? % (om/get-node owner :save-btn))))
               (transition-state owner :click))}
           [:div.panel-heading.recipe-header
+           {:class (when (= edit-state :editing) "edit")}
            [:input.form-control.recipe-header-input 
             {:type "text" 
              :readOnly (if (= edit-state :editing) "" "readonly")
              :value name
              :on-change #(om/set-state! owner :name (dom/event-val %))}]
-           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
+           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn
             {:type "button"
              :class (when (= edit-state :editing) "hidden")
              :ref :add-grubs-btn

@@ -49,7 +49,7 @@
        [:div.panel.panel-default.recipe-panel
         {:on-click #(when (not (dom/click-on-elem? % (om/get-node owner :save-btn)))
                       (transition-state owner :click))}
-        [:div.panel-heading.recipe-header
+        [:div.panel-heading.recipe-header.new
          [:input.form-control.recipe-header-input 
           {:id "new-recipe-name"
            :type "text" 
