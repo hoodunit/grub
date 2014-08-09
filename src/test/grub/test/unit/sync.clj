@@ -73,4 +73,9 @@
      {:completed false, :grub "Toothpaste", :id "grub-added"}}}})
 
 (deftest diffing
-  (is (= (sync/diff-states server-state client-state) expected-diff)))
+  (is (= expected-diff (sync/diff-states server-state client-state))))
+
+(deftest patching
+  (is 
+   (let [diff (sync/diff-states server-state client-state)]
+     (= client-state (sync/patch-state server-state diff)))))

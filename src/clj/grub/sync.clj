@@ -9,13 +9,24 @@
 (defn updated [a b]
   (second (data/diff a b)))
 
-(defn diff [a b]
+(defn diff-maps [a b]
   {:deleted (deleted a b)
    :updated (changed a b)})
 
 (defn diff-states [prev next]
   (->> prev
        (keys)
-       (map (fn [k] [k (diff (k prev) (k next))]))
+       (map (fn [k] [k (diff-maps (k prev) (k next))]))
+       (into {})))
+
+(defn patch-map [state diff]
+  (-> state
+      (#(apply dissoc % (into [] (:deleted diff))))
+      (#(merge-with merge % (:updated diff)))))
+
+(defn patch-state [state diff]
+  (->> state
+       (keys)
+       (map (fn [k] [k (patch-map (k state) (k diff))]))
        (into {})))
 
