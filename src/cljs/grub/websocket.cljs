@@ -1,5 +1,7 @@
 (ns grub.websocket
-  (:require [cljs.core.async :as a :refer [<! >! chan]]
+  (:require [grub.state :as state]
+            [grub.sync :as sync]
+            [cljs.core.async :as a :refer [<! >! chan]]
             [cljs.reader]
             goog.net.WebSocket
             goog.events.EventHandler
@@ -8,27 +10,33 @@
                    [grub.macros :refer [log logs]]))
 
 (def websocket* (atom nil))
-(def pending-events (atom []))
+
+(defn sync-local-changes []
+  (when (and (.isOpen @websocket*)
+             (not= @state/app-state @state/client-shadow))
+    (let [app-state @state/app-state
+          client-shadow @state/client-shadow
+          diff (sync/diff-states client-shadow app-state)
+          msg {:diff diff 
+               :hash (hash app-state)
+               :shadow-hash (hash client-shadow)}]
+        (logs "Sync because:")
+        (logs "Server = " client-shadow)
+        (logs "Client = " app-state)
+        (logs "Diff:" diff)
+        (logs "Send" (hash client-shadow) "->" (hash app-state))
+      ;; TODO: reset client shadow only if send succeeds
+      (.send @websocket* msg)
+      (reset! state/client-shadow app-state))))
 
 (defn on-connected [event]
   (log "Connected:" event)
-  (when (> (count @pending-events))
-    (doseq [event @pending-events] (.send @websocket* event))
-    (reset! pending-events [])))
-
-(defn send-outgoing-events [ch]
-  (go-loop []
-           (let [event (<! ch)]
-             (if (.isOpen @websocket*)
-               (.send @websocket* event)
-               (swap! pending-events conj event))
-             (recur))))
+  (sync-local-changes))
 
 (defn on-message-fn [out]
   (fn [event] 
-    (let [grub-event (cljs.reader/read-string (.-message event))]
-      (go (>! out grub-event)))))
-
+    (let [msg (cljs.reader/read-string (.-message event))]
+      (a/put! out msg))))
 
 (defn get-remote-chan [to-remote]
   (let [server-url (str "ws://" (.-host (.-location js/document)))
@@ -39,6 +47,6 @@
     (.listen handler @websocket* goog.net.WebSocket.EventType.MESSAGE (on-message-fn remote-events) false)
     (.listen handler @websocket* goog.net.WebSocket.EventType.CLOSED #(log "Closed:" %) false)
     (.listen handler @websocket* goog.net.WebSocket.EventType.ERROR #(log "Error:" %) false)
-    (send-outgoing-events to-remote)
+    (add-watch state/app-state :app-state #(sync-local-changes))
     (.open @websocket* server-url)
     remote-events))

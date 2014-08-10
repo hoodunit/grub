@@ -26,11 +26,17 @@
   (let [deleted-grubs (:deleted grubs)
         updated-grubs (->> (:updated grubs)
                            (seq)
-                           (map (fn [[k v]] (assoc v :_id v))))
+                           (map (fn [[k v]] 
+                                  (-> v
+                                      (dissoc :id)
+                                      (assoc :_id k)))))
         deleted-recipes (:deleted recipes)
         updated-recipes (->> (:updated recipes)
                              (seq)
-                             (map (fn [[k v]] (assoc v :_id v))))]
+                             (map (fn [[k v]] 
+                                    (-> v
+                                        (dissoc :id)
+                                        (assoc :_id k)))))]
     (doseq [g deleted-grubs] 
       (mc/remove-by-id @db grub-collection g))
     (doseq [g updated-grubs] 
