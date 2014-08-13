@@ -1,7 +1,8 @@
 (ns grub.state
   (:require [grub.sync :as sync]
             [grub.util :as util]
-            [clojure.core.async :as a :refer [<! >! chan go]]))
+            [clojure.core.async :as a :refer [<! >! chan go]]
+            [hasch.core :as hasch]))
 
 (def empty-state
   {:grubs {}
@@ -21,13 +22,13 @@
     (when (not= state* server-shadow*)
       (let [diff (sync/diff-states server-shadow* state*)
             msg {:diff diff
-                 :hash (hash state*)
-                 :shadow-hash (hash server-shadow*)}]
+                 :hash (hasch/uuid state*)
+                 :shadow-hash (hasch/uuid server-shadow*)}]
         (println "Sync because:")
         (println "Server = " state*)
         (println "Client = " server-shadow*)
         (println "Diff:" diff)
-        (println "Send" (hash server-shadow*) "->" (hash state*))
+        (println "Send" (hasch/uuid server-shadow*) "->" (hasch/uuid state*))
         (a/put! to-client msg)
         ;; TODO: only reset server shadow if send succeeds
         (reset! server-shadow state*)))))
@@ -41,15 +42,15 @@
                (if-let [{:keys [diff hash shadow-hash]} (<! from)]
                  (do
                    (println "Received client diff:" shadow-hash "->" hash)
-                   (println "Before shadow:" (clojure.core/hash @server-shadow) @server-shadow)
-                   (if (= (clojure.core/hash @server-shadow) shadow-hash)
+                   (println "Before shadow:" (hasch/uuid @server-shadow) @server-shadow)
+                   (if (= (hasch/uuid @server-shadow) shadow-hash)
                      (println "Before hash check: good")
                      (println "Before hash check: FAIL"))
                    (let [new-shadow (swap! server-shadow #(sync/patch-state % diff))
                          new-state (swap! state #(sync/patch-state % diff))]
                      ;; TODO: check if hashes match
-                     (println "After shadow:" (clojure.core/hash new-shadow) new-shadow)
-                     (if (= (clojure.core/hash new-shadow) hash)
+                     (println "After shadow:" (hasch/uuid new-shadow) new-shadow)
+                     (if (= (hasch/uuid new-shadow) hash)
                        (println "After hash check: good")
                        (println "After hash check: FAIL"))
                      (>! @to-db diff)

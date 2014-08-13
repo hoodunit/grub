@@ -1,6 +1,7 @@
 (ns grub.state
   (:require [grub.sync :as sync]
-            [cljs.core.async :as a :refer [<! >! chan]])
+            [cljs.core.async :as a :refer [<! >! chan]]
+            [hasch.core :as hasch])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -13,12 +14,14 @@
     (go-loop [] 
              (when-let [{:keys [diff hash shadow-hash]} (<! in)]
                (logs "Received server diff:" shadow-hash "->" hash)
-               (if (= (cljs.core/hash @client-shadow) shadow-hash)
+               (logs "Before shadow:" (hasch/uuid @client-shadow) @client-shadow)
+               (if (= (hasch/uuid @client-shadow) shadow-hash)
                  (log "Before hash check: good")
                  (log "Before hash check: FAIL"))
                (let [new-shadow (swap! client-shadow #(sync/patch-state % diff))
                      new-state (swap! app-state #(sync/patch-state % diff))]
-                 (if (= (cljs.core/hash new-shadow) hash)
+                 (logs "After shadow:" (hasch/uuid @client-shadow) @client-shadow)
+                 (if (= (hasch/uuid new-shadow) hash)
                    (log "After hash check: good")
                    (log "After hash check: FAIL"))
                  (recur))))

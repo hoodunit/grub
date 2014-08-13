@@ -17,7 +17,8 @@
                  [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]
                  [om "0.7.0"]
                  [sablono "0.2.17"]
-                 [cljs-uuid "0.0.4"]]
+                 [cljs-uuid "0.0.4"]
+                 [net.polyc0l0r/hasch "0.2.3"]]
   :profiles {:uberjar {:aot :all}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]

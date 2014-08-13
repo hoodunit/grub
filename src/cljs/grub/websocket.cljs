@@ -5,7 +5,8 @@
             [cljs.reader]
             goog.net.WebSocket
             goog.events.EventHandler
-            goog.events.EventTarget)
+            goog.events.EventTarget
+            [hasch.core :as hasch])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]
                    [grub.macros :refer [log logs]]))
 
@@ -18,13 +19,13 @@
           client-shadow @state/client-shadow
           diff (sync/diff-states client-shadow app-state)
           msg {:diff diff 
-               :hash (hash app-state)
-               :shadow-hash (hash client-shadow)}]
+               :hash (hasch/uuid app-state)
+               :shadow-hash (hasch/uuid client-shadow)}]
         (logs "Sync because:")
         (logs "Server = " client-shadow)
         (logs "Client = " app-state)
         (logs "Diff:" diff)
-        (logs "Send" (hash client-shadow) "->" (hash app-state))
+        (logs "Send" (hasch/uuid client-shadow) "->" (hasch/uuid app-state))
       ;; TODO: reset client shadow only if send succeeds
       (.send @websocket* msg)
       (reset! state/client-shadow app-state))))
