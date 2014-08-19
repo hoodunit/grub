@@ -8,10 +8,8 @@
 (defn init-app []
   (view/render-app state/app-state)
   (let [to-remote (chan)
-        to-state (chan)
-        from-remote (ws/get-remote-chan to-remote)
-        from-state (state/update-state-on-event! to-state)]
-    (a/pipe from-remote to-state)
-    (a/pipe from-state to-remote)))
+        from-remote (chan)]
+    (ws/connect-client! to-remote from-remote)
+    (state/sync-state! from-remote to-remote)))
 
 (init-app)

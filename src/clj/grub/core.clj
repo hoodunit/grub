@@ -47,8 +47,8 @@
     (httpkit/with-channel request ws-channel
       (let [to-client (chan)
             from-client (chan)]
-        (ws/add-client! ws-channel to-client from-client)
-        (state/add-client! to-client from-client)))))
+        (ws/add-connected-client! ws-channel to-client from-client)
+        (state/sync-new-client! to-client from-client)))))
 
 (defroutes routes
   (GET "/" [] websocket-handler)
