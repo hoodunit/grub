@@ -7,47 +7,45 @@
                    [cljs.core.async.macros :refer [go go-loop]]))
 
 (def state (atom cs/empty-state))
+(def server-state (atom cs/empty-state))
 
-(def unacked-history (atom {}))
+(def unacked-states (atom {}))
 
-(defn get-unacked-state [hash]
-  (logs "Look for history state:" hash)
-  (get @unacked-history hash))
+(defn get-server-state [hash]
+  (if (= (hasch/uuid @server-state) hash)
+    @server-state
+    (get @unacked-states hash)))
 
-(defn sync-state! [to from reset?]
-  (let [server-state (atom cs/empty-state)]
-    (add-watch state :state (fn [_ _ _ current-state] 
-                              (when-not (= @server-state current-state)
-                                (let [msg (cs/diff-states @server-state current-state)]
-                                  (when-not (get @unacked-history (hasch/uuid current-state))
-                                    (logs "state change! msg: " msg)
-                                    (swap! unacked-history assoc (hasch/uuid current-state) current-state)
-                                    (logs "History:" (keys @unacked-history))
-                                    (a/put! from msg))
-                                  ))))
-    (go-loop [] 
-             (if-let [{:keys [type diff hash shadow-hash] :as msg} (<! to)]
-               (do (condp = type
-                     :diff (do
-                             (logs "Received diff:" msg)
-                             (when (not (= (hasch/uuid @server-state) shadow-hash))
-                               (reset! server-state (get-unacked-state shadow-hash)))
-                             (reset! unacked-history {})
-                             (let [ ;; what they now think we have (after updating)
-                                   new-shadow (swap! server-state #(sync/patch-state % diff))]
-                               ;; should match hash
-                               (if (= (hasch/uuid new-shadow) hash)
-                                 ;; apply same changes locally
-                                 ;; if there are differences, they will be sent back
-                                 (swap! state sync/patch-state diff)
-                                 (do (log "Hash check failed --> complete sync")
-                                     (a/put! from cs/complete-sync-request)))))
-                     :complete (do 
-                                 (logs "Complete sync:" (hasch/uuid (:state msg)))
-                                 (reset! unacked-history {})
-                                 (reset! server-state (:state msg))
-                                 (reset! state (:state msg)))
-                     (logs "Invalid msg:" msg))
-                   (recur))
-               (remove-watch state :state)))
-    (when reset? (a/put! from cs/complete-sync-request))))
+(defn sync-state! [to from reset? state-changes]
+  (go-loop []
+           (when-let [current-state (<! state-changes)]
+             (when-not (= @server-state current-state)
+               (let [msg (cs/diff-states @server-state current-state)]
+                 (swap! unacked-states assoc (:hash msg) current-state)
+                 (a/put! from msg)))
+             (recur)))
+  (go-loop [] 
+           (if-let [{:keys [type diff hash shadow-hash] :as msg} (<! to)]
+             (do (condp = type
+                   :diff 
+                   (if-let [acked-server-state (get-server-state shadow-hash)]
+                     (do (reset! server-state acked-server-state)
+                         (reset! unacked-states {})
+                         (let [new-server (swap! server-state #(sync/patch-state % diff))]
+                           (if (= (hasch/uuid new-server) hash)
+                             (swap! state sync/patch-state diff)
+                             (do (log "State update failure --> complete sync")
+                                 (a/put! from cs/complete-sync-request)))))
+                     (do (log "Could not find server state locally --> complete sync")
+                         (a/put! from cs/complete-sync-request)))
+                   :complete (do 
+                               (logs "Complete sync")
+                               (reset! unacked-states {})
+                               (reset! server-state (:state msg))
+                               (reset! state (:state msg)))
+                   (logs "Invalid msg:" msg))
+                 (recur))
+             (remove-watch state :state)))
+  (if reset? 
+    (a/put! from cs/complete-sync-request)
+    (a/put! from (cs/diff-states @server-state @state))))

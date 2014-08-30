@@ -14,17 +14,9 @@
 
 (defn save-history-state [history new-state]
   (when-not (= (hasch/uuid (last history)) (hasch/uuid new-state))
-    (println "Adding state to history: " (hasch/uuid new-state))
-    (println "History:")
-    (doseq [s (conj history new-state)]
-      (println (hasch/uuid s)))
     (conj history new-state)))
 
 (defn get-history-state [hash]
-  (println "Look for history state:" hash)
-  (println "History:")
-  (doseq [s @state-history]
-    (println (hasch/uuid s)))
   (first (filter #(= (hasch/uuid %) hash) @state-history)))
 
 (add-watch state :history (fn [_ _ _ new-state]
@@ -40,18 +32,16 @@
         log (fn [& args]
               (apply println client-id args))]
     (add-watch state client-id (fn [_ _ _ current-state] 
-                                 (when-let [msg (cs/diff-states @client-state current-state)]
+                                 (let [msg (cs/diff-states @client-state current-state)]
                                    (a/put! to msg)
-                                   ;; send ACK even if nothing changes
-                                   ;; TODO: reset only if send succeeds?
                                    (reset! client-state current-state))))
     (a/go-loop []
                (if-let [{:keys [type diff hash shadow-hash] :as msg} (<! from)]
                  (do (condp = type
                        :diff 
                        (if (= (hasch/uuid @client-state) shadow-hash)
-                         ;; we have what they thought we had
-                         ;; apply changes normally
+                         ;; We have what they thought we had
+                         ;; Apply changes normally
                          (let [new-shadow (swap! client-state sync/patch-state diff)]
                            (log "Hash matched state, apply changes")
                            (if (= (hasch/uuid new-shadow) hash)

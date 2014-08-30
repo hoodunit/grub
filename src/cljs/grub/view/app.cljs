@@ -25,7 +25,7 @@
         (dom/on-document-mousedown #(put! >events {:type :body-mousedown :event %}))
         (dom/on-window-scroll #(put! >events {:type :body-scroll :event %}))))))
     
-(defn render-app [state]
+(defn render-app [state state-changes]
   (let [>events (chan)
         <events (a/pub >events :type)
         add-grubs-ch (chan)]
@@ -34,4 +34,6 @@
              {:target (.getElementById js/document "container")
               :shared {:>events >events
                        :<events <events
-                       :add-grubs-ch add-grubs-ch}})))
+                       :add-grubs-ch add-grubs-ch}
+              :tx-listen (fn [{:keys [new-state]} _] 
+                           (put! state-changes new-state))})))
