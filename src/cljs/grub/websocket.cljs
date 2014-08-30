@@ -27,10 +27,13 @@
   (let [msg (cljs.reader/read-string (.-message event))]
     (a/put! from msg)))
 
+(def ws (atom nil))
+
 (defn connect-client! [to from]
   (let [handler (goog.events.EventHandler.)
         websocket (goog.net.WebSocket.)
         listen (fn [type fun] (.listen handler websocket type fun false))]
+    (reset! ws websocket)
     (listen goog.net.WebSocket.EventType.OPENED (partial on-connected websocket))
     (listen goog.net.WebSocket.EventType.MESSAGE (partial on-message from))
     (listen goog.net.WebSocket.EventType.CLOSED #(log "Closed:" %))

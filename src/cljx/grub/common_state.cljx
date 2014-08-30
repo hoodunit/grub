@@ -15,17 +15,16 @@
    :hash hash
    :shadow-hash shadow-hash})
 
-(defn diff-states [state shadow*]
-  (let [shadow shadow*]
-    (when (not= state shadow)
-      (let [diff (sync/diff-states shadow state)
-            hash (hasch/uuid state)
-            shadow-hash (hasch/uuid shadow)
-            msg (diff-msg diff hash shadow-hash)]
-        msg
-        ;(logs "Sync because:")
-        ;(logs "Local = " state)
-        ;(logs "Remote = " shadow)
-        ;(logs "Diff:" diff)
-        ;(logs "Send" shadow-hash "->" hash)
-        ))))
+(defn diff-states [shadow state]
+  (when (not= state shadow)
+    (let [diff (sync/diff-states shadow state)
+          hash (hasch/uuid state)
+          shadow-hash (hasch/uuid shadow)
+          msg (diff-msg diff hash shadow-hash)]
+      msg
+                                        ;(logs "Sync because:")
+                                        ;(logs "Local = " state)
+                                        ;(logs "Remote = " shadow)
+                                        ;(logs "Diff:" diff)
+                                        ;(logs "Send" shadow-hash "->" hash)
+      )))

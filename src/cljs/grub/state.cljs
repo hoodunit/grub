@@ -8,13 +8,13 @@
 
 (def app-state (atom cs/empty-state))
 
-(defn sync-state! [to from]
+(defn sync-state! [to from reset?]
   (let [client-shadow (atom cs/empty-state)]
-    (add-watch app-state :app-state (fn [_ _ _ new] 
-                                      (when-let [msg (cs/diff-states new @client-shadow)]
+    (add-watch app-state :app-state (fn [_ _ _ current-state] 
+                                      (when-let [msg (cs/diff-states @client-shadow current-state)]
                                         (a/put! from msg)
-                                        ;; TODO: reset shadow only if send succeeds
-                                        (reset! client-shadow new))))
+                                        ;; TODO: reset only if send succeeds
+                                        (reset! client-shadow current-state))))
     (go-loop [] 
              (if-let [{:keys [type diff hash shadow-hash] :as msg} (<! to)]
                (do (condp = type
@@ -28,4 +28,4 @@
                      (logs "Invalid msg:" msg))
                    (recur))
                (remove-watch app-state :app-state)))
-    (a/put! from cs/complete-sync-request)))
+    (when reset? (a/put! from cs/complete-sync-request))))
