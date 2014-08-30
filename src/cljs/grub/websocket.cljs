@@ -16,7 +16,7 @@
 (defn send-pending-msg [websocket]
   (when (and (.isOpen websocket)
              (not (nil? @pending-msg)))
-    (.send websocket @pending-msg)
+    (.send websocket (pr-str @pending-msg))
     (reset! pending-msg nil)))
 
 (defn on-connected [websocket event]
