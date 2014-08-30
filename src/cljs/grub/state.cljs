@@ -16,22 +16,16 @@
                                         ;; TODO: reset shadow only if send succeeds
                                         (reset! client-shadow new))))
     (go-loop [] 
-             (when-let [{:keys [type diff hash shadow-hash] :as msg} (<! to)]
-               (condp = type
-                 :diff (do
-                         ;(logs "Received server diff:" shadow-hash "->" hash)
-                         ;(logs "Before shadow:" (hasch/uuid @client-shadow) @client-shadow)
-                         (if (= (hasch/uuid @client-shadow) shadow-hash)
-                           (log "Before hash check: good")
-                           (log "Before hash check: FAIL"))
-                         (let [new-shadow (swap! client-shadow #(sync/patch-state % diff))
-                               new-state (swap! app-state #(sync/patch-state % diff))]
-                           ;(logs "After shadow:" (hasch/uuid @client-shadow) @client-shadow)
-                           (if (= (hasch/uuid new-shadow) hash)
-                             (log "After hash check: good")
-                             (log "After hash check: FAIL"))))
-                 :complete (do (reset! client-shadow (:state msg))
-                               (reset! app-state (:state msg)))
-                 (logs "Invalid msg:" msg))
-               (recur)))
+             (if-let [{:keys [type diff hash shadow-hash] :as msg} (<! to)]
+               (do (condp = type
+                     :diff (let [new-shadow (swap! client-shadow #(sync/patch-state % diff))]
+                             (if (= (hasch/uuid new-shadow) hash)
+                               (swap! app-state #(sync/patch-state % diff))
+                               (do (log "Hash check failed --> complete sync")
+                                   (a/put! from cs/complete-sync-request))))
+                     :complete (do (reset! client-shadow (:state msg))
+                                   (reset! app-state (:state msg)))
+                     (logs "Invalid msg:" msg))
+                   (recur))
+               (remove-watch app-state :app-state)))
     (a/put! from cs/complete-sync-request)))
