@@ -13,9 +13,11 @@
 (def state-history (atom []))
 
 (defn save-history-state [history new-state]
-  (when-not (= (last history) new-state)
+  (when-not (= (hasch/uuid (last history)) (hasch/uuid new-state))
     (println "Adding state to history: " (hasch/uuid new-state))
-    (println "History size:" (inc (count history)))
+    (println "History:")
+    (doseq [s (conj history new-state)]
+      (println (hasch/uuid s)))
     (conj history new-state)))
 
 (defn get-history-state [hash]
@@ -34,53 +36,57 @@
 
 (defn sync-new-client! [to from]
   (let [client-id (java.util.UUID/randomUUID)
-        server-shadow (atom cs/empty-state)]
+        client-state (atom cs/empty-state)
+        log (fn [& args]
+              (apply println client-id args))]
     (add-watch state client-id (fn [_ _ _ current-state] 
-                                 (when-let [msg (cs/diff-states @server-shadow current-state)]
+                                 (when-let [msg (cs/diff-states @client-state current-state)]
                                    (a/put! to msg)
+                                   ;; send ACK even if nothing changes
                                    ;; TODO: reset only if send succeeds?
-                                   (reset! server-shadow current-state))))
+                                   (reset! client-state current-state))))
     (a/go-loop []
                (if-let [{:keys [type diff hash shadow-hash] :as msg} (<! from)]
                  (do (condp = type
                        :diff 
-                       (if (= (hasch/uuid @server-shadow) shadow-hash)
+                       (if (= (hasch/uuid @client-state) shadow-hash)
                          ;; we have what they thought we had
                          ;; apply changes normally
-                         (let [new-shadow (swap! server-shadow sync/patch-state diff)]
-                           (println "Hash matched state, apply changes")
+                         (let [new-shadow (swap! client-state sync/patch-state diff)]
+                           (log "Hash matched state, apply changes")
                            (if (= (hasch/uuid new-shadow) hash)
                              (let [new-state (swap! state sync/patch-state diff)]
                                (>! @to-db diff))
-                             (do (println "Applying diff failed --> full sync")
+                             (do (log "Applying diff failed --> full sync")
                                  (let [sync-state @state]
-                                   (reset! server-shadow sync-state)
+                                   (reset! client-state sync-state)
                                    (a/put! to (cs/complete-sync-response sync-state))))))
-                         ;; we have something different than they thought
-                         ;; check history
-                         (if-let [history-state (get-history-state shadow-hash)]
-                           ;; Found what they thought in history, 
-                           ;; reset client state to this
-                           ;; and continue as normal
-                           (do 
-                             (println "Hash check failed --> Reset from history")
-                             (reset! server-shadow history-state)
-                               (let [new-shadow (swap! server-shadow sync/patch-state diff)]
-                                 (if (= (hasch/uuid new-shadow) hash)
-                                   (let [new-state (swap! state sync/patch-state diff)]
-                                     (>! @to-db diff))
-                                   (do (println "Applying diff failed --> full sync")
-                                       (let [sync-state @state]
-                                         (reset! server-shadow sync-state)
-                                         (a/put! to (cs/complete-sync-response sync-state)))))))
-                           ;; No history found, do complete sync
-                           (do (println "Hash check failed, not in history --> full sync")
-                                       (let [sync-state @state]
-                                         (reset! server-shadow sync-state)
-                                         (a/put! to (cs/complete-sync-response sync-state))))))
-                       :complete (let [new-state (reset! server-shadow @state)]
+                         ;; We have something different than they thought
+                         ;; Check history
+                         (do
+                             (log "Hash check failed --> Reset from history")
+                             (if-let [history-state (get-history-state shadow-hash)]
+                               ;; Found what they thought we had in history, 
+                               ;; reset client state to this and continue as normal
+                               (do 
+                                 (reset! client-state history-state)
+                                 (let [new-shadow (swap! client-state sync/patch-state diff)]
+                                   (if (= (hasch/uuid new-shadow) hash)
+                                     (let [new-state (swap! state sync/patch-state diff)]
+                                       (>! @to-db diff))
+                                     (do (log "Applying diff failed --> full sync")
+                                         (let [sync-state @state]
+                                           (reset! client-state sync-state)
+                                           (a/put! to (cs/complete-sync-response sync-state)))))))
+                               ;; Not found in history, do complete sync
+                               (do (log "Hash check failed, not in history --> full sync")
+                                   (let [sync-state @state]
+                                     (reset! client-state sync-state)
+                                     (a/put! to (cs/complete-sync-response sync-state)))))))
+                       :complete (let [new-state (reset! client-state @state)]
+                                   (log "full sync")
                                    (a/put! to (cs/complete-sync-response new-state)))
-                       (println "Invalid msg:" msg))
+                       (log "Invalid msg:" msg))
                      (recur))
                  (remove-watch state client-id)))))
 

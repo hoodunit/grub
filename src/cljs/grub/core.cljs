@@ -12,7 +12,7 @@
     (state/sync-state! from-remote to-remote reset?)))
 
 (defn init-app []
-  (view/render-app state/app-state)
+  (view/render-app state/state)
   (connect-to-server true))
 
 (init-app)
