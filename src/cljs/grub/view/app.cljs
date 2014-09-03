@@ -25,10 +25,11 @@
         (dom/on-document-mousedown #(put! >events {:type :body-mousedown :event %}))
         (dom/on-window-scroll #(put! >events {:type :body-scroll :event %}))))))
     
-(defn render-app [state state-changes]
+(defn render-app [state]
   (let [>events (chan)
         <events (a/pub >events :type)
-        add-grubs-ch (chan)]
+        add-grubs-ch (chan)
+        state-changes (chan)]
     (om/root app-view 
              state 
              {:target (.getElementById js/document "container")
@@ -36,4 +37,5 @@
                        :<events <events
                        :add-grubs-ch add-grubs-ch}
               :tx-listen (fn [{:keys [new-state]} _] 
-                           (put! state-changes new-state))})))
+                           (put! state-changes new-state))})
+    state-changes))
