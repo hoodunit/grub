@@ -16,14 +16,16 @@
     @server-state
     (get @unacked-states hash)))
 
-(defn sync-state! [to from reset? state-changes]
+(defn send-state-changes-to-server! [state-changes from]
   (go-loop []
            (when-let [current-state (<! state-changes)]
              (when-not (= @server-state current-state)
                (let [msg (cs/diff-states @server-state current-state)]
                  (swap! unacked-states assoc (:hash msg) current-state)
                  (a/put! from msg)))
-             (recur)))
+             (recur))))
+
+(defn handle-received-changes! [to from]
   (go-loop [] 
            (if-let [{:keys [type diff hash shadow-hash] :as msg} (<! to)]
              (do (condp = type
@@ -45,7 +47,9 @@
                                (reset! state (:state msg)))
                    (logs "Invalid msg:" msg))
                  (recur))
-             (remove-watch state :state)))
-  (if reset? 
-    (a/put! from cs/complete-sync-request)
-    (a/put! from (cs/diff-states @server-state @state))))
+             (remove-watch state :state))))
+
+(defn sync-state! [to from reset? state-changes]
+  (send-state-changes-to-server! state-changes from)
+  (handle-received-changes! to from)
+  (a/put! from (if reset? cs/complete-sync-request (cs/diff-states @server-state @state))))
