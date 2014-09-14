@@ -1,5 +1,5 @@
 (ns grub.state
-  (:require [grub.sync :as sync]
+  (:require [grub.diff :as diff]
             [grub.common-state :as cs]
             [cljs.core.async :as a :refer [<! >! chan]]
             [hasch.core :as hasch])
@@ -33,9 +33,9 @@
                    (if-let [acked-server-state (get-server-state shadow-hash)]
                      (do (reset! server-state acked-server-state)
                          (reset! unacked-states {})
-                         (let [new-server (swap! server-state #(sync/patch-state % diff))]
+                         (let [new-server (swap! server-state #(diff/patch-state % diff))]
                            (if (= (hasch/uuid new-server) hash)
-                             (swap! state sync/patch-state diff)
+                             (swap! state diff/patch-state diff)
                              (do (log "State update failure --> complete sync")
                                  (a/put! from cs/complete-sync-request)))))
                      (do (log "Could not find server state locally --> complete sync")

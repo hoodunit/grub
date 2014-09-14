@@ -1,5 +1,5 @@
 (ns grub.common-state
-  (:require [grub.sync :as sync]
+  (:require [grub.diff :as diff]
             [hasch.core :as hasch]))
 
 (def empty-state {:grubs {} :recipes {}})
@@ -16,7 +16,7 @@
    :shadow-hash shadow-hash})
 
 (defn diff-states [shadow state]
-  (let [diff (sync/diff-states shadow state)
+  (let [diff (diff/diff-states shadow state)
         hash (hasch/uuid state)
         shadow-hash (hasch/uuid shadow) 
         msg (diff-msg diff hash shadow-hash)]

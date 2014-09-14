@@ -1,5 +1,5 @@
 (ns grub.state
-  (:require [grub.sync :as sync]
+  (:require [grub.diff :as diff]
             [grub.util :as util]
             [grub.common-state :as cs]
             [clojure.core.async :as a :refer [<! >! chan go]]
@@ -42,10 +42,10 @@
                        (if (= (hasch/uuid @client-state) shadow-hash)
                          ;; We have what they thought we had
                          ;; Apply changes normally
-                         (let [new-shadow (swap! client-state sync/patch-state diff)]
+                         (let [new-shadow (swap! client-state diff/patch-state diff)]
                            (log "Hash matched state, apply changes")
                            (if (= (hasch/uuid new-shadow) hash)
-                             (let [new-state (swap! state sync/patch-state diff)]
+                             (let [new-state (swap! state diff/patch-state diff)]
                                (>! @to-db diff))
                              (do (log "Applying diff failed --> full sync")
                                  (let [sync-state @state]
@@ -60,9 +60,9 @@
                                ;; reset client state to this and continue as normal
                                (do 
                                  (reset! client-state history-state)
-                                 (let [new-shadow (swap! client-state sync/patch-state diff)]
+                                 (let [new-shadow (swap! client-state diff/patch-state diff)]
                                    (if (= (hasch/uuid new-shadow) hash)
-                                     (let [new-state (swap! state sync/patch-state diff)]
+                                     (let [new-state (swap! state diff/patch-state diff)]
                                        (>! @to-db diff))
                                      (do (log "Applying diff failed --> full sync")
                                          (let [sync-state @state]

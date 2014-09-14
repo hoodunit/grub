@@ -1,5 +1,5 @@
-(ns grub.test.unit.sync
-  (:require [grub.sync :as sync]
+(ns grub.test.unit.diff
+  (:require [grub.diff :as diff]
             [clojure.test :refer :all]))
 
 
@@ -9,39 +9,39 @@
 (deftest diff-empty-states
   (let [empty-state {:grubs {} :recipes {}}]
     (is (= empty-diff 
-           (sync/diff-states empty-state empty-state)))))
+           (diff/diff-states empty-state empty-state)))))
 
 (deftest diff-equal-states
   (is (= empty-diff 
-         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
                            {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}))))
 
 (deftest diff-added-grub
   (is (= {:grubs {:deleted #{} 
                   :updated {"id" {:completed false, :text "asdf"}}}
           :recipes {:deleted #{} :updated nil}}
-         (sync/diff-states {:grubs {} :recipes {}}
+         (diff/diff-states {:grubs {} :recipes {}}
                            {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}))))
 
 (deftest diff-deleted-grub
   (is (= {:grubs {:deleted #{"id"} 
                   :updated nil}
           :recipes {:deleted #{} :updated nil}}
-         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
                            {:grubs {} :recipes {}}))))
 
 (deftest diff-edited-grub
   (is (= {:grubs {:deleted #{} 
                   :updated {"id" {:text "asdf2"}}}
           :recipes {:deleted #{} :updated nil}}
-         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
                            {:grubs {"id" {:text "asdf2" :completed false}} :recipes {}}))))
 
 (deftest diff-completed-grub
   (is (= {:grubs {:deleted #{} 
                   :updated {"id" {:completed true}}}
           :recipes {:deleted #{} :updated nil}}
-         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
                            {:grubs {"id" {:text "asdf" :completed true}} :recipes {}}))))
 
 (deftest diff-added-recipe
@@ -49,7 +49,7 @@
                   :updated nil}
           :recipes {:deleted #{} :updated {"id" {:name "Blue Cheese Soup"
                                                  :grubs "Some grubs"}}}}
-         (sync/diff-states {:grubs {} :recipes {}}
+         (diff/diff-states {:grubs {} :recipes {}}
                            {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
                                                  :grubs "Some grubs"}}}))))
 
@@ -57,7 +57,7 @@
   (is (= {:grubs {:deleted #{} 
                   :updated nil}
           :recipes {:deleted #{} :updated {"id" {:name "Bleu Cheese Soup" }}}}
-         (sync/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+         (diff/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
                                                  :grubs "Some grubs"}}}
                            {:grubs {} :recipes {"id" {:name "Bleu Cheese Soup"
                                                  :grubs "Some grubs"}}}))))
@@ -65,7 +65,7 @@
 (deftest diff-deleted-recipe
   (is (= {:grubs {:deleted #{} :updated nil}
           :recipes {:deleted #{"id"} :updated nil}}
-         (sync/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+         (diff/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
                                                       :grubs "Some grubs"}}}
                            {:grubs {} :recipes {}}))))
 
@@ -125,9 +125,9 @@
      {:completed false :text "Toothpaste"}}}})
 
 (deftest diff-many-changes
-  (is (= expected-diff (sync/diff-states before-state after-state))))
+  (is (= expected-diff (diff/diff-states before-state after-state))))
 
 (deftest patch-returns-original-state
   (is 
-   (let [diff (sync/diff-states before-state after-state)]
-     (= after-state (sync/patch-state before-state diff)))))
+   (let [diff (diff/diff-states before-state after-state)]
+     (= after-state (diff/patch-state before-state diff)))))

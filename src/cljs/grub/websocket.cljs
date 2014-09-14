@@ -1,7 +1,5 @@
 (ns grub.websocket
-  (:require [grub.state :as state]
-            [grub.sync :as sync]
-            [cljs.core.async :as a :refer [<! >! chan]]
+  (:require [cljs.core.async :as a :refer [<! >! chan]]
             [cljs.reader]
             goog.net.WebSocket
             goog.events.EventHandler

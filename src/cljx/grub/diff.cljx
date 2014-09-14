@@ -1,4 +1,4 @@
-(ns grub.sync
+(ns grub.diff
   (:require [clojure.data :as data]
             [clojure.set :as set]))
 
