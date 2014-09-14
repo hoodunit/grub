@@ -2,7 +2,74 @@
   (:require [grub.sync :as sync]
             [clojure.test :refer :all]))
 
-(def server-state
+
+(def empty-diff {:grubs {:deleted #{} :updated nil}
+                 :recipes {:deleted #{} :updated nil}})
+
+(deftest diff-empty-states
+  (let [empty-state {:grubs {} :recipes {}}]
+    (is (= empty-diff 
+           (sync/diff-states empty-state empty-state)))))
+
+(deftest diff-equal-states
+  (is (= empty-diff 
+         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                           {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}))))
+
+(deftest diff-added-grub
+  (is (= {:grubs {:deleted #{} 
+                  :updated {"id" {:completed false, :text "asdf"}}}
+          :recipes {:deleted #{} :updated nil}}
+         (sync/diff-states {:grubs {} :recipes {}}
+                           {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}))))
+
+(deftest diff-deleted-grub
+  (is (= {:grubs {:deleted #{"id"} 
+                  :updated nil}
+          :recipes {:deleted #{} :updated nil}}
+         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                           {:grubs {} :recipes {}}))))
+
+(deftest diff-edited-grub
+  (is (= {:grubs {:deleted #{} 
+                  :updated {"id" {:text "asdf2"}}}
+          :recipes {:deleted #{} :updated nil}}
+         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                           {:grubs {"id" {:text "asdf2" :completed false}} :recipes {}}))))
+
+(deftest diff-completed-grub
+  (is (= {:grubs {:deleted #{} 
+                  :updated {"id" {:completed true}}}
+          :recipes {:deleted #{} :updated nil}}
+         (sync/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                           {:grubs {"id" {:text "asdf" :completed true}} :recipes {}}))))
+
+(deftest diff-added-recipe
+  (is (= {:grubs {:deleted #{} 
+                  :updated nil}
+          :recipes {:deleted #{} :updated {"id" {:name "Blue Cheese Soup"
+                                                 :grubs "Some grubs"}}}}
+         (sync/diff-states {:grubs {} :recipes {}}
+                           {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+                                                 :grubs "Some grubs"}}}))))
+
+(deftest diff-edited-recipe
+  (is (= {:grubs {:deleted #{} 
+                  :updated nil}
+          :recipes {:deleted #{} :updated {"id" {:name "Bleu Cheese Soup" }}}}
+         (sync/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+                                                 :grubs "Some grubs"}}}
+                           {:grubs {} :recipes {"id" {:name "Bleu Cheese Soup"
+                                                 :grubs "Some grubs"}}}))))
+
+(deftest diff-deleted-recipe
+  (is (= {:grubs {:deleted #{} :updated nil}
+          :recipes {:deleted #{"id"} :updated nil}}
+         (sync/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+                                                      :grubs "Some grubs"}}}
+                           {:grubs {} :recipes {}}))))
+
+(def before-state
   {:grubs 
    {"grub-same" {:completed false
                  :text "3 garlic cloves"}
@@ -20,7 +87,7 @@
     "recipe-deleted" {:grubs "8 slices rye bread\n400 g chicken breast\nBBQ sauce\nketchup\nmustard\nbutter\n1 package rocket\n4 tomatoes\n2 red onions\n1 bottle Coca Cola"
                       :name "Chickenburgers"}}})
 
-(def client-state
+(def after-state
   {:grubs 
    {"grub-same" {:completed false, 
                  :text "3 garlic cloves"}
@@ -57,10 +124,10 @@
      "grub-added"
      {:completed false :text "Toothpaste"}}}})
 
-(deftest diffing
-  (is (= expected-diff (sync/diff-states server-state client-state))))
+(deftest diff-many-changes
+  (is (= expected-diff (sync/diff-states before-state after-state))))
 
-(deftest patching
+(deftest patch-returns-original-state
   (is 
-   (let [diff (sync/diff-states server-state client-state)]
-     (= client-state (sync/patch-state server-state diff)))))
+   (let [diff (sync/diff-states before-state after-state)]
+     (= after-state (sync/patch-state before-state diff)))))
