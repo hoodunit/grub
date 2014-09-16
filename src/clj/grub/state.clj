@@ -5,6 +5,33 @@
             [clojure.core.async :as a :refer [<! >! chan go]]
             [hasch.core :as hasch]))
 
+(def initial-state {:hash (hasch/uuid cs/empty-state)
+                    :state cs/empty-state})
+(def states (atom [initial-state]))
+
+(defn get-history-state [states hash]
+  (:state (first (filter #(= (:hash %) hash) states))))
+
+(defn add-history-state [current new-state]
+  (let [{:keys [state hash]} (first current)
+        new-hash (hasch/uuid new-state)]
+    (if (= hash new-hash)
+      current
+      (conj current {:hash hash :state state}))))
+
+(defn receive-diff [states diff shadow-hash]
+  (let [state (:state (first states))
+        shadow (get-history-state states shadow-hash)]
+    (if shadow
+      {:new-state (diff/patch-state state diff)
+       :new-shadow (diff/patch-state shadow diff)
+       :full-sync? false}
+      {:new-state state
+       :new-shadow state
+       :full-sync? true})))
+
+
+
 (def state (atom cs/empty-state))
 (def to-db (atom nil))
 (def to-all (chan))
@@ -25,6 +52,7 @@
 (defn initial-state [grubs recipes]
   {:grubs (util/map-by-key :id grubs)
    :recipes (util/map-by-key :id recipes)})
+
 
 (defn sync-new-client! [to from]
   (let [client-id (java.util.UUID/randomUUID)
