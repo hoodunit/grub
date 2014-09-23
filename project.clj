@@ -41,7 +41,6 @@
                   {:source-paths ["src/cljx"]
                    :output-path "target/generated/cljs"
                    :rules :cljs}]}
-  :hooks [cljx.hooks]
   :source-paths ["src/clj" "src/test"]
   :test-paths ["spec/clj"]
   :ring {:handler grub.core/app}
