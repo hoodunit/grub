@@ -5,61 +5,42 @@
             [clojure.core.async :as a :refer [<! >! chan go]]))
 
 ;; Server state
-(def states (ref []))
-(def to-db (atom nil))
+(def states (atom []))
 
-(defmulti handle-message (fn [msg states client-state] (:type msg)))
+(defn make-client-agent [in >client]
+  (a/go-loop [client-state sync/empty-state]
+    (when-let [msg (<! in)]
+      (condp = (:type msg)
+        :diff
+        (let [{:keys [new-states new-shadow full-sync?]} (sync/apply-diff @states (:diff msg) (:shadow-hash msg))]
+          (if full-sync? 
+            (let [state (get-current-state states)]
+              (>! >client message/full-sync state)
+              (recur state))
+            (do (reset! states new-states)
+                (recur new-shadow))))
+        :full-sync
+        (let [state (get-current-state @states)]
+          (>! >client message/full-sync state)
+          (recur state))
+        :new-state
+        (let [{:keys [diff shadow-hash]} (sync/diff-states (:new-states msg) @client-state)]
+          (println "new-state!")
+          (>! >client (message/diff-msg diff shadow-hash)))
+        (do (println "Unknown event")
+            (recur client-state))))))
 
-(defn full-sync! [msg states client-state]
-  (let [new-client (dosync (let [state (sync/get-current-state @states)]
-                                                (ref-set client-state state)))]
-                       (println "full-sync!")
-                       (message/full-sync new-client)))
-
-(defmethod handle-message :full-sync [msg states client-state]
-  (full-sync! msg states client-state))
-
-(defmethod handle-message :new-state [msg states client-state]
-  (let [diff-result (sync/diff-states (:new-states msg) @client-state)
-        {:keys [diff shadow-hash]} diff-result]
-    (println "new-state!")
-    (message/diff-msg diff shadow-hash)))
-
-(defmethod handle-message :diff [msg states client-state]
-  (dosync
-   (println "diff!")
-   (let [{:keys [diff shadow-hash]} msg
-         apply-result (sync/apply-diff @states diff shadow-hash)
-         {:keys [new-states new-shadow full-sync?]} apply-result]
-     (ref-set states new-states)
-     (ref-set client-state new-shadow)
-     (when full-sync? (full-sync! msg states client-state)))))
-
-(defn make-client-agent [in initial-states]
-  (let [out (chan)]
-    (a/go-loop [client-state sync/empty-state
-                states initial-states] 
-               (if-let [msg (<! in)]
-                 (do (when-let [{:keys [new-client new-states]} (handle-message msg states client-state)]
-                       (>! >client response))
-                     (recur))
-                 (remove-watch states client-id)))
-    out))
-
+;; TODO: Remove watch, close up channels properly
 (defn sync-new-client! [>client <client]
   (let [client-id (java.util.UUID/randomUUID)
         state-changes (chan)
         state-change-events (a/map< (fn [s] {:type :new-state :new-states s}) state-changes)
-        events (chan)
-        client-state (ref sync/empty-state)]
+        client-events (chan)]
     (add-watch states client-id (fn [_ _ _ new-states] (a/put! state-changes new-states)))
-    (a/pipe (a/merge [<client state-change-events]) events)
-    (a/go-loop [] (if-let [msg (<! in)]
-                    (do (when-let [response (handle-message msg states client-state)]
-                          (>! >client response))
-                        (recur))
-                    (remove-watch states client-id)))))
+    (a/pipe (a/merge [<client state-change-events]) client-events)
+    (make-client-agent client-events >client)))
 
-(defn init [_to-db grubs recipes]
-  (dosync (ref-set states (sync/initial-state grubs recipes)))
-  (reset! to-db _to-db))
+(defn init [to-db grubs recipes]
+  (reset! states (sync/initial-state grubs recipes))
+  (add-watch states :to-db (fn [_ _ old-states new-states] 
+                             (a/put! to-db (sync/get-current-state new-states)))))
