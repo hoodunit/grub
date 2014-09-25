@@ -25,7 +25,7 @@
 
 (defn diff-states [states shadow]
   (let [state (get-current-state states)]
-    {:shadow-hash (hasch/uuid shadow)
+    {:hash (hasch/uuid shadow)
      :diff (diff/diff-states shadow state)}))
 
 (defn apply-diff [states diff shadow-hash]

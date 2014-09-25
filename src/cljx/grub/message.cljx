@@ -1,12 +1,12 @@
 (ns grub.message)
 
-(def full-sync-request {:type :complete})
+(def full-sync-request {:type :full-sync})
 
 (defn full-sync [state]
-  {:type :complete
+  {:type :full-sync
    :state state})
 
-(defn diff-msg [diff shadow-hash]
+(defn diff-msg [diff hash]
   {:type :diff
    :diff diff
-   :shadow-hash shadow-hash})
+   :hash hash})

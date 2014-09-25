@@ -1,13 +1,15 @@
 (ns grub.state
   (:require [grub.diff :as diff]
             [grub.common-state :as cs]
+            [grub.message :as message]
+            [grub.sync :as sync]
             [cljs.core.async :as a :refer [<! >! chan]]
             [hasch.core :as hasch])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(def state (atom cs/empty-state))
-(def server-state (atom cs/empty-state))
+(def state (atom sync/empty-state))
+(def server-state (atom sync/empty-state))
 
 (def unacked-states (atom {}))
 
@@ -36,15 +38,15 @@
                          (let [new-server (swap! server-state #(diff/patch-state % diff))]
                            (if (= (hasch/uuid new-server) hash)
                              (swap! state diff/patch-state diff)
-                             (do (log "State update failure --> complete sync")
-                                 (a/put! from cs/complete-sync-request)))))
-                     (do (log "Could not find server state locally --> complete sync")
-                         (a/put! from cs/complete-sync-request)))
-                   :complete (do 
-                               (logs "Complete sync")
-                               (reset! unacked-states {})
-                               (reset! server-state (:state msg))
-                               (reset! state (:state msg)))
+                             (do (log "State update failure --> full sync")
+                                 (a/put! from message/full-sync-request)))))
+                     (do (log "Could not find server state locally --> full sync")
+                         (a/put! from message/full-sync-request)))
+                   :full-sync (do 
+                                (logs "Full sync")
+                                (reset! unacked-states {})
+                                (reset! server-state (:state msg))
+                                (reset! state (:state msg)))
                    (logs "Invalid msg:" msg))
                  (recur))
              (remove-watch state :state))))
@@ -52,4 +54,4 @@
 (defn sync-state! [to from reset? state-changes]
   (send-state-changes-to-server! state-changes from)
   (handle-received-changes! to from)
-  (a/put! from (if reset? cs/complete-sync-request (cs/diff-states @server-state @state))))
+  (a/put! from (if reset? message/full-sync-request (cs/diff-states @server-state @state))))
