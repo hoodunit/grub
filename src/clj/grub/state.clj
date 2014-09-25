@@ -7,34 +7,36 @@
 ;; Server state
 (def states (atom []))
 
-(defn make-server-agent [in >client states]
-  (a/go-loop [client-state sync/empty-state]
-             (when-let [msg (<! in)]
-               (condp = (:type msg)
-                 :diff
-                 (let [{:keys [new-states new-shadow full-sync?]} (sync/apply-diff @states (:diff msg) (:hash msg))]
-                   (println "diff!")
-                   (if full-sync? 
-                     (let [state (sync/get-current-state @states)]
-                       (println "state not found, full sync!")
-                       (>! >client (message/full-sync state))
-                       (recur state))
-                     (do (println "state found, just send changes")
-                         (let [{:keys [diff hash]} (sync/diff-states new-states new-shadow)]
-                           (reset! states new-states)
-                           (>! >client (message/diff-msg diff hash))
-                           (recur new-shadow)))))
-                 :full-sync
-                 (let [state (sync/get-current-state @states)]
-                   (println "got full sync, send full sync")
-                   (>! >client (message/full-sync state))
-                   (recur state))
-                 :new-state
-                 (let [{:keys [diff shadow-hash]} (sync/diff-states (:new-states msg) client-state)]
-                   (println "new-state!")
-                   (>! >client (message/diff-msg diff shadow-hash)))
-                 (do (println "Unknown message:" msg)
-                     (recur client-state))))))
+(defn make-server-agent 
+  ([in out states] (make-server-agent in out states sync/empty-state))
+  ([in out states initial-client-state]
+     (a/go-loop [client-state initial-client-state]
+                (when-let [msg (<! in)]
+                  (condp = (:type msg)
+                    :diff
+                    (let [states* @states
+                          shadow (sync/get-history-state states* (:hash msg))]
+                      (if shadow
+                        (let [new-states (sync/apply-diff states* (:diff msg))
+                              new-shadow (diff/patch-state shadow (:diff msg))
+                              {:keys [diff hash]} (sync/diff-states new-states new-shadow)]
+                          (reset! states new-states)
+                          (>! out (message/diff-msg diff hash))
+                          (recur new-shadow))
+                        (let [state (sync/get-current-state @states)]
+                          (>! out (message/full-sync state))
+                          (recur state))))
+
+                    :full-sync
+                    (let [state (sync/get-current-state @states)]
+                      (>! out (message/full-sync state))
+                      (recur state))
+
+                    :new-state
+                    (let [{:keys [diff hash]} (sync/diff-states (:new-states msg) client-state)]
+                      (>! out (message/diff-msg diff hash)))
+                    (do (println "Unknown message:" msg)
+                        (recur client-state)))))))
 
 ;; TODO: Remove watch, close up channels properly
 (defn sync-new-client! [>client <client]

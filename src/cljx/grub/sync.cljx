@@ -28,13 +28,7 @@
     {:hash (hasch/uuid shadow)
      :diff (diff/diff-states shadow state)}))
 
-(defn apply-diff [states diff shadow-hash]
-  (let [state (:state (first states))
-        shadow (get-history-state states shadow-hash)]
-    (if shadow
-      {:new-states (add-history-state states (diff/patch-state state diff))
-       :new-shadow (diff/patch-state shadow diff)
-       :full-sync? false}
-      {:new-states states
-       :new-shadow state
-       :full-sync? true})))
+(defn apply-diff [states diff]
+  (let [new-state (diff/patch-state (get-current-state states) diff)]
+    (add-history-state states new-state)))
+
