@@ -21,7 +21,7 @@
                   :hash (:hash (first states))}
         in (chan 1)
         out (chan 1)]
-    (state/make-agent in out states*)
+    (state/make-server-agent in out states*)
     (>!! in msg)
     (let [diff-response (<!! out)]
       (is (= (hashed-states
@@ -48,7 +48,7 @@
                   :hash (:hash (first states))}
         in (chan 1)
         out (chan 1)]
-    (state/make-agent in out states*)
+    (state/make-server-agent in out states*)
     (>!! in msg)
     (let [diff-response (<!! out)]
       (is (= (hashed-states
@@ -83,7 +83,7 @@
                                 :recipes {}})}
         in (chan 1)
         out (chan 1)]
-    (state/make-agent in out states*)
+    (state/make-server-agent in out states*)
     (>!! in msg)
     (let [diff-response (<!! out)]
       (is (= (hashed-states
@@ -109,7 +109,7 @@
         msg {:type :full-sync}
         in (chan 1)
         out (chan 1)]
-    (state/make-agent in out states*)
+    (state/make-server-agent in out states*)
     (>!! in msg)
     (let [diff-response (<!! out)]
       (is (= (hashed-states
@@ -141,7 +141,7 @@
              :new-states states}
         in (chan 1)
         out (chan 1)]
-    (state/make-agent in out states* client-state)
+    (state/make-server-agent in out states* client-state)
     (>!! in msg)
     (let [diff-response (<!! out)]
       (is (= (hashed-states
