@@ -7,8 +7,8 @@
 ;; Server state
 (def states (atom []))
 
-(defn make-server-agent 
-  ([in out states] (make-server-agent in out states sync/empty-state))
+(defn make-agent 
+  ([in out states] (make-agent in out states sync/empty-state))
   ([in out states initial-client-state]
      (a/go-loop [client-state initial-client-state]
                 (when-let [msg (<! in)]
@@ -35,8 +35,7 @@
                     :new-state
                     (let [{:keys [diff hash]} (sync/diff-states (:new-states msg) client-state)]
                       (>! out (message/diff-msg diff hash)))
-                    (do (println "Unknown message:" msg)
-                        (recur client-state)))))))
+                    (recur client-state))))))
 
 ;; TODO: Remove watch, close up channels properly
 (defn sync-new-client! [>client <client]
@@ -46,7 +45,7 @@
         client-events (chan)]
     (add-watch states client-id (fn [_ _ _ new-states] (a/put! state-changes new-states)))
     (a/pipe (a/merge [<client state-change-events]) client-events)
-    (make-server-agent client-events >client states)))
+    (make-agent client-events >client states)))
 
 (defn init [to-db grubs recipes]
   (reset! states (sync/initial-state grubs recipes))
