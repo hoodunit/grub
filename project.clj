@@ -19,7 +19,8 @@
                  [sablono "0.2.17"]
                  [cljs-uuid "0.0.4"]
                  [net.polyc0l0r/hasch "0.2.3"]]
-  :profiles {:uberjar {:aot :all}}
+  :profiles {:uberjar {:aot :all}
+             :dev {:dependencies [[midje "1.6.3"]]}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.6"]
@@ -42,7 +43,7 @@
                    :output-path "target/generated/cljs"
                    :rules :cljs}]}
   :source-paths ["src/clj" "src/test"]
-  :test-paths ["spec/clj"]
+  :test-paths ["src/test"]
   :ring {:handler grub.core/app}
   :uberjar-name "grub-standalone.jar"
   :main grub.core)
