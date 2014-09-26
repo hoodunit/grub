@@ -2,7 +2,7 @@
   (:require [grub.websocket :as ws]
             [grub.db :as db]
             [grub.test.integration.core :as integration-test]
-            [grub.state :as state]
+            [grub.shared-state :as state]
             [ring.middleware.file :as file]
             [ring.util.response :as resp]
             [compojure.core :refer [defroutes GET POST]]

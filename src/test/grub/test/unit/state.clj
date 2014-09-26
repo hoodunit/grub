@@ -1,5 +1,5 @@
 (ns grub.test.unit.state
-  (:require [grub.state :as state]
+  (:require [grub.shared-state :as state]
             [clojure.test :refer :all]
             [hasch.core :as hasch]
             [clojure.core.async :as a :refer [<!! >!! chan go]]))
