@@ -10,6 +10,10 @@
                :recipes (util/map-by-key :id recipes)}]
     [{:state state :hash (hasch/uuid state)}]))
 
+(defn new-state [state]
+  [{:hash (hasch/uuid state)
+    :state state}])
+
 (defn get-current-state [states]
   (:state (last states)))
 
@@ -24,7 +28,8 @@
       (conj states {:hash new-hash :state new-state}))))
 
 (defn diff-states [states shadow]
-  (let [state (get-current-state states)]
+  (let [state states;(get-current-state states)
+        ]
     {:hash (hasch/uuid shadow)
      :diff (diff/diff-states shadow state)}))
 
@@ -32,3 +37,5 @@
   (let [new-state (diff/patch-state (get-current-state states) diff)]
     (add-history-state states new-state)))
 
+(defn empty-diff? [diff]
+  (= diff {:recipes {:deleted #{}, :updated nil}, :grubs {:deleted #{}, :updated nil}}))

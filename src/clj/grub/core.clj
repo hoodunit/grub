@@ -2,7 +2,7 @@
   (:require [grub.websocket :as ws]
             [grub.db :as db]
             [grub.test.integration.core :as integration-test]
-            [grub.shared-state :as state]
+            [grub.state :as state]
             [ring.middleware.file :as file]
             [ring.util.response :as resp]
             [compojure.core :refer [defroutes GET POST]]
@@ -73,14 +73,14 @@
   (reset! index-page prod-index-page)
   (let [to-db (chan)]
     (db/connect-production-database to-db mongo-url)
-    (state/init to-db (db/get-current-grubs) (db/get-current-recipes))
+    (state/init-server to-db (db/get-current-grubs) (db/get-current-recipes))
     (println "Starting production server on localhost:" port)
     (start-server port)))
 
 (defn start-development-server [{:keys [port]}]
   (let [to-db (chan)]
     (db/connect-development-database to-db)
-    (state/init to-db (db/get-current-grubs) (db/get-current-recipes))
+    (state/init-server to-db (db/get-current-grubs) (db/get-current-recipes))
     (println "Starting development server on localhost:" port)
     (start-server port)))
 

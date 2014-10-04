@@ -1,5 +1,5 @@
 (ns grub.test.unit.state
-  (:require [grub.shared-state :as state]
+  (:require [grub.state :as state]
             [clojure.test :refer :all]
             [midje.sweet :refer :all]
             [hasch.core :as hasch]
@@ -121,7 +121,7 @@
                  :recipes {}})
         client-state {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
         msg {:type :new-state
-             :new-states @states}
+             :state (:state (last @states))}
         in (chan 1)
         out (chan 1)]
     (state/make-server-agent in out states client-state)
@@ -156,9 +156,7 @@
         server-out (chan)
         client-state-changes (chan 1)
         msg {:type :new-state
-             :new-states (hashed-states
-                          {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                          {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}})}]
+             :state {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}}}]
     (a/pipe client-out server-in)
     (a/pipe server-out client-in)
     (state/make-client-agent client-in client-out client-states server-shadow)
@@ -185,9 +183,7 @@
         server-in (chan)
         server-out (chan)
         msg {:type :new-state
-             :new-states (hashed-states
-                          {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                          {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}})}
+             :state {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}}}
         client-state-changes (chan 1)]
     (a/pipe client-out server-in)
     (a/pipe server-out client-in)

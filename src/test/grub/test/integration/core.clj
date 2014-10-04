@@ -75,7 +75,7 @@
 (defn start-db-and-websocket-server! []
   (let [to-db (chan)]
     (db/connect-and-handle-events to-db "grub-integration-test")
-    (state/init to-db (db/get-current-grubs) (db/get-current-recipes))))
+    (state/init-server to-db (db/get-current-grubs) (db/get-current-recipes))))
 
 (defn run []
   (println "Starting integration test")
