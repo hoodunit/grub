@@ -40,7 +40,7 @@
                                 grubs (om/get-state owner :grubs)]
                             (om/transact! recipe #(assoc % :name name :grubs grubs)))
       nil)
-    (om/set-state! owner :edit-state next)))
+    (when-not (= current next) (om/set-state! owner :edit-state next))))
 
 (defn num-newlines [str]
   (count (re-seq #"\n" str)))

@@ -36,7 +36,7 @@
       [:editing :waiting] (let [grub (om/get-props owner)]
                             (om/transact! grub #(assoc % :text (om/get-state owner :grub-text))))
       nil)
-    (om/set-state! owner :edit-state next)))
+    (when-not (= current next) (om/set-state! owner :edit-state next))))
 
 (defn view [{:keys [id text completed] :as grub} owner {:keys [remove-ch]}]
   (reify
