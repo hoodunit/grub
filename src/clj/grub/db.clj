@@ -1,5 +1,6 @@
 (ns grub.db
   (:require [grub.util :as util]
+            [grub.sync :as sync]
             [monger.core :as m]
             [monger.collection :as mc]
             [monger.operators :as mo]
@@ -7,54 +8,22 @@
 
 (def conn (atom nil))
 (def db (atom nil))
-(def grub-collection "grubs")
-(def recipe-collection "recipes")
+(def collection "grub-lists")
 (def production-db "grub")
 (def development-db "grub-dev")
 
-(defn clear-grubs [] 
-  (mc/drop @db grub-collection))
-
-(defn clear-recipes [] 
-  (mc/drop @db recipe-collection))
-
 (defn clear-all []
-  (clear-grubs)
-  (clear-recipes))
+  (mc/drop @db collection))
 
-(defn update-db! [{:keys [grubs recipes]}]
-  (let [deleted-grubs (:deleted grubs)
-        updated-grubs (->> (:updated grubs)
-                           (seq)
-                           (map (fn [[k v]] 
-                                  (-> v
-                                      (dissoc :id)
-                                      (assoc :_id k)))))
-        deleted-recipes (:deleted recipes)
-        updated-recipes (->> (:updated recipes)
-                             (seq)
-                             (map (fn [[k v]] 
-                                    (-> v
-                                        (dissoc :id)
-                                        (assoc :_id k)))))]
-    (doseq [g deleted-grubs] 
-      (mc/remove-by-id @db grub-collection g))
-    (doseq [g updated-grubs] 
-      (mc/update-by-id @db grub-collection (:_id g) g {:upsert true}))
-    (doseq [r deleted-recipes]
-      (mc/remove-by-id @db recipe-collection r))
-    (doseq [r updated-recipes]
-      (mc/update-by-id @db recipe-collection (:_id r) r {:upsert true}))))
+(defn update-db! [state]
+  (mc/drop @db collection)
+  (mc/insert @db collection state))
 
-(defn get-current-grubs []
-  (->> (mc/find-maps @db grub-collection)
-       (sort-by :_id)
-       (map #(clojure.set/rename-keys % {:_id :id}))))
-
-(defn get-current-recipes []
-  (->> (mc/find-maps @db recipe-collection)
-       (sort-by :_id)
-       (map #(clojure.set/rename-keys % {:_id :id}))))
+(defn get-current-state []
+  (let [state (first (mc/find-maps @db collection))]
+    (if state
+      (dissoc state :_id)
+      sync/empty-state)))
 
 (defn connect! [db-name mongo-url]
   (if mongo-url
@@ -65,8 +34,9 @@
 
 (defn connect-and-handle-events [to-db db-name & [mongo-url]]
   (a/go-loop []
-             (if-let [diff (<! to-db)]
-               (do (update-db! diff)
+             (if-let [state (<! to-db)]
+               (do (println "DB got new state")
+                   (update-db! state)
                    (recur))
                (println "Database disconnected")))
   (let [_conn (connect! db-name mongo-url)]

@@ -35,7 +35,7 @@
     (doseq [grub grubs]
       (test/is (taxi/find-element driver {:value grub})
                "Previously added grubs should be loaded on refresh")))
-  (db/clear-grubs))
+  (db/clear-all))
 
 (defn test-added-grubs-sync [url driver1 driver2]
   (taxi/to driver1 url)
@@ -75,7 +75,7 @@
 (defn start-db-and-websocket-server! []
   (let [to-db (chan)]
     (db/connect-and-handle-events to-db "grub-integration-test")
-    (state/init-server to-db (db/get-current-grubs) (db/get-current-recipes))))
+    (state/init-server to-db (db/get-current-state))))
 
 (defn run []
   (println "Starting integration test")

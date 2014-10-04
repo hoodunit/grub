@@ -73,14 +73,14 @@
   (reset! index-page prod-index-page)
   (let [to-db (chan)]
     (db/connect-production-database to-db mongo-url)
-    (state/init-server to-db (db/get-current-grubs) (db/get-current-recipes))
+    (state/init-server to-db (db/get-current-state))
     (println "Starting production server on localhost:" port)
     (start-server port)))
 
 (defn start-development-server [{:keys [port]}]
   (let [to-db (chan)]
     (db/connect-development-database to-db)
-    (state/init-server to-db (db/get-current-grubs) (db/get-current-recipes))
+    (state/init-server to-db (db/get-current-state))
     (println "Starting development server on localhost:" port)
     (start-server port)))
 

@@ -65,7 +65,6 @@
 (def states (atom []))
 (def empty-state sync/empty-state)
 
-;; TODO: Remove watch, close up channels properly
 #+clj
 (defn sync-new-client! [>client <client]
   (let [client-id (java.util.UUID/randomUUID)
@@ -85,8 +84,9 @@
                       (a/close! state-change-events)))))
     (make-server-agent client-events >client states)))
 
-(defn init-server [to-db grubs recipes]
-  (reset! states (sync/initial-state grubs recipes))
+#+clj
+(defn init-server [to-db initial-state]
+  (reset! states (sync/new-state initial-state))
   (add-watch states :to-db (fn [_ _ old-states new-states] 
                              (a/put! to-db (sync/get-current-state new-states)))))
 
