@@ -22,8 +22,10 @@
                    (let [new-states (sync/apply-diff states* (:diff msg))
                          new-shadow (diff/patch-state shadow (:diff msg))
                          {:keys [diff hash]} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
-                     (reset! states new-states)
-                     (when-not client? (>! out (message/diff-msg diff hash))) ;; HERE
+                     (when-not (= states* new-states)
+                       (reset! states new-states))
+                     (when-not (sync/empty-diff? diff)
+                       (>! out (message/diff-msg diff hash)))
                      (recur new-shadow))
                    (if client?
                      (do (>! out message/full-sync-request)
@@ -47,9 +49,7 @@
                (let [{:keys [diff hash]} (sync/diff-states (:state msg) shadow)]
                  #+cljs (logs "new state")
                  #+clj (println "new state")
-                 (if client?
-                   (when-not (sync/empty-diff? diff)
-                     (>! out (message/diff-msg diff hash)))
+                 (when-not (sync/empty-diff? diff)
                    (>! out (message/diff-msg diff hash)))
                  (recur shadow))
                (recur shadow)))))))
