@@ -3,6 +3,8 @@
             [grub.util :as util]
             [hasch.core :as hasch]))
 
+(def num-history-states 20)
+
 (def empty-state {:grubs {} :recipes {}})
 
 (defn initial-state [grubs recipes]
@@ -25,7 +27,10 @@
         new-hash (hasch/uuid new-state)]
     (if (= last-hash new-hash)
       states
-      (conj states {:hash new-hash :state new-state}))))
+      (let [new-states (conj states {:hash new-hash :state new-state})]
+        (if (>= (count states) num-history-states)
+          (into [] (rest new-states))
+          new-states)))))
 
 (defn diff-states [states shadow]
   (let [state states;(get-current-state states)

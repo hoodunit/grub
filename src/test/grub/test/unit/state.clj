@@ -197,8 +197,6 @@
     (>!! client-in msg)
     (<!!? client-state-changes)
     @client-states => (hashed-states
-                       {:grubs {"1" {:completed false, :text "2 apples"}}, :recipes {}}
-                       {:grubs {"1" {:completed true, :text "2 apples"}}, :recipes {}}
                        {:grubs {"1" {:completed true, :text "4 apples"}}, :recipes {}})
     @server-states => (hashed-states
                        {:grubs {"1" {:completed false, :text "2 apples"}}, :recipes {}}

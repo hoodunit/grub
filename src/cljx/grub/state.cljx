@@ -20,8 +20,10 @@
                    (let [new-states (sync/apply-diff states* (:diff msg))
                          new-shadow (diff/patch-state shadow (:diff msg))
                          {:keys [diff hash]} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
-                     (when-not (= states* new-states)
-                       (reset! states new-states))
+                     (if client?
+                       (reset! states (sync/new-state (sync/get-current-state new-states)))
+                       (when-not (= states* new-states)
+                         (reset! states new-states)))
                      (when-not (or client? (sync/empty-diff? (:diff msg)))
                        (>! out (message/diff-msg diff hash)))
                      (if client?
