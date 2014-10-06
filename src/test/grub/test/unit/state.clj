@@ -14,7 +14,11 @@
 (defn states-atom [& states]
   (atom (apply hashed-states states)))
 
-(fact "Applies diff and returns empty diff when no server changes"
+(defn <!!? [c]
+  (let [[v p] (a/alts!! [c (a/timeout 100)])]
+    v))
+
+(fact "Applies diff an returns empty diff when no server changes"
   (let [states (states-atom
                 {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}})
         msg {:type :diff
@@ -24,7 +28,7 @@
         out (chan 1)]
     (state/make-server-agent in out states)
     (>!! in msg)
-    (let [response (<!! out)]
+    (let [response (<!!? out)]
       @states => (hashed-states
                   {:grubs {"1" {:completed false, :text "2 apples"}}, :recipes {}}
                   {:grubs {"1" {:completed true, :text "2 apples"}}, :recipes {}})
@@ -46,7 +50,7 @@
         out (chan 1)]
     (state/make-server-agent in out states)
     (>!! in msg)
-    (let [response (<!! out)]
+    (let [response (<!!? out)]
       @states => (hashed-states
                   {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                   {:grubs {"1" {:text "2 apples" :completed false}
@@ -76,7 +80,7 @@
         out (chan 1)]
     (state/make-server-agent in out states)
     (>!! in msg)
-    (let [response (<!! out)]
+    (let [response (<!!? out)]
       @states => (hashed-states
                   {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                   {:grubs {"1" {:text "2 apples" :completed false}
@@ -98,7 +102,7 @@
         out (chan 1)]
     (state/make-server-agent in out states)
     (>!! in msg)
-    (let [response (<!! out)]
+    (let [response (<!!? out)]
       @states => (hashed-states
                   {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                   {:grubs {"1" {:text "2 apples" :completed false}
@@ -126,7 +130,7 @@
         out (chan 1)]
     (state/make-server-agent in out states client-state)
     (>!! in msg)
-    (let [response (<!! out)]
+    (let [response (<!!? out)]
       @states => (hashed-states
                   {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                   {:grubs {"1" {:text "2 apples" :completed false}
@@ -163,7 +167,7 @@
     (state/make-server-agent server-in server-out server-states client-shadow)
     (add-watch client-states :test (fn [_ _ _ new-states] (a/put! client-state-changes new-states)))
     (>!! client-in msg)
-    (<!! client-state-changes)
+    (<!!? client-state-changes)
     (:state (last @client-states)) => {:grubs {"1" {:completed true, :text "2 apples"}}
                                        :recipes {}}
     (:state (last @server-states)) => {:grubs {"1" {:completed true, :text "2 apples"}}
@@ -191,7 +195,7 @@
     (state/make-server-agent server-in server-out server-states client-shadow)
     (add-watch client-states :test (fn [_ _ _ new-states] (a/put! client-state-changes new-states)))
     (>!! client-in msg)
-    (<!! client-state-changes)
+    (<!!? client-state-changes)
     @client-states => (hashed-states
                        {:grubs {"1" {:completed false, :text "2 apples"}}, :recipes {}}
                        {:grubs {"1" {:completed true, :text "2 apples"}}, :recipes {}}
