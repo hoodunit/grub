@@ -16,8 +16,6 @@
                :diff
                (let [states* @states
                      shadow (sync/get-history-state states* (:hash msg))]
-                 #+cljs (logs "diff msg:" msg)
-                 #+clj (println "diff msg:" msg)
                  (if shadow
                    (let [new-states (sync/apply-diff states* (:diff msg))
                          new-shadow (diff/patch-state shadow (:diff msg))
@@ -39,18 +37,14 @@
                :full-sync
                (if client?
                  (let [state (:state msg)]
-                   #+cljs (logs "received full sync")
                    (reset! states (sync/new-state state))
                    (recur state))
                  (let [state (sync/get-current-state @states)]
-                   #+clj (println "sending full sync")
                    (>! out (message/full-sync state)) ;; HERE
                    (recur state)))
 
                :new-state
                (let [{:keys [diff hash]} (sync/diff-states (:state msg) shadow)]
-                 #+cljs (logs "new state")
-                 #+clj (println "new state")
                  (when-not (sync/empty-diff? diff)
                    (>! out (message/diff-msg diff hash)))
                  (recur shadow))
@@ -78,12 +72,11 @@
     (a/go-loop []
                (let [[val _] (a/alts! [<client state-change-events])]
                  (if val
-                  (do (>! client-events val)
-                      (recur))
-                  (do #+clj (println "client disconnected, clean up")
-                      (remove-watch states client-id)
-                      (a/close! <client)
-                      (a/close! state-change-events)))))
+                   (do (>! client-events val)
+                       (recur))
+                   (do (remove-watch states client-id)
+                       (a/close! <client)
+                       (a/close! state-change-events)))))
     (make-server-agent client-events >client states)))
 
 #+clj
