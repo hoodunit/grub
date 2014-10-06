@@ -35,8 +35,7 @@
 (defn connect-and-handle-events [to-db db-name & [mongo-url]]
   (a/go-loop []
              (if-let [state (<! to-db)]
-               (do (println "DB got new state")
-                   (update-db! state)
+               (do (update-db! state)
                    (recur))
                (println "Database disconnected")))
   (let [_conn (connect! db-name mongo-url)]
