@@ -1,9 +1,6 @@
 #!/bin/bash
 
-git branch -D deploy
-git checkout -b deploy
+git pull
+lein cljx
 lein cljsbuild once prod
-git add --force public/js/grub.min.js
-git commit -m "Add client code for Heroku deployment"
-git push --force heroku deploy:master
-git checkout master
+lein run prod
