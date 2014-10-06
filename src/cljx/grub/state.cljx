@@ -24,9 +24,11 @@
                          {:keys [diff hash]} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
                      (when-not (= states* new-states)
                        (reset! states new-states))
-                     (when-not (sync/empty-diff? diff)
+                     (when-not (or client? (sync/empty-diff? (:diff msg)))
                        (>! out (message/diff-msg diff hash)))
-                     (recur new-shadow))
+                     (if client?
+                       (recur new-shadow)
+                       (recur (sync/get-current-state new-states))))
                    (if client?
                      (do (>! out message/full-sync-request)
                          (recur shadow))
