@@ -1,28 +1,18 @@
 (ns grub.view.recipe
-  (:require [om.core :as om :include-macros true]
+  (:require [grub.view.dom :as dom]
+            [grub.view.grub :as grub-view]
+            [grub.util :as util]
+            [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
-            [cljs-uuid.core :as uuid]
-            [grub.view.dom :as dom]
-            [grub.view.grub :as grub-view])
+            [cljs-uuid.core :as uuid])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(defn add-event [name grubs]
-  {:event :add-recipe 
-   :id (str "recipe-" (uuid/make-random))
+(defn new-recipe [name grubs]
+  {:id (str "recipe-" (uuid/make-random))
    :name name
    :grubs grubs})
-
-(defn update-event [id name grubs]
-  {:event :update-recipe 
-   :id id
-   :name name
-   :grubs grubs})
-
-(defn remove-event [id]
-  {:event :remove-recipe 
-   :id id})
 
 (defn parse-grubs-from-str [grubs-str]
   (->> grubs-str
@@ -32,8 +22,8 @@
 
 (defn add-grubs [add-grubs-ch grubs-str]
   (let [grubs (parse-grubs-from-str grubs-str)
-        event (grub-view/add-list-event grubs)]
-    (put! add-grubs-ch event)))
+        grubs-map (util/map-by-key :id grubs)]
+    (put! add-grubs-ch grubs-map)))
 
 (def transitions
   {:waiting {:click :editing}
@@ -44,38 +34,35 @@
   (let [current (om/get-state owner :edit-state)
         next (or (get-in transitions [current event]) current)]
     (condp = [current next]
-      [:editing :waiting] (let [update-ch (om/get-shared owner :recipe-update)
-                                id (:id @(om/get-props owner))
+      [:editing :waiting] (let [recipe (om/get-props owner)
                                 name (om/get-state owner :name)
 
-                                grubs (om/get-state owner :grubs)
-                                event (update-event id name grubs)]
-                            (put! update-ch event))
+                                grubs (om/get-state owner :grubs)]
+                            (om/transact! recipe #(assoc % :name name :grubs grubs)))
       nil)
-    (om/set-state! owner :edit-state next)))
+    (when-not (= current next) (om/set-state! owner :edit-state next))))
 
 (defn num-newlines [str]
   (count (re-seq #"\n" str)))
 
-(defn view [{:keys [id] :as props} owner]
+(defn view [{:keys [id] :as recipe} owner {:keys [remove-recipe-ch]}]
   (reify
     om/IInitState
     (init-state [_]
       (let [publisher (chan)]
         {:edit-state :waiting
-         :name (:name props)
-         :grubs (:grubs props)
+         :name (:name recipe)
+         :grubs (:grubs recipe)
          :unmounted false}))
 
     om/IWillReceiveProps
-    (will-receive-props [this next-props]
-      (om/set-state! owner :name (:name next-props))
-      (om/set-state! owner :grubs (:grubs next-props)))
+    (will-receive-props [this next-recipe]
+      (om/set-state! owner :name (:name next-recipe))
+      (om/set-state! owner :grubs (:grubs next-recipe)))
 
     om/IRenderState
     (render-state [this {:keys [edit-state name grubs]}]
-      (let [update (om/get-shared owner :recipe-update)
-            add-grubs-ch (om/get-shared owner :recipe-add-grubs)]
+      (let [update (om/get-shared owner :recipe-update)]
         (html
          [:div.panel.panel-default.recipe-panel
           {:on-click 
@@ -83,16 +70,17 @@
                            (dom/click-on-elem? % (om/get-node owner :save-btn))))
               (transition-state owner :click))}
           [:div.panel-heading.recipe-header
+           {:class (when (= edit-state :editing) "edit")}
            [:input.form-control.recipe-header-input 
             {:type "text" 
              :readOnly (if (= edit-state :editing) "" "readonly")
              :value name
              :on-change #(om/set-state! owner :name (dom/event-val %))}]
-           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn 
+           [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn
             {:type "button"
              :class (when (= edit-state :editing) "hidden")
              :ref :add-grubs-btn
-             :on-click #(add-grubs add-grubs-ch grubs)}
+             :on-click #(add-grubs (om/get-shared owner :add-grubs-ch) grubs)}
             [:span.glyphicon.glyphicon-plus]
             " Grubs"]]
           [:div.panel-body.recipe-grubs
@@ -105,7 +93,7 @@
              :on-change #(om/set-state! owner :grubs (dom/event-val %))}]
            [:button.btn.btn-danger.pull-left.recipe-remove-btn
             {:type "button"
-             :on-click #(put! (om/get-shared owner :recipe-remove) (remove-event id))}
+             :on-click #(put! remove-recipe-ch id)}
             [:span.glyphicon.glyphicon-trash]]
            [:button.btn.btn-primary.pull-right.recipe-done-btn
             {:type "button"

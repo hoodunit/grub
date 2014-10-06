@@ -17,24 +17,33 @@
                  [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]
                  [om "0.7.0"]
                  [sablono "0.2.17"]
-                 [cljs-uuid "0.0.4"]]
-  :profiles {:uberjar {:aot :all}}
+                 [cljs-uuid "0.0.4"]
+                 [net.polyc0l0r/hasch "0.2.3"]]
+  :profiles {:uberjar {:aot :all}
+             :dev {:dependencies [[midje "1.6.3"]]}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
-            [lein-ring "0.8.6"]]
-  :cljsbuild {:builds {:dev {:source-paths ["src/cljs"]
+            [lein-ring "0.8.6"]
+            [com.keminglabs/cljx "0.4.0"]]
+  :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "target/generated/cljs"]
                              :compiler {:output-dir "public/js/out"
                                         :output-to "public/js/grub.js"
                                         :optimizations :none
                                         :source-map true}}
-                       :prod {:source-paths ["src/cljs"]
+                       :prod {:source-paths ["src/cljs" "target/generated/cljs"]
                               :compiler {:output-to "public/js/grub.min.js"
                                          :optimizations :advanced
                                          :pretty-print false
                                          :preamble ["react/react.min.js"]
                                          :externs ["react/externs/react.js"]}}}}
-  :source-paths ["src/clj" "src/test"]
-  :test-paths ["spec/clj"]
+  :cljx {:builds [{:source-paths ["src/cljx"]
+                   :output-path "target/classes"
+                   :rules :clj}
+                  {:source-paths ["src/cljx"]
+                   :output-path "target/generated/cljs"
+                   :rules :cljs}]}
+  :source-paths ["src/clj" "src/test" "target/classes"]
+  :test-paths ["src/test"]
   :ring {:handler grub.core/app}
   :uberjar-name "grub-standalone.jar"
   :main grub.core)
