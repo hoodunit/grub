@@ -95,8 +95,6 @@
     (add-watch states :render (fn [_ _ _ new-states]
                                 (let [new-state (sync/get-current-state new-states)]
                                   (a/put! >view new-state))))
-    (a/pipe (a/map< (fn [s] 
-                      (swap! states sync/add-history-state s)
-                      {:type :new-state :state s}) <view) <remote)
+    (a/pipe (a/map< (fn [s] {:type :new-state :state s}) <view) <remote)
     (make-client-agent <remote >remote states)
     (a/put! >remote message/full-sync-request)))
