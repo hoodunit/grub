@@ -10,52 +10,54 @@
 (defmulti handle-event (fn [event] (:type event)))
 
 (defmethod handle-event :diff [{:keys [hash diff >remote states shadow client?] :as msg}]
-  (let [states* @states
-        shadow (sync/get-history-state states* hash)]
+  (let [shadow (sync/get-history-state states hash)]
     (if shadow
-      (let [new-states (sync/apply-diff states* diff)
+      (let [new-states (sync/apply-diff states diff)
             new-shadow (diff/patch-state shadow diff)
             {new-diff :diff new-hash :hash} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
         (if client?
-          (do (reset! states (sync/new-state (sync/get-current-state new-states)))
-              new-shadow)
-          (do (when-not (= states* new-states) (reset! states new-states))
-              (when-not (sync/empty-diff? diff)
+          {:new-states (sync/new-state (sync/get-current-state new-states))
+           :new-shadow new-shadow}
+          (do (when-not (sync/empty-diff? diff)
                 (a/put! >remote (message/diff-msg new-diff new-hash)))
-              (sync/get-current-state new-states))))
+              {:new-states new-states
+               :new-shadow (sync/get-current-state new-states)})))
       (if client?
         (do (a/put! >remote message/full-sync-request)
-            shadow)
-        (let [state (sync/get-current-state states*)]
+            {:new-shadow shadow})
+        (let [state (sync/get-current-state states)]
           (a/put! >remote (message/full-sync state))
-          state))))),
+          {:new-shadow state})))))
 
 (defmethod handle-event :full-sync-request [{:keys [states >remote]}]
-  (let [state (sync/get-current-state @states)]
+  (let [state (sync/get-current-state states)]
     (a/put! >remote (message/full-sync state))
-    state))
+    {:new-shadow state}))
 
 (defmethod handle-event :full-sync [{:keys [state states]}]
-  (reset! states (sync/new-state state))
-  state)
+  {:new-states (sync/new-state state)
+   :new-shadow state})
 
 (defmethod handle-event :new-state [{:keys [state states shadow >remote]}]
   (let [{:keys [diff hash]} (sync/diff-states state shadow)]
     (when-not (sync/empty-diff? diff)
       (a/put! >remote (message/diff-msg diff hash)))
-    shadow))
+    {:new-shadow shadow}))
 
 (defn make-agent 
-  ([client? <remote >remote states] (make-agent client? <remote >remote states sync/empty-state))
-  ([client? <remote >remote states initial-shadow]
-     (let [msg->event (fn [msg shadow] 
+  ([client? <remote >remote states*] (make-agent client? <remote >remote states* sync/empty-state))
+  ([client? <remote >remote states* initial-shadow]
+     (let [msg->event (fn [msg states shadow] 
                         (assoc msg 
                           :>remote >remote :states states
                           :client? client? :shadow shadow))]
        (go (loop [shadow initial-shadow]
              (when-let [msg (<! <remote)]
-               (let [event (msg->event msg shadow)]
-                 (recur (handle-event event)))))))))
+               (let [states @states*
+                     event (msg->event msg states shadow)
+                     {:keys [new-states new-shadow]} (handle-event event)]
+                 (when (and new-states (not= states new-states)) (reset! states* new-states))
+                 (recur shadow))))))))
 
 (defn make-server-agent
   ([in out states] (make-agent false in out states))
