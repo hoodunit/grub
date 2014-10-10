@@ -7,9 +7,9 @@
   #+cljs (:require-macros [grub.macros :refer [log logs]]
                           [cljs.core.async.macros :refer [go]]))
 
-(defmulti handle-message (fn [event] (:type event)))
+(defmulti handle-event (fn [event] (:type event)))
 
-(defmethod handle-message :diff [{:keys [hash diff >remote states shadow client?] :as msg}]
+(defmethod handle-event :diff [{:keys [hash diff >remote states shadow client?] :as msg}]
   (let [states* @states
         shadow (sync/get-history-state states* hash)]
     (if shadow
@@ -30,16 +30,16 @@
           (a/put! >remote (message/full-sync state))
           state))))),
 
-(defmethod handle-message :full-sync-request [{:keys [states >remote]}]
+(defmethod handle-event :full-sync-request [{:keys [states >remote]}]
   (let [state (sync/get-current-state @states)]
     (a/put! >remote (message/full-sync state))
     state))
 
-(defmethod handle-message :full-sync [{:keys [state states]}]
+(defmethod handle-event :full-sync [{:keys [state states]}]
   (reset! states (sync/new-state state))
   state)
 
-(defmethod handle-message :new-state [{:keys [state states shadow >remote]}]
+(defmethod handle-event :new-state [{:keys [state states shadow >remote]}]
   (let [{:keys [diff hash]} (sync/diff-states state shadow)]
     (when-not (sync/empty-diff? diff)
       (a/put! >remote (message/diff-msg diff hash)))
@@ -55,7 +55,7 @@
        (go (loop [shadow initial-shadow]
              (when-let [msg (<! <remote)]
                (let [event (msg->event msg shadow)]
-                 (recur (handle-message event)))))))))
+                 (recur (handle-event event)))))))))
 
 (defn make-server-agent
   ([in out states] (make-agent false in out states))
