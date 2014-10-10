@@ -35,7 +35,7 @@
     (include-css "/css/styles.css")]
    [:body
     [:div#container]
-    (include-js "/js/react-0.11.1.js")
+    (include-js "/js/react-0.11.2-with-addons.js")
     (include-js "/js/out/goog/base.js")
     (include-js "/js/grub.js")
     [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))
