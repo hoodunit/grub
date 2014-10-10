@@ -32,11 +32,9 @@
           (into [] (rest new-states))
           new-states)))))
 
-(defn diff-states [states shadow]
-  (let [state states;(get-current-state states)
-        ]
-    {:hash (hasch/uuid shadow)
-     :diff (diff/diff-states shadow state)}))
+(defn diff-states [state shadow]
+  {:hash (hasch/uuid shadow)
+   :diff (diff/diff-states shadow state)})
 
 (defn apply-diff [states diff]
   (let [new-state (diff/patch-state (get-current-state states) diff)]

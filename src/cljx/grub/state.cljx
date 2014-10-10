@@ -10,18 +10,17 @@
 (defmulti handle-event (fn [event] (:type event)))
 
 (defmethod handle-event :diff [{:keys [hash diff states shadow client?] :as msg}]
-  (let [shadow (sync/get-history-state states hash)]
-    (if shadow
+  (let [history-shadow (sync/get-history-state states hash)]
+    (if history-shadow
       (let [new-states (sync/apply-diff states diff)
-            new-shadow (diff/patch-state shadow diff)
+            new-shadow (diff/patch-state history-shadow diff)
             {new-diff :diff new-hash :hash} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
-        (if client?
-          {:new-states (sync/new-state (sync/get-current-state new-states))
-           :new-shadow new-shadow}
-          {:out-event (when-not (sync/empty-diff? diff)
-                        (message/diff-msg new-diff new-hash))
-           :new-states new-states
-           :new-shadow (sync/get-current-state new-states)}))
+        {:out-event (when-not (sync/empty-diff? diff)
+                      (message/diff-msg new-diff new-hash))
+         :new-states (if client?
+                       (sync/new-state (sync/get-current-state new-states))
+                       new-states)
+         :new-shadow new-shadow})
       (if client?
         {:out-event message/full-sync-request
          :new-shadow shadow}
@@ -38,9 +37,9 @@
   {:new-states (sync/new-state state)
    :new-shadow state})
 
-(defmethod handle-event :new-state [{:keys [state states shadow]}]
+(defmethod handle-event :new-state [{:keys [client? state states shadow] :as event}]
   (let [{:keys [diff hash]} (sync/diff-states state shadow)]
-    {:new-shadow shadow
+    {:new-states (sync/add-history-state states state)
      :out-event (when-not (sync/empty-diff? diff) (message/diff-msg diff hash))}))
 
 (defn make-agent 
@@ -53,15 +52,15 @@
                    {:keys [new-states new-shadow out-event]} (handle-event event)]
                (when (and new-states (not= states new-states)) (reset! states* new-states))
                (when out-event (a/put! >remote out-event))
-               (recur shadow)))))))
+               (recur (if new-shadow new-shadow shadow))))))))
 
 (defn make-server-agent
-  ([in out states] (make-agent false in out states))
-  ([in out states initial-shadow] (make-agent false in out states initial-shadow)))
+  ([<remote >remote states] (make-agent false <remote >remote states))
+  ([<remote >remote states initial-shadow] (make-agent false <remote >remote states initial-shadow)))
 
 (defn make-client-agent
-  ([in out states] (make-agent true in out states))
-  ([in out states initial-shadow] (make-agent true in out states initial-shadow)))
+  ([<remote >remote states] (make-agent true <remote >remote states))
+  ([<remote >remote states initial-shadow] (make-agent true <remote >remote states initial-shadow)))
 
 (def states (atom []))
 (def empty-state sync/empty-state)
