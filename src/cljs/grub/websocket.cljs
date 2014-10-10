@@ -1,20 +1,21 @@
 (ns grub.websocket
   (:require [cljs.core.async :as a :refer [<! >! chan]]
-            [cljs.reader]
             goog.net.WebSocket
             goog.events.EventHandler
             goog.events.EventTarget
-            [hasch.core :as hasch])
+            [cognitect.transit :as t])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]
                    [grub.macros :refer [log logs]]))
 
 (def server-url (str "ws://" (.-host (.-location js/document))))
 (def pending-msg (atom nil))
+(def reader (t/reader :json))
+(def writer (t/writer :json))
 
 (defn send-pending-msg [websocket]
   (when (and (.isOpen websocket)
              (not (nil? @pending-msg)))
-    (.send websocket (pr-str @pending-msg))
+    (.send websocket (t/write writer @pending-msg))
     (reset! pending-msg nil)))
 
 (defn on-connected [websocket event]
@@ -22,7 +23,7 @@
   (send-pending-msg websocket))
 
 (defn read-msg [msg]
-  (cljs.reader/read-string (.-message msg)))
+  (t/read reader (.-message msg)))
 
 (defn connect-client! [in out]
   (let [handler (goog.events.EventHandler.)
