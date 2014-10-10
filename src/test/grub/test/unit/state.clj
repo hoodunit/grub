@@ -18,7 +18,7 @@
   (let [[v p] (a/alts!! [c (a/timeout 100)])]
     v))
 
-(fact "Applies diff an returns empty diff when no server changes"
+(fact "Applies diff and returns empty diff when no server changes"
   (let [states (states-atom
                 {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}})
         msg {:type :diff
