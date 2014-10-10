@@ -6,11 +6,12 @@
   (:require-macros [grub.macros :refer [log logs]]))
 
 (defn init-app []
-  (let [current-state (atom state/empty-state)
-        state-changes (view/render-app current-state)
+  (let [local-states (chan)
+        remote-states (chan)
         to-remote (chan)
         from-remote (chan)]
+    (view/render-app state/empty-state remote-states local-states)
     (ws/connect-client! to-remote from-remote)
-    (state/init-client from-remote to-remote state-changes current-state)))
+    (state/init-client from-remote to-remote local-states remote-states)))
 
 (init-app)

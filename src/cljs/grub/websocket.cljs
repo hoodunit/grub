@@ -21,23 +21,19 @@
   (log "Connected:" event)
   (send-pending-msg websocket))
 
-(defn on-message [from event]
-  (let [msg (cljs.reader/read-string (.-message event))]
-    (a/put! from msg)))
+(defn read-msg [msg]
+  (cljs.reader/read-string (.-message msg)))
 
-(def ws (atom nil))
-
-(defn connect-client! [to from]
+(defn connect-client! [in out]
   (let [handler (goog.events.EventHandler.)
         websocket (goog.net.WebSocket.)
         listen (fn [type fun] (.listen handler websocket type fun false))]
-    (reset! ws websocket)
     (listen goog.net.WebSocket.EventType.OPENED (partial on-connected websocket))
-    (listen goog.net.WebSocket.EventType.MESSAGE (partial on-message from))
+    (listen goog.net.WebSocket.EventType.MESSAGE #(a/put! out (read-msg %)))
     (listen goog.net.WebSocket.EventType.CLOSED #(log "Closed:" %))
     (listen goog.net.WebSocket.EventType.ERROR #(log "Error:" %))
     (go (loop [] 
-            (when-let [msg (<! to)]
+            (when-let [msg (<! in)]
               (reset! pending-msg msg)
               (send-pending-msg websocket) 
               (recur))))

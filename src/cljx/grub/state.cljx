@@ -88,13 +88,13 @@
                              (a/put! to-db (sync/get-current-state new-states)))))
 
 #+cljs
-(defn init-client [in out state-changes current-state]
-  (reset! states (sync/initial-state {} {}))
-  (add-watch states :render (fn [_ _ _ new-states]
-                              (let [new-state (sync/get-current-state new-states)]
-                                (reset! current-state new-state))))
-  (a/pipe (a/map< (fn [s] 
-                    (swap! states sync/add-history-state s)
-                    {:type :new-state :state s}) state-changes) in)
-  (make-client-agent in out states)
-  (a/put! out message/full-sync-request))
+(defn init-client [<remote >remote <view >view]
+  (let [states (atom (sync/initial-state {} {}))]
+    (add-watch states :render (fn [_ _ _ new-states]
+                                (let [new-state (sync/get-current-state new-states)]
+                                  (a/put! >view new-state))))
+    (a/pipe (a/map< (fn [s] 
+                      (swap! states sync/add-history-state s)
+                      {:type :new-state :state s}) <view) <remote)
+    (make-client-agent <remote >remote states)
+    (a/put! >remote message/full-sync-request)))
