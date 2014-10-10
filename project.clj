@@ -18,7 +18,9 @@
                  [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]
                  [sablono "0.2.17"]
                  [cljs-uuid "0.0.4"]
-                 [net.polyc0l0r/hasch "0.2.3"]]
+                 [net.polyc0l0r/hasch "0.2.3"]
+                 [com.cognitect/transit-clj "0.8.259"]
+                 [com.cognitect/transit-cljs "0.8.188"]]
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[midje "1.6.3"]]}}
   :min-lein-version "2.1.2"
