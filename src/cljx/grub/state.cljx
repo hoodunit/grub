@@ -35,16 +35,17 @@
                      (let [state (sync/get-current-state states*)]
                        (>! out (message/full-sync state))
                        (recur state)))))
+               
+               :full-sync-request
+               (let [state (sync/get-current-state @states)]
+                 (>! out (message/full-sync state))
+                 (recur state))
 
                :full-sync
-               (if client?
-                 (let [state (:state msg)]
-                   (reset! states (sync/new-state state))
-                   (recur state))
-                 (let [state (sync/get-current-state @states)]
-                   (>! out (message/full-sync state)) ;; HERE
-                   (recur state)))
-
+               (let [state (:state msg)]
+                 (reset! states (sync/new-state state))
+                 (recur state))
+               
                :new-state
                (let [{:keys [diff hash]} (sync/diff-states (:state msg) shadow)]
                  (when-not (sync/empty-diff? diff)

@@ -97,7 +97,7 @@
                 {:grubs {"1" {:text "2 apples" :completed false}
                          "2" {:text "3 onions" :completed false}}
                  :recipes {}})
-        msg {:type :full-sync}
+        msg {:type :full-sync-request}
         in (chan 1)
         out (chan 1)]
     (state/make-server-agent in out states)

@@ -1,6 +1,6 @@
 (ns grub.message)
 
-(def full-sync-request {:type :full-sync})
+(def full-sync-request {:type :full-sync-request})
 
 (defn full-sync [state]
   {:type :full-sync
