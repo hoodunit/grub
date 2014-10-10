@@ -1,6 +1,5 @@
 (ns grub.test.unit.state
   (:require [grub.state :as state]
-            [clojure.test :refer :all]
             [midje.sweet :refer :all]
             [hasch.core :as hasch]
             [clojure.core.async :as a :refer [<!! >!! chan go]]))
