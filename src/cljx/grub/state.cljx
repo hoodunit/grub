@@ -7,53 +7,55 @@
   #+cljs (:require-macros [grub.macros :refer [log logs]]
                           [cljs.core.async.macros :refer [go]]))
 
-(defmulti handle-message (fn [msg >remote states shadow client?] (:type msg)))
+(defmulti handle-message (fn [event] (:type event)))
 
-(defmethod handle-message :diff [msg >remote states shadow client?]
+(defmethod handle-message :diff [{:keys [hash diff >remote states shadow client?] :as msg}]
   (let [states* @states
-        shadow (sync/get-history-state states* (:hash msg))]
+        shadow (sync/get-history-state states* hash)]
     (if shadow
-      (let [new-states (sync/apply-diff states* (:diff msg))
-            new-shadow (diff/patch-state shadow (:diff msg))
-            {:keys [diff hash]} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
+      (let [new-states (sync/apply-diff states* diff)
+            new-shadow (diff/patch-state shadow diff)
+            {new-diff :diff new-hash :hash} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
         (if client?
-          (reset! states (sync/new-state (sync/get-current-state new-states)))
-          (when-not (= states* new-states)
-            (reset! states new-states)))
-        (when-not (or client? (sync/empty-diff? (:diff msg)))
-          (a/put! >remote (message/diff-msg diff hash)))
-        (if client?
-          new-shadow
-          (sync/get-current-state new-states)))
+          (do (reset! states (sync/new-state (sync/get-current-state new-states)))
+              new-shadow)
+          (do (when-not (= states* new-states) (reset! states new-states))
+              (when-not (sync/empty-diff? diff)
+                (a/put! >remote (message/diff-msg new-diff new-hash)))
+              (sync/get-current-state new-states))))
       (if client?
         (do (a/put! >remote message/full-sync-request)
             shadow)
         (let [state (sync/get-current-state states*)]
           (a/put! >remote (message/full-sync state))
-          state)))))
+          state))))),
 
-(defmethod handle-message :full-sync-request [msg out states shadow client?]
+(defmethod handle-message :full-sync-request [{:keys [states >remote]}]
   (let [state (sync/get-current-state @states)]
-    (a/put! out (message/full-sync state))
+    (a/put! >remote (message/full-sync state))
     state))
 
-(defmethod handle-message :full-sync [msg out states shadow client?]
-  (let [state (:state msg)]
-    (reset! states (sync/new-state state))
-    state))
+(defmethod handle-message :full-sync [{:keys [state states]}]
+  (reset! states (sync/new-state state))
+  state)
 
-(defmethod handle-message :new-state [msg out states shadow client?]
-  (let [{:keys [diff hash]} (sync/diff-states (:state msg) shadow)]
+(defmethod handle-message :new-state [{:keys [state states shadow >remote]}]
+  (let [{:keys [diff hash]} (sync/diff-states state shadow)]
     (when-not (sync/empty-diff? diff)
-      (a/put! out (message/diff-msg diff hash)))
+      (a/put! >remote (message/diff-msg diff hash)))
     shadow))
 
 (defn make-agent 
   ([client? <remote >remote states] (make-agent client? <remote >remote states sync/empty-state))
   ([client? <remote >remote states initial-shadow]
-     (go (loop [shadow initial-shadow]
-           (when-let [msg (<! <remote)]
-             (recur (handle-message msg >remote states shadow client?)))))))
+     (let [msg->event (fn [msg shadow] 
+                        (assoc msg 
+                          :>remote >remote :states states
+                          :client? client? :shadow shadow))]
+       (go (loop [shadow initial-shadow]
+             (when-let [msg (<! <remote)]
+               (let [event (msg->event msg shadow)]
+                 (recur (handle-message event)))))))))
 
 (defn make-server-agent
   ([in out states] (make-agent false in out states))
