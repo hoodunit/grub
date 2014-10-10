@@ -16,7 +16,7 @@
           new-recipe (recipe/new-recipe name grubs)]
       (om/set-state! owner :new-recipe-name "")
       (om/set-state! owner :new-recipe-grubs "")
-      (om/transact! recipes #(assoc % (:id new-recipe) new-recipe)))))
+      (om/transact! recipes nil #(assoc % (:id new-recipe) new-recipe) :local))))
 
 (def transitions
   {:waiting {:click :editing}
@@ -113,4 +113,4 @@
         (go-loop []
                  (let [removed-id (<! remove-recipe-ch)]
                    (when-not (nil? removed-id)
-                     (om/transact! recipes #(dissoc % removed-id)))))))))
+                     (om/transact! recipes nil #(dissoc % removed-id) :local))))))))

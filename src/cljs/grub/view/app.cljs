@@ -25,7 +25,7 @@
         (dom/on-document-mousedown #(put! >events {:type :body-mousedown :event %}))
         (dom/on-window-scroll #(put! >events {:type :body-scroll :event %}))))))
     
-(defn render-app [initial-state remote-states local-states]
+(defn render-app [initial-state <remote >remote]
   (let [state (atom initial-state)
         >events (chan)
         <events (a/pub >events :type)
@@ -36,8 +36,8 @@
               :shared {:>events >events
                        :<events <events
                        :add-grubs-ch add-grubs-ch}
-              :tx-listen (fn [{:keys [new-state]} _] 
-                           (put! local-states new-state))})
-    (go (loop [] (when-let [new-state (<! remote-states)]
+              :tx-listen (fn [{:keys [new-state tag]} _] 
+                           (when (= tag :local) (put! >remote new-state)))})
+    (go (loop [] (when-let [new-state (<! <remote)]
                    (reset! state new-state)
                    (recur))))))

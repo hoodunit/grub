@@ -22,7 +22,7 @@
   (when (not (empty? new-grub-text))
     (let [new-grub (grub-view/new-grub new-grub-text)]
       (om/set-state! owner :new-grub-text "")
-      (om/transact! grubs #(assoc % (:id new-grub) new-grub)))))
+      (om/transact! grubs nil #(assoc % (:id new-grub) new-grub) :local))))
 
 (defn view [grubs owner]
   (reify
@@ -57,7 +57,7 @@
            {:id "clear-all-btn" 
             :class (when (empty? grubs) "hidden")
             :type "button"
-            :on-click #(om/update! grubs {})}
+            :on-click #(om/update! grubs nil {} :local)}
            "Clear all"]])))
     om/IWillMount
     (will-mount [_]
@@ -66,10 +66,10 @@
         (go-loop []
                  (let [grubs-map (<! add-grubs-ch)]
                    (when-not (nil? grubs-map)
-                     (om/transact! grubs #(merge % grubs-map))
+                     (om/transact! grubs nil #(merge % grubs-map) :local)
                      (recur))))
         (go-loop []
                  (let [id (<! remove-grub-ch)]
                    (when-not (nil? id)
-                     (om/transact! grubs #(dissoc % id))
+                     (om/transact! grubs nil #(dissoc % id) :local)
                      (recur))))))))

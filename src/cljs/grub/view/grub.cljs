@@ -34,7 +34,7 @@
                             (om/set-state! owner :timeout-id timeout-id))
       [:pressed :waiting] (js/clearTimeout (om/get-state owner :timeout-id)) 
       [:editing :waiting] (let [grub (om/get-props owner)]
-                            (om/transact! grub #(assoc % :text (om/get-state owner :grub-text))))
+                            (om/transact! grub nil #(assoc % :text (om/get-state owner :grub-text)) :local))
       nil)
     (when-not (= current next) (om/set-state! owner :edit-state next))))
 
@@ -58,7 +58,7 @@
                  (when (= edit-state :pressed) "grub-active")
                  (when (= edit-state :editing) "edit")]
          :on-click (fn [e] (when (#{:waiting :pressed} edit-state)
-                             (om/transact! grub #(assoc % :completed (not completed)))
+                             (om/transact! grub nil #(assoc % :completed (not completed)) :local)
                              (.blur (om/get-node owner :grub-input))))
          :on-mouse-down #(transition-state owner :mouse-down) 
          :on-mouse-up #(transition-state owner :mouse-up) 
