@@ -7,51 +7,53 @@
   #+cljs (:require-macros [grub.macros :refer [log logs]]
                           [cljs.core.async.macros :refer [go]]))
 
+(defmulti handle-message (fn [msg out states shadow client?] (:type msg)))
+
+(defmethod handle-message :diff [msg out states shadow client?]
+  (let [states* @states
+        shadow (sync/get-history-state states* (:hash msg))]
+    (if shadow
+      (let [new-states (sync/apply-diff states* (:diff msg))
+            new-shadow (diff/patch-state shadow (:diff msg))
+            {:keys [diff hash]} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
+        (if client?
+          (reset! states (sync/new-state (sync/get-current-state new-states)))
+          (when-not (= states* new-states)
+            (reset! states new-states)))
+        (when-not (or client? (sync/empty-diff? (:diff msg)))
+          (a/put! out (message/diff-msg diff hash)))
+        (if client?
+          new-shadow
+          (sync/get-current-state new-states)))
+      (if client?
+        (do (a/put! out message/full-sync-request)
+            shadow)
+        (let [state (sync/get-current-state states*)]
+          (a/put! out (message/full-sync state))
+          state)))))
+
+(defmethod handle-message :full-sync-request [msg out states shadow client?]
+  (let [state (sync/get-current-state @states)]
+    (a/put! out (message/full-sync state))
+    state))
+
+(defmethod handle-message :full-sync [msg out states shadow client?]
+  (let [state (:state msg)]
+    (reset! states (sync/new-state state))
+    state))
+
+(defmethod handle-message :new-state [msg out states shadow client?]
+  (let [{:keys [diff hash]} (sync/diff-states (:state msg) shadow)]
+    (when-not (sync/empty-diff? diff)
+      (a/put! out (message/diff-msg diff hash)))
+    shadow))
+
 (defn make-agent 
   ([client? in out states] (make-agent client? in out states sync/empty-state))
   ([client? in out states initial-shadow]
      (go (loop [shadow initial-shadow]
            (when-let [msg (<! in)]
-             (condp = (:type msg)
-               :diff
-               (let [states* @states
-                     shadow (sync/get-history-state states* (:hash msg))]
-                 (if shadow
-                   (let [new-states (sync/apply-diff states* (:diff msg))
-                         new-shadow (diff/patch-state shadow (:diff msg))
-                         {:keys [diff hash]} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
-                     (if client?
-                       (reset! states (sync/new-state (sync/get-current-state new-states)))
-                       (when-not (= states* new-states)
-                         (reset! states new-states)))
-                     (when-not (or client? (sync/empty-diff? (:diff msg)))
-                       (>! out (message/diff-msg diff hash)))
-                     (if client?
-                       (recur new-shadow)
-                       (recur (sync/get-current-state new-states))))
-                   (if client?
-                     (do (>! out message/full-sync-request)
-                         (recur shadow))
-                     (let [state (sync/get-current-state states*)]
-                       (>! out (message/full-sync state))
-                       (recur state)))))
-               
-               :full-sync-request
-               (let [state (sync/get-current-state @states)]
-                 (>! out (message/full-sync state))
-                 (recur state))
-
-               :full-sync
-               (let [state (:state msg)]
-                 (reset! states (sync/new-state state))
-                 (recur state))
-               
-               :new-state
-               (let [{:keys [diff hash]} (sync/diff-states (:state msg) shadow)]
-                 (when-not (sync/empty-diff? diff)
-                   (>! out (message/diff-msg diff hash)))
-                 (recur shadow))
-               (recur shadow)))))))
+             (recur (handle-message msg out states shadow client?)))))))
 
 (defn make-server-agent
   ([in out states] (make-agent false in out states))
