@@ -36,9 +36,13 @@
     (condp = [current next]
       [:editing :waiting] (let [recipe (om/get-props owner)
                                 name (om/get-state owner :name)
-
                                 grubs (om/get-state owner :grubs)]
-                            (om/transact! recipe nil #(assoc % :name name :grubs grubs) :local))
+                            (when-not (and (= name (:name @recipe))
+                                           (= grubs (:grubs @recipe)))
+                              (om/transact! recipe 
+                                            nil 
+                                            #(assoc % :name name :grubs grubs)
+                                            :local)))
       nil)
     (when-not (= current next) (om/set-state! owner :edit-state next))))
 
