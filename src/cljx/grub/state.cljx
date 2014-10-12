@@ -7,7 +7,9 @@
   #+cljs (:require-macros [grub.macros :refer [log logs]]
                           [cljs.core.async.macros :refer [go]]))
 
-(defmulti handle-event (fn [event] (:type event)))
+(defmulti handle-event (fn [event] 
+                         #+cljs (logs (:type event))
+                         (:type event)))
 
 (defmethod handle-event :diff [{:keys [hash diff states shadow client?] :as msg}]
   (let [history-shadow (sync/get-history-state states hash)]
@@ -62,17 +64,14 @@
   ([<remote >remote states] (make-agent true <remote >remote states))
   ([<remote >remote states initial-shadow] (make-agent true <remote >remote states initial-shadow)))
 
-(def states (atom []))
-(def empty-state sync/empty-state)
-
 #+clj
-(defn sync-new-client! [>client <client]
+(defn sync-new-client! [states >client <client]
   (let [client-id (java.util.UUID/randomUUID)
-        state-changes (chan)
-        state-change-events (a/map< (fn [s] {:type :new-state :state s}) state-changes)
+        state-change-events (chan 1 (map (fn [s] {:type :new-state :state s})))
         client-events (chan)]
-    (add-watch states client-id (fn [_ _ _ new-states] 
-                                  (a/put! state-changes (sync/get-current-state new-states))))
+    (add-watch states client-id 
+               (fn [_ _ _ new-states] 
+                 (a/put! state-change-events (sync/get-current-state new-states))))
     (a/go-loop []
                (let [[val _] (a/alts! [<client state-change-events])]
                  (if val
@@ -85,16 +84,18 @@
 
 #+clj
 (defn init-server [to-db initial-state]
-  (reset! states (sync/new-state initial-state))
-  (add-watch states :to-db (fn [_ _ old-states new-states] 
-                             (a/put! to-db (sync/get-current-state new-states)))))
+  (let [states (atom (sync/new-state initial-state))]
+    (add-watch states :to-db (fn [_ _ old-states new-states] 
+                               (a/put! to-db (sync/get-current-state new-states))))
+    states))
 
 #+cljs
 (defn init-client [<remote >remote <view >view]
-  (let [states (atom (sync/initial-state {} {}))]
+  (let [states (atom (sync/initial-state {} {}))
+        local-events (chan 1 (map (fn [s] {:type :new-state :state s})))]
     (add-watch states :render (fn [_ _ _ new-states]
                                 (let [new-state (sync/get-current-state new-states)]
                                   (a/put! >view new-state))))
-    (a/pipe (a/map< (fn [s] {:type :new-state :state s}) <view) <remote)
-    (make-client-agent <remote >remote states)
+    (a/pipe <view local-events)
+    (make-client-agent (a/merge [local-events <remote]) >remote states)
     (a/put! >remote message/full-sync-request)))

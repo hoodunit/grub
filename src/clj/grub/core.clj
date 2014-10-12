@@ -48,14 +48,14 @@
    :db {:name "grub-dev"}
    :port 3000})
 
-(defn handle-websocket [handler]
+(defn handle-websocket [handler states]
   (fn [{:keys [websocket?] :as request}]
     (if websocket?
       (httpkit/with-channel request ws-channel
         (let [to-client (chan)
               from-client (chan)]
           (ws/add-connected-client! ws-channel to-client from-client)
-          (state/sync-new-client! to-client from-client)))
+          (state/sync-new-client! states to-client from-client)))
       (handler request))))
 
 (defn handle-root [handler index]
@@ -64,18 +64,18 @@
       (resp/response index)
       (handler request))))
 
-(defn make-handler [{:keys [index]}]
+(defn make-handler [{:keys [index]} states]
   (-> (fn [req] "Not found")
       (file/wrap-file "public")
       (content-type/wrap-content-type)
       (handle-root index)
-      (handle-websocket)))
+      (handle-websocket states)))
 
 (defn start [current {:keys [port db] :as config}]
   (let [to-db (chan)
         db (db/connect-and-handle-events to-db (:name db))
         states (state/init-server to-db (db/get-current-state (:db db)))
-        stop-server (httpkit/run-server (make-handler config) {:port port})]
+        stop-server (httpkit/run-server (make-handler config states) {:port port})]
     (println "Started server on localhost:" port)
     (assoc config 
       :db (merge (:db config) db)
