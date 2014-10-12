@@ -8,7 +8,6 @@
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [om "0.7.3"]
                  [http-kit "2.1.18"]
-                 [compojure "1.1.8"]
                  [ring/ring-core "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-devel "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5"]

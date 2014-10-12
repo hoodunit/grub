@@ -4,10 +4,8 @@
             [grub.test.integration.core :as integration-test]
             [grub.state :as state]
             [ring.middleware.file :as file]
+            [ring.middleware.content-type :as content-type]
             [ring.util.response :as resp]
-            [compojure.core :refer [defroutes GET POST]]
-            [compojure.handler :as handler]
-            [compojure.route :as route]
             [org.httpkit.server :as httpkit]
             [clojure.core.async :as a :refer [<! >! chan go]]
             [hiccup
@@ -42,26 +40,31 @@
 
 (def index-page (atom dev-index-page))
 
-(defn websocket-handler [request]
-  (when (:websocket? request)
-    (httpkit/with-channel request ws-channel
-      (let [to-client (chan)
-            from-client (chan)]
-        (ws/add-connected-client! ws-channel to-client from-client)
-        (state/sync-new-client! to-client from-client)))))
-
-(defroutes routes
-  (GET "/" [] websocket-handler)
-  (GET "/" [] @index-page)
-  (GET "*/src/cljs/grub/:file" [file] (resp/file-response file {:root "src/cljs/grub"}))
-  (GET "/js/public/js/:file" [file] (resp/redirect (str "/js/" file)))
-  (route/files "/")
-  (route/not-found "<p>Page not found.</p>"))
-
 (def default-port 3000)
 
+(defn handle-websocket [handler]
+  (fn [{:keys [websocket?] :as request}]
+    (if websocket?
+      (httpkit/with-channel request ws-channel
+        (let [to-client (chan)
+              from-client (chan)]
+          (ws/add-connected-client! ws-channel to-client from-client)
+          (state/sync-new-client! to-client from-client)))
+      (handler request))))
+
+(defn handle-root [handler]
+  (fn [{:keys [uri] :as request}]
+    (if (= uri "/")
+      (resp/response @index-page)
+      (handler request))))
+
 (defn start-server [port]
-  (httpkit/run-server (handler/site routes) {:port port}))
+  (httpkit/run-server (-> (fn [req] "Not found")
+                          (file/wrap-file "public")
+                          (content-type/wrap-content-type)
+                          (handle-root)
+                          (handle-websocket))
+                      {:port port}))
 
 (defn run-integration-test []
   (let [stop-server (start-server integration-test/server-port)]
