@@ -63,7 +63,7 @@
         (let [to-client (chan)
               from-client (chan)]
           (ws/add-connected-client! ws-channel to-client from-client)
-          (state/sync-new-client! states to-client from-client)))
+          (state/sync-new-client! to-client from-client states)))
       (handler request))))
 
 (defn handle-root [handler index]

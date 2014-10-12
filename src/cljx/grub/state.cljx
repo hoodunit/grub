@@ -2,6 +2,7 @@
   (:require [grub.diff :as diff]
             [grub.message :as message]
             [grub.sync :as sync]
+            [hasch.core :as hasch]
             #+clj [clojure.core.async :as a :refer [<! >! chan go]]
             #+cljs [cljs.core.async :as a :refer [<! >! chan]])
   #+cljs (:require-macros [grub.macros :refer [log logs]]
@@ -16,13 +17,16 @@
 (defmethod handle-event :diff [{:keys [hash diff states shadow client?] :as msg}]
   (let [history-shadow (sync/get-history-state states hash)]
     (if history-shadow
-      (let [new-states (sync/apply-diff states diff)
+      (let [state (sync/get-current-state states)
+            new-state (diff/patch-state state diff)
+            new-states (sync/add-history-state states new-state)
             new-shadow (diff/patch-state history-shadow diff)
-            {new-diff :diff new-hash :hash} (sync/diff-states (sync/get-current-state new-states) new-shadow)]
+            new-diff (diff/diff-states new-shadow new-state)
+            new-hash (hasch/uuid new-shadow)]
         {:out-event (when-not (sync/empty-diff? diff)
                       (message/diff-msg new-diff new-hash))
          :new-states (if client?
-                       (sync/new-state (sync/get-current-state new-states))
+                       (sync/new-state new-state)
                        new-states)
          :new-shadow new-shadow})
       (if client?
@@ -42,7 +46,8 @@
    :new-shadow state})
 
 (defmethod handle-event :new-state [{:keys [client? state states shadow] :as event}]
-  (let [{:keys [diff hash]} (sync/diff-states state shadow)]
+  (let [diff (diff/diff-states shadow state)
+        hash (hasch/uuid shadow)]
     {:new-states (sync/add-history-state states state)
      :out-event (when-not (sync/empty-diff? diff) (message/diff-msg diff hash))}))
 
@@ -67,7 +72,7 @@
   ([<remote >remote states initial-shadow] (make-agent true <remote >remote states initial-shadow)))
 
 #+clj
-(defn sync-new-client! [states >client <client]
+(defn sync-new-client! [>client <client states]
   (let [client-id (java.util.UUID/randomUUID)
         state-change-events (chan 1 (map (fn [s] {:type :new-state :state s})))
         client-events (chan)]

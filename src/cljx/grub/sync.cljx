@@ -32,13 +32,5 @@
           (into [] (rest new-states))
           new-states)))))
 
-(defn diff-states [state shadow]
-  {:hash (hasch/uuid shadow)
-   :diff (diff/diff-states shadow state)})
-
-(defn apply-diff [states diff]
-  (let [new-state (diff/patch-state (get-current-state states) diff)]
-    (add-history-state states new-state)))
-
 (defn empty-diff? [diff]
   (= diff {:recipes {:deleted #{}, :updated nil}, :grubs {:deleted #{}, :updated nil}}))
