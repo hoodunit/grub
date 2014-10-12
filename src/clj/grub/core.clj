@@ -38,9 +38,13 @@
     (include-js "/js/grub.js")
     [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))
 
-(def index-page (atom dev-index-page))
+(def prod-config
+  {:index prod-index-page
+   :database-name "grub"})
 
-(def default-port 3000)
+(def dev-config
+  {:index dev-index-page
+   :database-name "grub-dev"})
 
 (defn handle-websocket [handler]
   (fn [{:keys [websocket?] :as request}]
@@ -52,40 +56,25 @@
           (state/sync-new-client! to-client from-client)))
       (handler request))))
 
-(defn handle-root [handler]
+(defn handle-root [handler index]
   (fn [{:keys [uri] :as request}]
     (if (= uri "/")
-      (resp/response @index-page)
+      (resp/response index)
       (handler request))))
 
-(defn start-server [port]
-  (httpkit/run-server (-> (fn [req] "Not found")
-                          (file/wrap-file "public")
-                          (content-type/wrap-content-type)
-                          (handle-root)
-                          (handle-websocket))
-                      {:port port}))
+(defn make-handler [{:keys [index]}]
+  (-> (fn [req] "Not found")
+      (file/wrap-file "public")
+      (content-type/wrap-content-type)
+      (handle-root index)
+      (handle-websocket)))
 
-(defn run-integration-test []
-  (let [stop-server (start-server integration-test/server-port)]
-    (println "Starting integration test server on localhost:" integration-test/server-port)
-    (integration-test/run)
-    (stop-server)))
-
-(defn start-production-server [{:keys [port mongo-url]}]
-  (reset! index-page prod-index-page)
-  (let [to-db (chan)]
-    (db/connect-production-database to-db mongo-url)
-    (state/init-server to-db (db/get-current-state))
-    (println "Starting production server on localhost:" port)
-    (start-server port)))
-
-(defn start-development-server [{:keys [port]}]
-  (let [to-db (chan)]
-    (db/connect-development-database to-db)
-    (state/init-server to-db (db/get-current-state))
-    (println "Starting development server on localhost:" port)
-    (start-server port)))
+(defn start [{:keys [port database-name] :as config}]
+  (let [to-db (chan)
+        db (db/connect-and-handle-events to-db database-name)]
+    (state/init-server to-db (db/get-current-state db))
+    (println "Starting server on localhost:" port)
+    (httpkit/run-server (make-handler config) {:port port})))
 
 (defn usage [options-summary]
   (->> ["Usage: grub [options] action"
@@ -95,17 +84,14 @@
         ""
         "Actions:"
         "  dev[elopment]  Start development server"
-        "  prod[uction]   Start production server"
-        "  integration    Run integration tests"]
+        "  prod[uction]   Start production server"]
        (clojure.string/join \newline)))
 
 (def cli-options
   [["-p" "--port PORT" "Port number"
-    :default default-port
+    :default 3000
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
-   ["-m" "--mongo-url URL"
-    :default (System/getenv "MONGOHQ_URL")]
    ["-h" "--help"]])
 
 (defn error-msg [errors]
@@ -124,9 +110,8 @@
       (not= (count arguments) 1) (exit 1 (usage summary))
       errors (exit 1 (error-msg errors)))
     (case (first arguments)
-      "development" (start-development-server options)
-      "dev"         (start-development-server options)
-      "production"  (start-production-server options)
-      "prod"        (start-production-server options)
-      "integration" (run-integration-test)
+      "development" (start (merge dev-config options))
+      "dev"         (start (merge dev-config options))
+      "production"  (start (merge prod-config options))
+      "prod"        (start (merge prod-config options))
       (exit 1 (usage summary)))))
