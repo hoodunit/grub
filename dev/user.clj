@@ -12,7 +12,7 @@
 (defn start
   "Starts the current development system."
   []
-  (alter-var-root #'system system/start system/dev-config))
+  (alter-var-root #'system system/start system/dev-system))
 
 (defn stop
   "Shuts down and destroys the current development system."

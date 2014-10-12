@@ -40,4 +40,5 @@
                            (when (= tag :local) (put! >remote new-state)))})
     (go (loop [] (when-let [new-state (<! <remote)]
                    (reset! state new-state)
-                   (recur))))))
+                   (recur))))
+    state))

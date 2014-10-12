@@ -7,6 +7,8 @@
   #+cljs (:require-macros [grub.macros :refer [log logs]]
                           [cljs.core.async.macros :refer [go]]))
 
+(def empty-state sync/empty-state)
+
 (defmulti handle-event (fn [event] 
                          #+cljs (logs (:type event))
                          (:type event)))
@@ -98,4 +100,5 @@
                                   (a/put! >view new-state))))
     (a/pipe <view local-events)
     (make-client-agent (a/merge [local-events <remote]) >remote states)
-    (a/put! >remote message/full-sync-request)))
+    (a/put! >remote message/full-sync-request)
+    states))

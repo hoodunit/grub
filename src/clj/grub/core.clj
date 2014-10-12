@@ -38,15 +38,23 @@
     (include-js "/js/grub.js")
     [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))
 
-(def prod-config
+(def prod-system
   {:index prod-index-page
-   :db {:name "grub"}
-   :port 3000})
+   :db {:name "grub"
+        :db nil
+        :conn nil}
+   :port 3000
+   :stop-server nil
+   :states nil})
 
-(def dev-config
+(def dev-system
   {:index dev-index-page
-   :db {:name "grub-dev"}
-   :port 3000})
+   :db {:name "grub-dev"
+        :db nil
+        :conn nil}
+   :port 3000
+   :stop-server nil
+   :states nil})
 
 (defn handle-websocket [handler states]
   (fn [{:keys [websocket?] :as request}]
@@ -71,14 +79,14 @@
       (handle-root index)
       (handle-websocket states)))
 
-(defn start [current {:keys [port db] :as config}]
+(defn start [current {:keys [port db] :as system}]
   (let [to-db (chan)
         db (db/connect-and-handle-events to-db (:name db))
         states (state/init-server to-db (db/get-current-state (:db db)))
-        stop-server (httpkit/run-server (make-handler config states) {:port port})]
+        stop-server (httpkit/run-server (make-handler system states) {:port port})]
     (println "Started server on localhost:" port)
-    (assoc config 
-      :db (merge (:db config) db)
+    (assoc system 
+      :db (merge (:db system) db)
       :stop-server stop-server
       :states states)))
 
@@ -121,8 +129,8 @@
       (not= (count arguments) 1) (exit 1 (usage summary))
       errors (exit 1 (error-msg errors)))
     (case (first arguments)
-      "development" (start (merge dev-config options))
-      "dev"         (start (merge dev-config options))
-      "production"  (start (merge prod-config options))
-      "prod"        (start (merge prod-config options))
+      "development" (start (merge dev-system options))
+      "dev"         (start (merge dev-system options))
+      "production"  (start (merge prod-system options))
+      "prod"        (start (merge prod-system options))
       (exit 1 (usage summary)))))

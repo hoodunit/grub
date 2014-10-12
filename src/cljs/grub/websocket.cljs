@@ -8,34 +8,37 @@
                    [grub.macros :refer [log logs]]))
 
 (def server-url (str "ws://" (.-host (.-location js/document))))
-(def pending-msg (atom nil))
 (def reader (t/reader :json))
 (def writer (t/writer :json))
 
-(defn send-pending-msg [websocket]
+(defn send-pending-msg [websocket pending-msg]
   (when (and (.isOpen websocket)
              (not (nil? @pending-msg)))
     (.send websocket (t/write writer @pending-msg))
     (reset! pending-msg nil)))
 
-(defn on-connected [websocket event]
+(defn on-connected [websocket pending-msg event]
   (log "Connected:" event)
-  (send-pending-msg websocket))
+  (send-pending-msg websocket pending-msg))
 
 (defn read-msg [msg]
   (t/read reader (.-message msg)))
 
-(defn connect-client! [in out]
-  (let [handler (goog.events.EventHandler.)
-        websocket (goog.net.WebSocket.)
-        listen (fn [type fun] (.listen handler websocket type fun false))]
-    (listen goog.net.WebSocket.EventType.OPENED (partial on-connected websocket))
+(defn connect [pending-msg in out]
+  (let [ws (goog.net.WebSocket.)
+        handler (goog.events.EventHandler.)
+        listen (fn [type fun] (.listen handler ws type fun false))]
+    (listen goog.net.WebSocket.EventType.OPENED (partial on-connected ws pending-msg))
     (listen goog.net.WebSocket.EventType.MESSAGE #(a/put! out (read-msg %)))
     (listen goog.net.WebSocket.EventType.CLOSED #(log "Closed:" %))
     (listen goog.net.WebSocket.EventType.ERROR #(log "Error:" %))
     (go (loop [] 
             (when-let [msg (<! in)]
               (reset! pending-msg msg)
-              (send-pending-msg websocket) 
+              (send-pending-msg ws pending-msg) 
               (recur))))
-    (.open websocket server-url)))
+    (.open ws server-url)
+    ws))
+
+(defn disconnect [ws]
+  (.close ws))
