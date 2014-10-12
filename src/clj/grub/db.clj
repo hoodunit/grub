@@ -30,4 +30,8 @@
                  (do (update-db! db state)
                      (recur))
                  (println "Database disconnected")))
-    db))
+    {:conn conn
+     :db db}))
+
+(defn disconnect [conn]
+  (m/disconnect conn))

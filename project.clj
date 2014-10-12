@@ -21,7 +21,10 @@
                  [com.cognitect/transit-clj "0.8.259"]
                  [com.cognitect/transit-cljs "0.8.188"]]
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[midje "1.6.3"]]}}
+             :dev {:source-paths ["dev"]
+                   :dependencies [[midje "1.6.3"]
+                                  [org.clojure/tools.namespace "0.2.3"]
+                                  [org.clojure/java.classpath "0.2.0"]]}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.6"]

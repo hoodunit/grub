@@ -40,11 +40,13 @@
 
 (def prod-config
   {:index prod-index-page
-   :database-name "grub"})
+   :db {:name "grub"}
+   :port 3000})
 
 (def dev-config
   {:index dev-index-page
-   :database-name "grub-dev"})
+   :db {:name "grub-dev"}
+   :port 3000})
 
 (defn handle-websocket [handler]
   (fn [{:keys [websocket?] :as request}]
@@ -69,12 +71,21 @@
       (handle-root index)
       (handle-websocket)))
 
-(defn start [{:keys [port database-name] :as config}]
+(defn start [current {:keys [port db] :as config}]
   (let [to-db (chan)
-        db (db/connect-and-handle-events to-db database-name)]
-    (state/init-server to-db (db/get-current-state db))
-    (println "Starting server on localhost:" port)
-    (httpkit/run-server (make-handler config) {:port port})))
+        db (db/connect-and-handle-events to-db (:name db))
+        states (state/init-server to-db (db/get-current-state (:db db)))
+        stop-server (httpkit/run-server (make-handler config) {:port port})]
+    (println "Started server on localhost:" port)
+    (assoc config 
+      :db (merge (:db config) db)
+      :stop-server stop-server
+      :states states)))
+
+(defn stop [{:keys [db stop-server] :as system}]
+  (stop-server)
+  (db/disconnect (:conn db))
+  system)
 
 (defn usage [options-summary]
   (->> ["Usage: grub [options] action"
