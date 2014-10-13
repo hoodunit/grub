@@ -21,15 +21,10 @@
       (dissoc state :_id)
       sync/empty-state)))
 
-(defn connect-and-handle-events [to-db db-name]
-  (println "Connected to mongo at localhost:" db-name)
+(defn connect [db-name]
   (let [conn (m/connect)
         db (m/get-db conn db-name)]
-    (a/go-loop []
-               (if-let [state (<! to-db)]
-                 (do (update-db! db state)
-                     (recur))
-                 (println "Database disconnected")))
+    (println "Connected to mongo at localhost:" db-name)
     {:conn conn
      :db db}))
 

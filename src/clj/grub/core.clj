@@ -3,6 +3,7 @@
             [grub.db :as db]
             [grub.test.integration.core :as integration-test]
             [grub.state :as state]
+            [grub.sync :as sync]
             [ring.middleware.file :as file]
             [ring.middleware.content-type :as content-type]
             [ring.util.response :as resp]
@@ -40,21 +41,21 @@
 
 (def prod-system
   {:index prod-index-page
-   :db {:name "grub"
-        :db nil
-        :conn nil}
+   :db-name "grub"
+   :db nil
+   :db-conn nil
    :port 3000
    :stop-server nil
-   :states nil})
+   :states (atom nil)})
 
 (def dev-system
   {:index dev-index-page
-   :db {:name "grub-dev"
-        :db nil
-        :conn nil}
+   :db-name "grub-dev"
+   :db nil
+   :db-conn nil
    :port 3000
    :stop-server nil
-   :states nil})
+   :states (atom nil)})
 
 (defn handle-websocket [handler states]
   (fn [{:keys [websocket?] :as request}]
@@ -79,20 +80,26 @@
       (handle-root index)
       (handle-websocket states)))
 
-(defn start [current {:keys [port db] :as system}]
+(defn start [current {:keys [port db-name states] :as system}]
   (let [to-db (chan)
-        db (db/connect-and-handle-events to-db (:name db))
-        states (state/init-server to-db (db/get-current-state (:db db)))
+        {:keys [db conn]} (db/connect db-name)
+        _ (reset! states (sync/new-state (db/get-current-state db)))
         stop-server (httpkit/run-server (make-handler system states) {:port port})]
+    (add-watch states :db (fn [_ _ old-states new-states] 
+                            (db/update-db! db (sync/get-current-state new-states))))
     (println "Started server on localhost:" port)
     (assoc system 
-      :db (merge (:db system) db)
+      :db db
+      :db-conn conn
       :stop-server stop-server
       :states states)))
 
-(defn stop [{:keys [db stop-server] :as system}]
+
+(defn stop [{:keys [db stop-server states] :as system}]
+  (remove-watch states :db)
   (stop-server)
   (db/disconnect (:conn db))
+  (reset! states nil)
   system)
 
 (defn usage [options-summary]

@@ -82,13 +82,6 @@
                        (a/close! state-change-events)))))
     (make-server-agent client-events >client states sync/empty-state)))
 
-#+clj
-(defn init-server [to-db initial-state]
-  (let [states (atom (sync/new-state initial-state))]
-    (add-watch states :to-db (fn [_ _ old-states new-states] 
-                               (a/put! to-db (sync/get-current-state new-states))))
-    states))
-
 #+cljs
 (defn init-client [<remote >remote <view >view]
   (let [states (atom (sync/initial-state {} {}))
