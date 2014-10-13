@@ -16,12 +16,11 @@
 
 (defn start [system]
   (let [local-states (chan)
-        remote-states (chan)
         to-remote (chan)
         from-remote (chan)
-        view-state (view/render-app state/empty-state remote-states local-states)
+        view-state (view/render-app state/empty-state local-states)
         ws (websocket/connect (:pending-msg system) to-remote from-remote)
-        agent-states (state/sync-client! from-remote to-remote local-states remote-states)]
+        agent-states (state/sync-client! from-remote to-remote local-states view-state)]
     (assoc system
       :ws ws
       :channels {:local-states local-states
