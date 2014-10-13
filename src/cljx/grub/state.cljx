@@ -51,25 +51,18 @@
     {:new-states (sync/add-history-state states state)
      :out-event (when-not (sync/empty-diff? diff) (message/diff-msg diff hash))}))
 
-(defn make-agent 
-  ([client? <remote >remote states*] (make-agent client? <remote >remote states* sync/empty-state))
-  ([client? <remote >remote states* initial-shadow]
-     (go (loop [shadow initial-shadow]
-           (when-let [msg (<! <remote)]
-             (let [states @states*
-                   event (assoc msg :states states :client? client? :shadow shadow)
-                   {:keys [new-states new-shadow out-event]} (handle-event event)]
-               (when (and new-states (not= states new-states)) (reset! states* new-states))
-               (when out-event (a/put! >remote out-event))
-               (recur (if new-shadow new-shadow shadow))))))))
+(defn make-agent [client? <remote >remote states* initial-shadow]
+  (go (loop [shadow initial-shadow]
+        (when-let [msg (<! <remote)]
+          (let [states @states*
+                event (assoc msg :states states :client? client? :shadow shadow)
+                {:keys [new-states new-shadow out-event]} (handle-event event)]
+            (when (and new-states (not= states new-states)) (reset! states* new-states))
+            (when out-event (a/put! >remote out-event))
+            (recur (if new-shadow new-shadow shadow)))))))
 
-(defn make-server-agent
-  ([<remote >remote states] (make-agent false <remote >remote states))
-  ([<remote >remote states initial-shadow] (make-agent false <remote >remote states initial-shadow)))
-
-(defn make-client-agent
-  ([<remote >remote states] (make-agent true <remote >remote states))
-  ([<remote >remote states initial-shadow] (make-agent true <remote >remote states initial-shadow)))
+(def make-server-agent (partial make-agent false))
+(def make-client-agent (partial make-agent true))
 
 #+clj
 (defn sync-new-client! [>client <client states]
@@ -87,7 +80,7 @@
                    (do (remove-watch states client-id)
                        (a/close! <client)
                        (a/close! state-change-events)))))
-    (make-server-agent client-events >client states)))
+    (make-server-agent client-events >client states sync/empty-state)))
 
 #+clj
 (defn init-server [to-db initial-state]
@@ -104,6 +97,6 @@
                                 (let [new-state (sync/get-current-state new-states)]
                                   (a/put! >view new-state))))
     (a/pipe <view local-events)
-    (make-client-agent (a/merge [local-events <remote]) >remote states)
+    (make-client-agent (a/merge [local-events <remote]) >remote states sync/empty-state)
     (a/put! >remote message/full-sync-request)
     states))
