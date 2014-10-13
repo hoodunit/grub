@@ -21,7 +21,7 @@
         from-remote (chan)
         view-state (view/render-app state/empty-state remote-states local-states)
         ws (websocket/connect (:pending-msg system) to-remote from-remote)
-        agent-states (state/init-client from-remote to-remote local-states remote-states)]
+        agent-states (state/sync-client! from-remote to-remote local-states remote-states)]
     (assoc system
       :ws ws
       :channels {:local-states local-states

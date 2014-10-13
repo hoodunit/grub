@@ -65,13 +65,16 @@
 (def make-client-agent (partial make-agent true))
 
 #+clj
-(defn sync-new-client! [>client <client states]
-  (let [client-id (java.util.UUID/randomUUID)
+(defn sync-new-client! [>client <client state]
+  (let [states (atom (sync/new-state @state))
+        client-id (java.util.UUID/randomUUID)
         state-change-events (chan 1 (map (fn [s] {:type :new-state :state s})))
         client-events (chan)]
-    (add-watch states client-id 
-               (fn [_ _ _ new-states] 
-                 (a/put! state-change-events (sync/get-current-state new-states))))
+    (add-watch states client-id (fn [_ _ _ new-states] 
+                                  (let [new-state (sync/get-current-state new-states)]
+                                    (when new-state
+                                      (reset! state new-state)
+                                      (a/put! state-change-events new-state)))))
     (a/go-loop []
                (let [[val _] (a/alts! [<client state-change-events])]
                  (if val
@@ -83,7 +86,7 @@
     (make-server-agent client-events >client states sync/empty-state)))
 
 #+cljs
-(defn init-client [<remote >remote <view >view]
+(defn sync-client! [<remote >remote <view >view]
   (let [states (atom (sync/initial-state {} {}))
         local-events (chan 1 (map (fn [s] {:type :new-state :state s})))]
     (add-watch states :render (fn [_ _ _ new-states]
