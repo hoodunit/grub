@@ -46,7 +46,7 @@
                   {:source-paths ["src/cljx"]
                    :output-path "target/generated/cljs"
                    :rules :cljs}]}
-  :source-paths ["src/clj" "src/test" "target/classes"]
+  :source-paths ["src/clj" "target/classes"]
   :test-paths ["src/test"]
   :ring {:handler grub.core/app}
   :uberjar-name "grub-standalone.jar"

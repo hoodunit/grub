@@ -7,6 +7,8 @@
             [clojure.test :as test]
             [clojure.tools.namespace.repl :refer (refresh refresh-all)]))
 
+(clojure.tools.namespace.repl/set-refresh-dirs "src/clj" "target/classes")
+
 (def system nil)
 
 (defn start

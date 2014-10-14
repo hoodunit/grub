@@ -15,20 +15,18 @@
    :view-state nil})
 
 (defn start [system]
-  (let [local-states (chan)
-        to-remote (chan)
-        from-remote (chan)
-        view-state (view/render-app state/empty-state local-states)
-        ws (websocket/connect (:pending-msg system) to-remote from-remote)
-        agent-states (state/sync-client! from-remote to-remote local-states view-state)]
+  (let [new-states (chan)
+        >remote (chan)
+        events (chan)
+        state (view/render-app state/empty-state new-states)
+        ws (websocket/connect (:pending-msg system) >remote events)
+        agent-states (state/sync-client! >remote events new-states state)]
     (assoc system
       :ws ws
-      :channels {:local-states local-states
-                 :remote-states remote-states
-                 :to-remote to-remote
-                 :from-remote from-remote}
-      :view-state view-state
-      :agent-states agent-states)))
+      :channels {:new-states new-states
+                 :>remote >remote
+                 :events events}
+      :state state)))
 
 (defn stop [{:keys [channels ws]} system]
   (doseq [c (vals channels)] (a/close! c))

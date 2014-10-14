@@ -1,7 +1,6 @@
 (ns grub.core
   (:require [grub.websocket :as ws]
             [grub.db :as db]
-            [grub.test.integration.core :as integration-test]
             [grub.state :as state]
             [ring.middleware.file :as file]
             [ring.middleware.content-type :as content-type]
@@ -63,7 +62,7 @@
         (let [to-client (chan)
               from-client (chan)]
           (ws/add-connected-client! ws-channel to-client from-client)
-          (state/sync-new-client! from-client to-client state)))
+          (state/sync-new-client! to-client from-client state)))
       (handler request))))
 
 (defn handle-root [handler index]
@@ -79,7 +78,7 @@
       (handle-root index)
       (handle-websocket state)))
 
-(defn start [current {:keys [port db-name state] :as system}]
+(defn start [{:keys [port db-name state] :as system}]
   (let [{:keys [db conn]} (db/connect db-name)
         _ (reset! state (db/get-current-state db))
         stop-server (httpkit/run-server (make-handler system) {:port port})]

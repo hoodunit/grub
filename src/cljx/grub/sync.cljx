@@ -7,11 +7,6 @@
 
 (def empty-state {:grubs {} :recipes {}})
 
-(defn initial-state [grubs recipes]
-  (let [state {:grubs (util/map-by-key :id grubs)
-               :recipes (util/map-by-key :id recipes)}]
-    [{:state state :hash (hasch/uuid state)}]))
-
 (defn new-state [state]
   [{:hash (hasch/uuid state)
     :state state}])
