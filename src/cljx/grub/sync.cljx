@@ -6,6 +6,7 @@
 (def num-history-states 20)
 
 (def empty-state {:grubs {} :recipes {}})
+(def empty-states [{:grubs {} :recipes {}}])
 
 (defn new-state [state]
   [{:hash (hasch/uuid state)

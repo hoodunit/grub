@@ -2,6 +2,7 @@
   (:require [grub.websocket :as ws]
             [grub.db :as db]
             [grub.state :as state]
+            [grub.sync :as sync]
             [ring.middleware.file :as file]
             [ring.middleware.content-type :as content-type]
             [ring.util.response :as resp]
@@ -44,7 +45,7 @@
    :db-conn nil
    :port 3000
    :stop-server nil
-   :state (atom nil)})
+   :states (atom nil)})
 
 (def dev-system
   {:index dev-index-page
@@ -53,16 +54,16 @@
    :db-conn nil
    :port 3000
    :stop-server nil
-   :state (atom nil)})
+   :states (atom nil)})
 
-(defn handle-websocket [handler state]
+(defn handle-websocket [handler states new-states]
   (fn [{:keys [websocket?] :as request}]
     (if websocket?
       (httpkit/with-channel request ws-channel
         (let [to-client (chan)
               from-client (chan)]
           (ws/add-connected-client! ws-channel to-client from-client)
-          (state/sync-new-client! to-client from-client state)))
+          (state/sync-new-client! to-client from-client new-states states)))
       (handler request))))
 
 (defn handle-root [handler index]
@@ -79,32 +80,36 @@
        :body ""}
       (handler req))))
 
-(defn make-handler [{:keys [index state]}]
+(defn make-handler [{:keys [index states]} new-states]
   (-> (fn [req] "Not found")
       (file/wrap-file "public")
       (content-type/wrap-content-type)
       (handle-root index)
-      (handle-websocket state)
+      (handle-websocket states new-states)
       (wrap-bounce-favicon)))
 
-(defn start [{:keys [port db-name state] :as system}]
+(defn start [{:keys [port db-name states] :as system}]
   (let [{:keys [db conn]} (db/connect db-name)
-        _ (reset! state (db/get-current-state db))
-        stop-server (httpkit/run-server (make-handler system) {:port port})]
-    (add-watch state :db (fn [_ _ old new] 
-                           (db/update-db! db new)))
+        new-states (chan)
+        _ (reset! states (sync/new-state (db/get-current-state db)))
+        stop-server (httpkit/run-server (make-handler system new-states) {:port port})]
+    (add-watch states :db (fn [_ _ old new] 
+                            (when-not (= old new)
+                              (let [new-state (sync/get-current-state new)]
+                                (a/put! new-states new-state)
+                                (db/update-db! db new-state)))))
     (println "Started server on localhost:" port)
     (assoc system 
       :db db
       :db-conn conn
       :stop-server stop-server
-      :state state)))
+      :states states)))
 
-(defn stop [{:keys [db-conn stop-server state] :as system}]
-  (remove-watch state :db)
+(defn stop [{:keys [db-conn stop-server states] :as system}]
+  (remove-watch states :db)
   (stop-server)
   (db/disconnect db-conn)
-  (reset! state nil)
+  (reset! states nil)
   system)
 
 (defn usage [options-summary]

@@ -25,7 +25,7 @@
         (dom/on-document-mousedown #(put! >events {:type :body-mousedown :event %}))
         (dom/on-window-scroll #(put! >events {:type :body-scroll :event %}))))))
     
-(defn render-app [initial-state >new-states]
+(defn render-app [initial-state <new-states >new-states]
   (let [state (atom initial-state)
         >events (chan)
         <events (a/pub >events :type)
@@ -38,4 +38,8 @@
                        :add-grubs-ch add-grubs-ch}
               :tx-listen (fn [{:keys [new-state tag]} _] 
                            (when (= tag :local) (put! >new-states new-state)))})
+    (go (loop []
+          (let [new-state (<! <new-states)]
+            (reset! state new-state)
+            (recur))))
     state))
