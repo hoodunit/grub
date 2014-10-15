@@ -4,7 +4,7 @@
 
 (defn full-sync [state]
   {:type :full-sync
-   :state state})
+   :full-state state})
 
 (defn diff-msg [diff hash]
   {:type :diff

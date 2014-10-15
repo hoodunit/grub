@@ -37,9 +37,10 @@
     {:new-shadow state
      :out-event (message/full-sync state)}))
 
-(defmethod handle-event :full-sync [{:keys [state states]}]
-  {:new-states (sync/new-state state)
-   :new-shadow state})
+(defmethod handle-event :full-sync [{:keys [full-state states state]}]
+  (reset! state full-state)
+  {:new-states (sync/new-state full-state)
+   :new-shadow full-state})
 
 (defmethod handle-event :default [msg]
   #+cljs (logs "Unhandled message:" msg)
