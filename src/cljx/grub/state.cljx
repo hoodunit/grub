@@ -16,7 +16,7 @@
 (defmethod handle-event :diff [{:keys [hash diff states shadow client? state] :as msg}]
   (let [history-shadow (sync/get-history-state states hash)]
     (if history-shadow
-      (let [new-state (swap! diff/patch-state state diff)
+      (let [new-state (swap! state diff/patch-state diff)
             new-states (sync/add-history-state states new-state)
             new-shadow (diff/patch-state history-shadow diff)
             new-diff (diff/diff-states new-shadow new-state)
