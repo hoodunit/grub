@@ -71,12 +71,21 @@
       (resp/response index)
       (handler request))))
 
+(defn wrap-bounce-favicon [handler]
+  (fn [req]
+    (if (= [:get "/favicon.ico"] [(:request-method req) (:uri req)])
+      {:status 404
+       :headers {}
+       :body ""}
+      (handler req))))
+
 (defn make-handler [{:keys [index state]}]
   (-> (fn [req] "Not found")
       (file/wrap-file "public")
       (content-type/wrap-content-type)
       (handle-root index)
-      (handle-websocket state)))
+      (handle-websocket state)
+      (wrap-bounce-favicon)))
 
 (defn start [{:keys [port db-name state] :as system}]
   (let [{:keys [db conn]} (db/connect db-name)
