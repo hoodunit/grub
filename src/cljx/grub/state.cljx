@@ -13,11 +13,10 @@
 (defmulti handle-event (fn [event] 
                          (:type event)))
 
-(defmethod handle-event :diff [{:keys [hash diff states shadow client?] :as msg}]
+(defmethod handle-event :diff [{:keys [hash diff states shadow client? state] :as msg}]
   (let [history-shadow (sync/get-history-state states hash)]
     (if history-shadow
-      (let [state (sync/get-current-state states)
-            new-state (diff/patch-state state diff)
+      (let [new-state (swap! diff/patch-state state diff)
             new-states (sync/add-history-state states new-state)
             new-shadow (diff/patch-state history-shadow diff)
             new-diff (diff/diff-states new-shadow new-state)
@@ -59,27 +58,21 @@
      (go (loop [shadow initial-shadow
                 states (sync/new-state @state)]
            (let [[v c] (a/alts! [new-states events] :priority true)]
-             (when v
-               (cond (= c new-states)
-                     (let [current (sync/get-current-state states)]
-                       (when-not (= shadow v)
+             (cond (nil? v) nil ;; drop out of loop
+                   (= c new-states)
+                   (do (when-not (= shadow v)
                          (>! >remote (diff-msg shadow v)))
-                       (recur shadow 
-                              (if (= v current)
-                                states
-                                (sync/add-history-state states v))))
-                     (= c events)
-                     (let [event (assoc v 
-                                   :states states 
-                                   :client? client? 
-                                   :shadow shadow)
-                           {:keys [new-states new-shadow out-event]} (handle-event event)]
-                       (when (and new-states (not= states new-states))
-                         (let [new-state (sync/get-current-state new-states)]
-                           (reset! state new-state)))
-                       (when out-event (a/put! >remote out-event))
-                       (recur (if new-shadow new-shadow shadow)
-                              (if new-states new-states states))))))))))
+                       (recur shadow (sync/add-history-state states v)))
+                   (= c events)
+                   (let [event (assoc v 
+                                 :states states 
+                                 :client? client? 
+                                 :shadow shadow
+                                 :state state)
+                         {:keys [new-states new-shadow out-event]} (handle-event event)]
+                     (when out-event (a/put! >remote out-event))
+                     (recur (if new-shadow new-shadow shadow)
+                            (if new-states new-states states)))))))))
 
 (def make-server-agent (partial make-agent false))
 (def make-client-agent (partial make-agent true))
