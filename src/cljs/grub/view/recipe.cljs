@@ -60,9 +60,11 @@
          :unmounted false}))
 
     om/IWillReceiveProps
-    (will-receive-props [this next-recipe]
-      (om/set-state! owner :name (:name next-recipe))
-      (om/set-state! owner :grubs (:grubs next-recipe)))
+    (will-receive-props [this {:keys [name grubs]}]
+      (when-not (= (om/get-state owner :name) name)
+        (om/set-state! owner :name name))
+      (when-not (= (om/get-state owner :grubs) grubs)
+        (om/set-state! owner :grubs grubs)))
 
     om/IRenderState
     (render-state [this {:keys [edit-state name grubs]}]
