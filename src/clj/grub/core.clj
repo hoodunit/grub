@@ -63,7 +63,7 @@
         (let [to-client (chan)
               from-client (chan)]
           (ws/add-connected-client! ws-channel to-client from-client)
-          (state/sync-new-client! to-client from-client new-states states)))
+          (sync/sync-new-client! to-client from-client new-states states)))
       (handler request))))
 
 (defn handle-root [handler index]
@@ -91,11 +91,11 @@
 (defn start [{:keys [port db-name states] :as system}]
   (let [{:keys [db conn]} (db/connect db-name)
         new-states (chan)
-        _ (reset! states (sync/new-state (db/get-current-state db)))
+        _ (reset! states (state/new-state (db/get-current-state db)))
         stop-server (httpkit/run-server (make-handler system new-states) {:port port})]
     (add-watch states :db (fn [_ _ old new] 
                             (when-not (= old new)
-                              (let [new-state (sync/get-current-state new)]
+                              (let [new-state (state/get-current-state new)]
                                 (a/put! new-states new-state)
                                 (db/update-db! db new-state)))))
     (println "Started server on localhost:" port)

@@ -1,87 +1,32 @@
 (ns grub.state
   (:require [grub.diff :as diff]
-            [grub.message :as message]
-            [grub.sync :as sync]
-            [hasch.core :as hasch]
-            #+clj [clojure.core.async :as a :refer [<! >! chan go]]
-            #+cljs [cljs.core.async :as a :refer [<! >! chan]])
-  #+cljs (:require-macros [grub.macros :refer [log logs]]
-                          [cljs.core.async.macros :refer [go]]))
+            [grub.util :as util]
+            [hasch.core :as hasch]))
 
-(def empty-state sync/empty-state)
+(def num-history-states 20)
 
-(defn update-states [states diff]
-  (let [state (sync/get-current-state states)
-        new-state (diff/patch-state state diff)]
-    (sync/add-history-state states new-state)))
+(def empty-state {:grubs {} :recipes {}})
+(def empty-states [{:grubs {} :recipes {}}])
 
-(defn diff-msg [shadow state]
-  (let [diff (diff/diff-states shadow state)
-        hash (hasch/uuid shadow)]
-    (message/diff-msg diff hash)))
+(defn new-state [state]
+  [{:hash (hasch/uuid state)
+    :state state}])
 
-(defmulti handle-event (fn [event] (:type event)))
+(defn get-current-state [states]
+  (:state (last states)))
 
-(defmethod handle-event :diff [{:keys [hash diff states shadow client?]}]
-  (let [history-shadow (sync/get-history-state @states hash)]
-    (if history-shadow
-      (let [new-states (swap! states update-states diff)
-            new-state (sync/get-current-state new-states)
-            new-shadow (diff/patch-state history-shadow diff)]
-        {:out-event (when-not (sync/empty-diff? diff)
-                      (diff-msg new-shadow new-state))
-         :new-states new-states
-         :new-shadow new-shadow})
-      (if client?
-        {:out-event message/full-sync-request
-         :new-shadow shadow}
-        (let [state (sync/get-current-state states)]
-          {:out-event (message/full-sync state)
-           :new-shadow state})))))
+(defn get-history-state [states hash]
+  (:state (first (filter #(= (:hash %) hash) states))))
 
-(defmethod handle-event :full-sync-request [{:keys [states]}]
-  (let [state (sync/get-current-state @states)]
-    {:new-shadow state
-     :out-event (message/full-sync state)}))
+(defn add-history-state [states new-state]
+  (let [last-hash (:hash (last states))
+        new-hash (hasch/uuid new-state)]
+    (if (= last-hash new-hash)
+      states
+      (let [new-states (conj states {:hash new-hash :state new-state})]
+        (if (>= (count states) num-history-states)
+          (into [] (rest new-states))
+          new-states)))))
 
-(defmethod handle-event :full-sync [{:keys [full-state states]}]
-  (reset! states (sync/new-state full-state))
-  {:new-shadow full-state})
-
-(defmethod handle-event :default [msg]
-  #+cljs (logs "Unhandled message:" msg)
-  #+clj (println "Unhandled message:" msg)
-  {})
-
-(defn make-agent 
-  ([client? >remote events new-states states]
-     (make-agent client? >remote events new-states states sync/empty-state))
-  ([client? >remote events new-states states initial-shadow]
-     (go (loop [shadow initial-shadow]
-           (let [[v c] (a/alts! [new-states events] :priority true)]
-             (cond (nil? v) nil ;; drop out of loop
-                   (= c new-states)
-                   (do (when-not (= shadow v)
-                         (swap! states sync/add-history-state v)
-                         (>! >remote (diff-msg shadow v)))
-                       (recur shadow))
-                   (= c events)
-                   (let [event (assoc v 
-                                 :states states 
-                                 :client? client? 
-                                 :shadow shadow)
-                         {:keys [new-shadow out-event]} (handle-event event)]
-                     (when out-event (a/put! >remote out-event))
-                     (recur (if new-shadow new-shadow shadow)))))))))
-
-(def make-server-agent (partial make-agent false))
-(def make-client-agent (partial make-agent true))
-
-#+clj
-(defn sync-new-client! [>remote events new-states states]
-  (make-server-agent >remote events new-states states))
-
-#+cljs
-(defn sync-client! [>remote events new-states states]
-  (make-client-agent >remote events new-states states)
-  (a/put! >remote message/full-sync-request))
+(defn empty-diff? [diff]
+  (= diff {:recipes {:deleted #{}, :updated nil}, :grubs {:deleted #{}, :updated nil}}))
