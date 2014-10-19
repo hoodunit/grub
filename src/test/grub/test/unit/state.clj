@@ -3,16 +3,6 @@
             [midje.sweet :refer :all]
             [hasch.core :as hasch]))
 
-(fact "Sets correct initial state"
-  (let [grubs [{:id "1" :text "2 bananas" :completed false}
-               {:id "2" :text "3 onions" :completed false}]
-        recipes []
-        expected-state {:grubs {"1" {:id "1" :text "2 bananas" :completed false}
-                                "2" {:id "2" :text "3 onions" :completed false}}
-                        :recipes {}}
-        expected-hash (hasch/uuid expected-state)]
-    (s/initial-state grubs recipes) => [{:state expected-state :hash expected-hash}]))
-
 (fact "Get current state returns last state"
   (let [states [{:hash "asdf" :state {:a :b}}
                 {:hash "fdsa" :state {:c :d}}]]

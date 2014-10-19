@@ -35,7 +35,7 @@
       (if client?
         {:out-event message/full-sync-request
          :new-shadow shadow}
-        (let [state (state/get-current-state states)]
+        (let [state (state/get-current-state @states)]
           {:out-event (message/full-sync state)
            :new-shadow state})))))
 
@@ -87,7 +87,7 @@
     (go (loop []
           (let [v (<! new-states)]
             (<! (a/timeout 1000))
-            (jk>! new-states* v)
+            (>! new-states* v)
             (recur))))
     (make-client-agent >remote events new-states* states)
     (a/put! >remote message/full-sync-request)))

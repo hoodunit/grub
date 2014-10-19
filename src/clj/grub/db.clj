@@ -1,7 +1,5 @@
 (ns grub.db
-  (:require [grub.util :as util]
-            [grub.sync :as sync]
-            [monger.core :as m]
+  (:require [monger.core :as m]
             [monger.collection :as mc]
             [monger.operators :as mo]
             [clojure.core.async :as a :refer [<! >! chan go]]))
@@ -17,9 +15,8 @@
 
 (defn get-current-state [db]
   (let [state (first (mc/find-maps db collection))]
-    (if state
-      (dissoc state :_id)
-      sync/empty-state)))
+    (when state
+      (dissoc state :_id))))
 
 (defn connect [db-name]
   (let [conn (m/connect)

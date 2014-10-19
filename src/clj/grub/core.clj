@@ -91,7 +91,8 @@
 (defn start [{:keys [port db-name states] :as system}]
   (let [{:keys [db conn]} (db/connect db-name)
         new-states (chan)
-        _ (reset! states (state/new-state (db/get-current-state db)))
+        db-state (db/get-current-state db)
+        _ (reset! states (state/new-state (if db-state db-state (state/empty-state))))
         stop-server (httpkit/run-server (make-handler system new-states) {:port port})]
     (add-watch states :db (fn [_ _ old new] 
                             (when-not (= old new)
