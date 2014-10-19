@@ -1,3 +1,7 @@
+(require '[cljx.repl-middleware :as cljx])
+(reset! @#'cljx/cljx-load-rules {:clj cljx.rules/clj-rules})
+@@#'cljx/install-cljx-load
+
 (ns user
   (:require [grub.core :as system]
             [clojure.java.io :as io]
