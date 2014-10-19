@@ -1,35 +1,36 @@
 (ns grub.test.unit.state
   (:require [grub.state :as s]
-            [midje.sweet :refer :all]
-            [hasch.core :as hasch]))
+            [midje.sweet :refer :all]))
 
 (fact "Get current state returns last state"
-  (let [states [{:hash "asdf" :state {:a :b}}
-                {:hash "fdsa" :state {:c :d}}]]
-    (s/get-current-state states) => {:c :d}))
+  (let [states [{:tag "1" :a :b}
+                {:tag "2" :c :d}]]
+    (s/get-latest states) => {:tag "2" :c :d}))
 
 (fact "Get history state returns state with given hash"
-  (let [states [{:hash "hash1" :state {:a :b}}
-                {:hash "hash2" :state {:c :d}}
-                {:hash "hash3" :state {:e :f}}]]
-    (s/get-history-state states "hash1") => {:a :b}
-    (s/get-history-state states "hash2") => {:c :d}
-    (s/get-history-state states "hash3") => {:e :f}))
+  (let [states [{:tag "1" :a :b}
+                {:tag "2" :c :d}
+                {:tag "3" :e :f}]]
+    (s/get-tagged states "1") => {:tag "1" :a :b}
+    (s/get-tagged states "2") => {:tag "2" :c :d}
+    (s/get-tagged states "3") => {:tag "3" :e :f}))
 
 (fact "Add history state appends state to the end"
-  (let [states [{:hash "hash1" :state {:a :b}}
-                {:hash "hash2" :state {:c :d}}]]
-    (:state (last (s/add-history-state states {:e :f}))) => {:e :f}))
+  (let [states [{:tag "1" :a :b}
+                {:tag "2" :c :d}]]
+    (-> (s/add states {:e :f})
+        (last)
+        (dissoc :tag))
+    => {:e :f}))
 
 (fact "Add history state appends state to the end and drops first state if full"
-  (let [states (into [] (for [i (range 20)] {:hash (str "hash" i) :state {:i i}}))
-        new-states (s/add-history-state states {:i 21})]
+  (let [states (into [] (for [i (range 20)] {:tag (str i) :i i}))
+        new-states (s/add states {:i 21})]
     (count new-states) => 20
-    (:state (last new-states)) => {:i 21}
-    (:state (first new-states)) => {:i 1}))
+    (dissoc (last new-states) :tag) => {:i 21}
+    (first new-states) => {:tag "1" :i 1}))
 
 (fact "Add history state does not add consecutive duplicate states"
-  (let [hash (hasch/uuid {:c :d})
-        states [{:hash "hash1" :state {:a :b}}
-                {:hash hash :state {:c :d}}]]
-    (s/add-history-state states {:c :d}) => states))
+  (let [states [{:tag "1" :a :b}
+                {:tag "2" :c :d}]]
+    (s/add states {:tag "2" :c :d}) => states))

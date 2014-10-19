@@ -2,17 +2,7 @@
   (:require [grub.sync :as sync]
             [clojure.test :refer :all]
             [midje.sweet :refer :all]
-            [hasch.core :as hasch]
             [clojure.core.async :as a :refer [<!! >!! chan go]]))
-
-(defn hashed-states [& states]
-  (->> states
-       (map (fn [s] {:hash (hasch/uuid s)
-                     :state s}))
-       (into [])))
-
-(defn states-atom [& states]
-  (atom (apply hashed-states states)))
 
 (defn <!!? [c]
   (let [[v p] (a/alts!! [c (a/timeout 100)])]

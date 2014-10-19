@@ -27,7 +27,7 @@
         agent-states (sync/sync-client! >remote events new-states states)]
     (add-watch states :render (fn [_ _ old new]
                                 (when-not (= old new)
-                                  (a/put! render-states (state/get-current-state new)))))
+                                  (a/put! render-states (state/get-latest new)))))
     (assoc system
       :ws ws
       :channels {:new-states new-states

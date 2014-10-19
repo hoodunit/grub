@@ -1,51 +1,55 @@
 (ns grub.sync
   (:require [grub.diff :as diff]
-            [grub.message :as message]
             [grub.state :as state]
-            [hasch.core :as hasch]
             #+clj [clojure.core.async :as a :refer [<! >! chan go]]
             #+cljs [cljs.core.async :as a :refer [<! >! chan]])
   #+cljs (:require-macros [grub.macros :refer [log logs]]
                           [cljs.core.async.macros :refer [go]]))
 
+(def full-sync-request {:type :full-sync-request})
+
+(defn full-sync [state]
+  {:type :full-sync
+   :full-state state})
+
 (def empty-state state/empty-state)
 
 (defn update-states [states diff]
-  (let [state (state/get-current-state states)
+  (let [state (state/get-latest states)
         new-state (diff/patch-state state diff)]
-    (state/add-history-state states new-state)))
+    (state/add states new-state)))
 
 (defn diff-msg [shadow state]
-  (let [diff (diff/diff-states shadow state)
-        hash (hasch/uuid shadow)]
-    (message/diff-msg diff hash)))
+  (let [diff (diff/diff-states shadow state)]
+    {:type :diff
+     :diff diff}))
 
 (defmulti handle-event (fn [event] (:type event)))
 
-(defmethod handle-event :diff [{:keys [hash diff states shadow client?]}]
-  (let [history-shadow (state/get-history-state @states hash)]
+(defmethod handle-event :diff [{:keys [diff states shadow client?]}]
+  (let [history-shadow (state/get-tagged @states (:shadow-tag diff))]
     (if history-shadow
       (let [new-states (swap! states update-states diff)
-            new-state (state/get-current-state new-states)
-            new-shadow (diff/patch-state history-shadow diff)]
-        {:out-event (when-not (state/empty-diff? diff)
+            new-state (state/get-latest new-states)
+            new-shadow (diff/patch-state history-shadow diff true)]
+        {:out-event (when-not (state/state= history-shadow new-state)
                       (diff-msg new-shadow new-state))
          :new-states new-states
          :new-shadow new-shadow})
       (if client?
-        {:out-event message/full-sync-request
+        {:out-event full-sync-request
          :new-shadow shadow}
-        (let [state (state/get-current-state @states)]
-          {:out-event (message/full-sync state)
+        (let [state (state/get-latest @states)]
+          {:out-event (full-sync state)
            :new-shadow state})))))
 
 (defmethod handle-event :full-sync-request [{:keys [states]}]
-  (let [state (state/get-current-state @states)]
+  (let [state (state/get-latest @states)]
     {:new-shadow state
-     :out-event (message/full-sync state)}))
+     :out-event (full-sync state)}))
 
 (defmethod handle-event :full-sync [{:keys [full-state states]}]
-  (reset! states (state/new-state full-state))
+  (reset! states (state/new-states full-state))
   {:new-shadow full-state})
 
 (defmethod handle-event :default [msg]
@@ -61,8 +65,8 @@
            (let [[v c] (a/alts! [new-states events] :priority true)]
              (cond (nil? v) nil ;; drop out of loop
                    (= c new-states)
-                   (do (when-not (= shadow v)
-                         (swap! states state/add-history-state v)
+                   (do (when-not (state/state= shadow v)
+                         (swap! states state/add v)
                          (>! >remote (diff-msg shadow v)))
                        (recur shadow))
                    (= c events)
@@ -90,4 +94,4 @@
             (>! new-states* v)
             (recur))))
     (make-client-agent >remote events new-states* states)
-    (a/put! >remote message/full-sync-request)))
+    (a/put! >remote full-sync-request)))

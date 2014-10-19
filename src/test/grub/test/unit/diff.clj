@@ -1,73 +1,76 @@
 (ns grub.test.unit.diff
   (:require [grub.diff :as diff]
-            [clojure.test :refer :all]))
+            [midje.sweet :refer :all]))
 
 
-(def empty-diff {:grubs {:deleted #{} :updated nil}
-                 :recipes {:deleted #{} :updated nil}})
+(def empty-diff {:grubs {:- #{} :+ nil}
+                 :recipes {:- #{} :+ nil}})
 
-(deftest diff-empty-states
+(fact "Diff of empty states is empty diff"
   (let [empty-state {:grubs {} :recipes {}}]
-    (is (= empty-diff 
-           (diff/diff-states empty-state empty-state)))))
+    (diff/diff-states empty-state empty-state) => empty-diff))
 
-(deftest diff-equal-states
-  (is (= empty-diff 
-         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
-                           {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}))))
+(fact "Diff of equal states is empty diff"
+  (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                    {:grubs {"id" {:text "asdf" :completed false}} :recipes {}})
+  => empty-diff)
 
-(deftest diff-added-grub
-  (is (= {:grubs {:deleted #{} 
-                  :updated {"id" {:completed false, :text "asdf"}}}
-          :recipes {:deleted #{} :updated nil}}
-         (diff/diff-states {:grubs {} :recipes {}}
-                           {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}))))
+(fact "Diff of one added grub has one updated grub"
+  (diff/diff-states {:grubs {} :recipes {}}
+                    {:grubs {"id" {:text "asdf" :completed false}} :recipes {}})
+  => {:grubs {:- #{} 
+              :+ {"id" {:completed false, :text "asdf"}}}
+      :recipes {:- #{} :+ nil}})
 
-(deftest diff-deleted-grub
-  (is (= {:grubs {:deleted #{"id"} 
-                  :updated nil}
-          :recipes {:deleted #{} :updated nil}}
-         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
-                           {:grubs {} :recipes {}}))))
+(fact "Diff of one removed grub has one deleted grub"
+  (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                    {:grubs {} :recipes {}})
+  =>
+  {:grubs {:- #{"id"} 
+           :+ nil}
+   :recipes {:- #{} :+ nil}})
 
-(deftest diff-edited-grub
-  (is (= {:grubs {:deleted #{} 
-                  :updated {"id" {:text "asdf2"}}}
-          :recipes {:deleted #{} :updated nil}}
-         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
-                           {:grubs {"id" {:text "asdf2" :completed false}} :recipes {}}))))
+(fact "Diff of one changed grub has updated grub"
+  (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                    {:grubs {"id" {:text "asdf2" :completed false}} :recipes {}})
+  =>
+  {:grubs {:- #{} 
+           :+ {"id" {:text "asdf2"}}}
+   :recipes {:- #{} :+ nil}})
 
-(deftest diff-completed-grub
-  (is (= {:grubs {:deleted #{} 
-                  :updated {"id" {:completed true}}}
-          :recipes {:deleted #{} :updated nil}}
-         (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
-                           {:grubs {"id" {:text "asdf" :completed true}} :recipes {}}))))
+(fact "Diff of one completed grub has updated grub"
+  (diff/diff-states {:grubs {"id" {:text "asdf" :completed false}} :recipes {}}
+                    {:grubs {"id" {:text "asdf" :completed true}} :recipes {}})
+  => {:grubs {:- #{} 
+              :+ {"id" {:completed true}}}
+      :recipes {:- #{} :+ nil}})
 
-(deftest diff-added-recipe
-  (is (= {:grubs {:deleted #{} 
-                  :updated nil}
-          :recipes {:deleted #{} :updated {"id" {:name "Blue Cheese Soup"
-                                                 :grubs "Some grubs"}}}}
-         (diff/diff-states {:grubs {} :recipes {}}
-                           {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
-                                                 :grubs "Some grubs"}}}))))
+(fact "Diff of one added recipe has updated recipe"
+  (diff/diff-states {:grubs {} :recipes {}}
+                    {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+                                               :grubs "Some grubs"}}})
+  =>
+  {:grubs {:- #{} 
+           :+ nil}
+   :recipes {:- #{} :+ {"id" {:name "Blue Cheese Soup"
+                              :grubs "Some grubs"}}}})
 
-(deftest diff-edited-recipe
-  (is (= {:grubs {:deleted #{} 
-                  :updated nil}
-          :recipes {:deleted #{} :updated {"id" {:name "Bleu Cheese Soup" }}}}
-         (diff/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
-                                                 :grubs "Some grubs"}}}
-                           {:grubs {} :recipes {"id" {:name "Bleu Cheese Soup"
-                                                 :grubs "Some grubs"}}}))))
+(fact "Diff of one changed recipe has one updated recipe"
+  (diff/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+                                               :grubs "Some grubs"}}}
+                    {:grubs {} :recipes {"id" {:name "Bleu Cheese Soup"
+                                               :grubs "Some grubs"}}})
+  => {:grubs {:- #{} 
+              :+ nil}
+      :recipes {:- #{} :+ {"id" {:name "Bleu Cheese Soup" }}}})
 
-(deftest diff-deleted-recipe
-  (is (= {:grubs {:deleted #{} :updated nil}
-          :recipes {:deleted #{"id"} :updated nil}}
-         (diff/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
-                                                      :grubs "Some grubs"}}}
-                           {:grubs {} :recipes {}}))))
+(fact "Diff of one removed recipe has one deleted recipe"
+  (diff/diff-states {:grubs {} :recipes {"id" {:name "Blue Cheese Soup"
+                                               :grubs "Some grubs"}}}
+                    {:grubs {} :recipes {}})
+  =>
+  {:grubs {:- #{} :+ nil}
+   :recipes {:- #{"id"} :+ nil}})
 
 (def before-state
   {:grubs 
@@ -107,8 +110,8 @@
 
 (def expected-diff
   {:recipes
-   {:deleted #{"recipe-deleted"}
-    :updated
+   {:- #{"recipe-deleted"}
+    :+
     {"recipe-added"
      {:name "Burgers"
       :grubs
@@ -117,17 +120,47 @@
      {:grubs
       "300 g lean stew beef (lapa/naudan etuselkä), cut into 1-inch cubes\n2 T. vegetable oil\n5 dl water\n2 lihaliemikuutios\n400 ml burgundy (or another red wine)\n1 garlic clove\n1 bay leaf (laakerinlehti)\n1/2 t. basil\n2 carrots\n1 yellow onion\n4 potatoes\n1 cup celery\n2 tablespoons of cornstarch (maissijauho/maizena)"}}}
    :grubs
-   {:deleted #{"grub-deleted"}
-    :updated
+   {:- #{"grub-deleted"}
+    :+
     {"grub-completed" {:completed true}
      "grub-updated" {:text "Ketchup"}
      "grub-added"
      {:completed false :text "Toothpaste"}}}})
 
-(deftest diff-many-changes
-  (is (= expected-diff (diff/diff-states before-state after-state))))
+(fact "Diff of many changes has all changes"
+  (diff/diff-states before-state after-state) => expected-diff)
 
-(deftest patch-returns-original-state
-  (is 
-   (let [diff (diff/diff-states before-state after-state)]
-     (= after-state (diff/patch-state before-state diff)))))
+(fact "Diff and patch of many changes returns original state with new tag"
+  (let [diff (diff/diff-states before-state after-state)
+        result (diff/patch-state before-state diff)]
+    (dissoc result :tag) => after-state
+    (:tag result) => #(not (nil? %))))
+
+(fact "Diff of states with tags includes tags in diff"
+  (diff/diff-states {:tag "1"} {:tag "2"}) => {:tag "2" :shadow-tag "1"})
+
+(fact "Patch of state creates new tag by default"
+  (let [result (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0} {:grubs {:+ {:a {:b1 :b3}}} :- #{}})]
+    result => (contains {:grubs {:a {:b1 :b3}}})
+    (:tag result) => #(not (nil? %))
+    (:tag result) => #(not= % 0)))
+
+(fact "Patch of state sets new tag to patch tag if specified"
+  (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0}
+                    {:grubs {:+ {:a {:b1 :b3}}} :- #{} :tag 4}
+                    true)
+  =>
+  {:grubs {:a {:b1 :b3}} :tag 4})
+
+(fact "Empty patch of state sets new tag to patch tag if specified"
+  (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0}
+                    {:shadow-tag 0 :tag 4 :grubs {:+ nil :- #{}}}
+                    true)
+  =>
+  {:grubs {:a {:b1 :b2}} :tag 4})
+
+(fact "Patch of empty diff returns original state"
+  (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0}
+                    {:grubs {:+ nil :- #{}} :tag 4})
+  =>
+  {:grubs {:a {:b1 :b2}} :tag 0})

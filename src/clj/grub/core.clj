@@ -92,11 +92,11 @@
   (let [{:keys [db conn]} (db/connect db-name)
         new-states (chan)
         db-state (db/get-current-state db)
-        _ (reset! states (state/new-state (if db-state db-state (state/empty-state))))
+        _ (reset! states (state/new-states (if db-state db-state state/empty-state)))
         stop-server (httpkit/run-server (make-handler system new-states) {:port port})]
     (add-watch states :db (fn [_ _ old new] 
                             (when-not (= old new)
-                              (let [new-state (state/get-current-state new)]
+                              (let [new-state (state/get-latest new)]
                                 (a/put! new-states new-state)
                                 (db/update-db! db new-state)))))
     (println "Started server on localhost:" port)
@@ -105,6 +105,7 @@
       :db-conn conn
       :stop-server stop-server
       :states states)))
+
 
 (defn stop [{:keys [db-conn stop-server states] :as system}]
   (remove-watch states :db)
