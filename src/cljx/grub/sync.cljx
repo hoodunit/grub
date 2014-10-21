@@ -24,18 +24,22 @@
     {:type :diff
      :diff diff}))
 
-(defmulti handle-event (fn [event] (:type event)))
+(defmulti handle-event (fn [event] 
+                         (:type event)))
+
+(defn apply-diff [states diff shadow]
+  (let [new-states (swap! states update-states diff)
+        new-state (state/get-latest new-states)
+        new-shadow (diff/patch-state shadow diff true)]
+    {:out-event (when-not (state/state= shadow new-state)
+                  (diff-msg new-shadow new-state))
+     :new-states new-states
+     :new-shadow new-shadow}))
 
 (defmethod handle-event :diff [{:keys [diff states shadow client?]}]
   (let [history-shadow (state/get-tagged @states (:shadow-tag diff))]
     (if history-shadow
-      (let [new-states (swap! states update-states diff)
-            new-state (state/get-latest new-states)
-            new-shadow (diff/patch-state history-shadow diff true)]
-        {:out-event (when-not (state/state= history-shadow new-state)
-                      (diff-msg new-shadow new-state))
-         :new-states new-states
-         :new-shadow new-shadow})
+      (apply-diff states diff history-shadow)
       (if client?
         {:out-event full-sync-request
          :new-shadow shadow}

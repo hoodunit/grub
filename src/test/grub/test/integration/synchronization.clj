@@ -1,5 +1,6 @@
 (ns grub.test.integration.synchronization
   (:require [grub.sync :as sync]
+            [grub.state :as state]
             [clojure.test :refer :all]
             [midje.sweet :refer :all]
             [clojure.core.async :as a :refer [<!! >!! chan go]]))
@@ -8,58 +9,83 @@
   (let [[v p] (a/alts!! [c (a/timeout 100)])]
     v))
 
-;; (fact "Client-only changes synced with server"
-;;   (let [client-shadow {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}}
-;;         client-states (states-atom
-;;                        {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-;;                        {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}})
-;;         server-shadow {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-;;         server-states (states-atom server-shadow)
-;;         client-in (chan)
-;;         client-out (chan)
-;;         server-in (chan)
-;;         server-out (chan)
-;;         client-state-changes (chan 1)
-;;         msg {:type :new-state
-;;              :state {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}}}]
-;;     (a/pipe client-out server-in)
-;;     (a/pipe server-out client-in)
-;;     (sync/make-client-agent client-in client-out client-states server-shadow)
-;;     (sync/make-server-agent server-in server-out server-states client-shadow)
-;;     (add-watch client-states :test (fn [_ _ _ new-states] (a/put! client-state-changes new-states)))
-;;     (>!! client-in msg)
-;;     (<!!? client-state-changes)
-;;     (:state (last @client-states)) => {:grubs {"1" {:completed true, :text "2 apples"}}
-;;                                        :recipes {}}
-;;     (:state (last @server-states)) => {:grubs {"1" {:completed true, :text "2 apples"}}
-;;                                        :recipes {}}))
+(defn client-server [client-states server-states]
+  (let [server-shadow (last @server-states)
+        client-shadow (last @client-states)
+        new-client-states (chan)
+        >client (chan)
+        new-server-states (chan)
+        >server (chan)]
+    (sync/make-client-agent >server >client new-client-states client-states server-shadow)
+    (sync/make-server-agent >client >server new-server-states server-states client-shadow)
+    {:new-client-states new-client-states
+     :new-server-states new-server-states}))
 
-;; (fact "Client and server changes synced"
-;;   (let [client-shadow {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-;;         client-states (states-atom
-;;                        {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-;;                        {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}})
-;;         server-shadow {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-;;         server-states (states-atom 
-;;                        server-shadow
-;;                        {:grubs {"1" {:text "4 apples" :completed false}} :recipes {}})
-;;         client-in (chan)
-;;         client-out (chan)
-;;         server-in (chan)
-;;         server-out (chan)
-;;         msg {:type :new-state
-;;              :state {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}}}
-;;         client-state-changes (chan 1)]
-;;     (a/pipe client-out server-in)
-;;     (a/pipe server-out client-in)
-;;     (sync/make-client-agent client-in client-out client-states server-shadow)
-;;     (sync/make-server-agent server-in server-out server-states client-shadow)
-;;     (add-watch client-states :test (fn [_ _ _ new-states] (a/put! client-state-changes new-states)))
-;;     (>!! client-in msg)
-;;     (<!!? client-state-changes)
-;;     @client-states => (hashed-states
-;;                        {:grubs {"1" {:completed true, :text "4 apples"}}, :recipes {}})
-;;     @server-states => (hashed-states
-;;                        {:grubs {"1" {:completed false, :text "2 apples"}}, :recipes {}}
-;;                        {:grubs {"1" {:completed false, :text "4 apples"}}, :recipes {}}
-;;                        {:grubs {"1" {:completed true, :text "4 apples"}}, :recipes {}})))
+(defn states-in-sync? [a b]
+  (state/state= (last a) (last b)))
+
+(defn last-state [states]
+  (-> states
+      (last)
+      (dissoc :tag)))
+
+(defn short-delay []
+  (<!! (a/timeout 300)))
+
+(fact "Client-only changes sync with server"
+  (let [client (atom [{:tag 1
+                       :grubs {"1" {:text "2 apples" :completed false}}
+                       :recipes {}}])
+        server (atom [{:tag 44 :grubs {"1" {:text "2 apples" :completed false}}
+                       :recipes {}}])
+        {:keys [new-client-states]} (client-server client server)
+        client-change {:tag 2
+                       :grubs {"1" {:text "2 apples" :completed true}}
+                       :recipes {}}]
+    (swap! client conj client-change)
+    (>!! new-client-states client-change)
+    (short-delay)
+    (states-in-sync? @client @server) => true
+    (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}}
+                             :recipes {}}))
+
+(fact "Other client changes synced with client"
+  (let [client (atom [{:tag 1
+                       :grubs {"1" {:text "2 apples" :completed false}}
+                       :recipes {}}])
+        server (atom [{:tag 44 :grubs {"1" {:text "2 apples" :completed false}}
+                       :recipes {}}])
+        {:keys [new-server-states]} (client-server client server)
+        server-change {:tag 2
+                       :grubs {"1" {:text "2 apples" :completed true}}
+                       :recipes {}}]
+    (swap! server conj server-change)
+    (>!! new-server-states server-change)
+    (short-delay)
+    (states-in-sync? @client @server) => true
+    (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}}
+                             :recipes {}}))
+
+(fact "Client changes and simultaneous server changes synced"
+  (let [client (atom [{:tag 1
+                       :grubs {"1" {:text "2 apples" :completed false}}
+                       :recipes {}}])
+        server (atom [{:tag 44 :grubs {"1" {:text "2 apples" :completed false}}
+                       :recipes {}}])
+        {:keys [new-client-states]} (client-server client server)
+        client-change {:tag 2
+                       :grubs {"1" {:text "2 apples" :completed true}}
+                       :recipes {}}
+        server-change {:tag 45
+                       :grubs {"1" {:text "2 apples" :completed false}
+                               "2" {:text "milk" :completed false}}
+                       :recipes {}}]
+    (swap! client conj client-change)
+    (swap! server conj server-change)
+    (>!! new-client-states client-change)
+    (short-delay)
+    (states-in-sync? @client @server) => true
+    (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}
+                                     "2" {:text "milk" :completed false}}
+                             :recipes {}}))
+
