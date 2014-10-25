@@ -8,7 +8,6 @@
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [om "0.7.3"]
                  [http-kit "2.1.18"]
-                 [compojure "1.1.8"]
                  [ring/ring-core "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-devel "1.3.0" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5"]
@@ -18,11 +17,13 @@
                  [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]
                  [sablono "0.2.17"]
                  [cljs-uuid "0.0.4"]
-                 [net.polyc0l0r/hasch "0.2.3"]
                  [com.cognitect/transit-clj "0.8.259"]
                  [com.cognitect/transit-cljs "0.8.188"]]
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[midje "1.6.3"]]}}
+             :dev {:source-paths ["dev"]
+                   :dependencies [[midje "1.6.3"]
+                                  [org.clojure/tools.namespace "0.2.3"]
+                                  [org.clojure/java.classpath "0.2.0"]]}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.6"]
@@ -44,7 +45,7 @@
                   {:source-paths ["src/cljx"]
                    :output-path "target/generated/cljs"
                    :rules :cljs}]}
-  :source-paths ["src/clj" "src/test" "target/classes"]
+  :source-paths ["src/clj" "target/classes"]
   :test-paths ["src/test"]
   :ring {:handler grub.core/app}
   :uberjar-name "grub-standalone.jar"

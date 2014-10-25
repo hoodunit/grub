@@ -1,6 +1,5 @@
 (ns grub.util
-  (:require [grub.diff :as diff]
-            #+clj [clojure.core.async :as a :refer [<! >! chan go]]
+  (:require #+clj [clojure.core.async :as a :refer [<! >! chan go]]
             #+cljs [cljs.core.async :as a :refer [<! >! chan]])
   #+cljs (:require-macros [grub.macros :refer [log logs]]
                           [cljs.core.async.macros :refer [go]]))

@@ -48,7 +48,8 @@
 
     om/IWillReceiveProps
     (will-receive-props [this {:keys [text]}]
-      (om/set-state! owner :grub-text text))
+      (when-not (= (om/get-state owner :grub-text) text)
+        (om/set-state! owner :grub-text text)))
 
     om/IRenderState
     (render-state [_ {:keys [edit-state] :as state}]

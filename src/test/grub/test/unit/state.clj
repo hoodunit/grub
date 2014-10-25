@@ -1,179 +1,35 @@
 (ns grub.test.unit.state
-  (:require [grub.state :as state]
-            [grub.sync :as sync]
-            [midje.sweet :refer :all]
-            [hasch.core :as hasch]))
+  (:require [grub.state :as s]
+            [midje.sweet :refer :all]))
 
-(defn hashed-states [& states]
-  (->> states
-       (map (fn [s] {:hash (hasch/uuid s)
-                     :state s}))
-       (into [])))
+(fact "Get current state returns last state"
+  (let [states [{:tag 1 :a :b}
+                {:tag 2 :c :d}]]
+    (s/get-latest states) => {:tag 2 :c :d}))
 
-(fact "Server applies diff and returns empty diff when no server changes"
-  (let [states (hashed-states
-                {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}})
-        event {:type :diff
-               :diff {:grubs {:updated {"1" {:completed true}} :deleted #{}}}
-               :hash (:hash (first states))
-               :states states
-               :shadow (:state (last states))
-               :client? false}
-        {:keys [new-states new-shadow out-event]} (state/handle-event event)]
-    new-states => (hashed-states
-                   {:grubs {"1" {:completed false, :text "2 apples"}}, :recipes {}}
-                   {:grubs {"1" {:completed true, :text "2 apples"}}, :recipes {}})
-    new-shadow {:grubs {"1" {:completed true, :text "2 apples"}}, :recipes {}}
-    out-event => {:type :diff
-                  :diff {:grubs {:deleted #{}, :updated nil}
-                         :recipes {:deleted #{}, :updated nil}}
-                  :hash (:hash (last new-states))}))
+(fact "Get history state returns state with given hash"
+  (let [states [{:tag 1 :a :b}
+                {:tag 2 :c :d}
+                {:tag 3 :e :f}]]
+    (s/get-tagged states 1) => {:tag 1 :a :b}
+    (s/get-tagged states 2) => {:tag 2 :c :d}
+    (s/get-tagged states 3) => {:tag 3 :e :f}))
 
-(fact "Client applies diff, clears history, updates shadow, returns empty diff when no client changes"
-  (let [states (hashed-states
-                {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}})
-        event {:type :diff
-               :diff {:grubs {:updated {"1" {:completed true}} :deleted #{}}}
-               :hash (:hash (first states))
-               :states states
-               :shadow (:state (last states))
-               :client? true}
-        {:keys [new-states new-shadow out-event]} (state/handle-event event)]
-    new-states => (hashed-states
-                   {:grubs {"1" {:completed true, :text "2 apples"}}, :recipes {}})
-    new-shadow => {:grubs {"1" {:completed true, :text "2 apples"}}, :recipes {}}
-    out-event => {:type :diff
-                  :diff {:grubs {:deleted #{}, :updated nil}
-                         :recipes {:deleted #{}, :updated nil}}
-                  :hash (:hash (last new-states))}))
+(fact "Add history state appends state to the end and increments tag"
+  (let [states [{:tag 1 :a :b}
+                {:tag 2 :c :d}]]
+    (s/add states {:e :f}) => [{:tag 1 :a :b}
+                               {:tag 2 :c :d}
+                               {:tag 3 :e :f}]))
 
-(fact "Server applies diff and returns changes when server has changed"
-  (let [states (hashed-states
-                {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                {:grubs {"1" {:text "2 apples" :completed false}
-                         "2" {:text "3 onions" :completed false}}
-                 :recipes {}})
-        event {:type :diff
-               :diff {:grubs {:updated {"1" {:completed true}} :deleted #{}}}
-               :hash (:hash (first states))
-               :states states
-               :shadow sync/empty-state
-               :client? false}
-        {:keys [new-states new-shadow out-event]} (state/handle-event event)]
-    new-states => (hashed-states
-                   {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                   {:grubs {"1" {:text "2 apples" :completed false}
-                            "2" {:text "3 onions" :completed false}}
-                    :recipes {}}
-                   {:grubs {"1" {:text "2 apples" :completed true}
-                            "2" {:text "3 onions" :completed false}}
-                    :recipes {}})
-    out-event => {:type :diff
-                  :diff {:grubs {:deleted #{}
-                                 :updated {"2" {:completed false, :text "3 onions"}}}
-                         :recipes {:deleted #{}, :updated nil}}
-                  :hash (hasch/uuid {:grubs {"1" {:text "2 apples" :completed true}}
-                                     :recipes {}})}))
+(fact "Add history state appends state to the end and drops first state if full"
+  (let [states (into [] (for [i (range 20)] {:tag i :i i}))
+        new-states (s/add states {:i 21})]
+    (count new-states) => 20
+    (dissoc (last new-states) :tag) => {:i 21}
+    (first new-states) => {:tag 1 :i 1}))
 
-(fact "Server forces full sync if client is out of sync"
-  (let [states (hashed-states
-                {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                {:grubs {"1" {:text "2 apples" :completed false}
-                         "2" {:text "3 onions" :completed false}}
-                 :recipes {}})
-        event {:type :diff
-               :diff {:grubs {:updated {"0" {:completed true}} :deleted #{}}}
-               :hash (:hash {:grubs {"0" {:text "milk" :completed false}} 
-                             :recipes {}})
-               :states states
-               :shadow sync/empty-state
-               :client? false}
-        {:keys [new-states new-shadow out-event]} (state/handle-event event)]
-    new-states => nil
-    out-event => {:type :full-sync
-                  :state {:grubs {"1" {:text "2 apples" :completed false}
-                                  "2" {:text "3 onions" :completed false}}
-                          :recipes {}}}))
-
-(fact "Server sends full sync if client requests it"
-  (let [states (hashed-states
-                {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                {:grubs {"1" {:text "2 apples" :completed false}
-                         "2" {:text "3 onions" :completed false}}
-                 :recipes {}})
-        event {:type :full-sync-request
-               :states states}
-        {:keys [new-states new-shadow out-event]} (state/handle-event event)]
-    new-states => nil
-    out-event => {:type :full-sync
-                  :state {:grubs {"1" {:text "2 apples" :completed false}
-                                  "2" {:text "3 onions" :completed false}}
-                          :recipes {}}}))
-
-(fact "New state - server passes diff to client, does not update shadow"
-  (let [states (hashed-states
-                {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                {:grubs {"1" {:text "2 apples" :completed false}
-                         "2" {:text "3 onions" :completed false}}
-                 :recipes {}}
-                {:grubs {"1" {:text "2 apples" :completed false}
-                         "2" {:text "3 onions" :completed false}
-                         "3" {:text "milk" :completed false}}
-                 :recipes {}})
-        client-state {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-        event {:type :new-state
-               :state (:state (last states))
-               :client? false
-               :states states
-               :shadow client-state}
-        {:keys [new-states new-shadow out-event]} (state/handle-event event)]
-    new-states => (hashed-states
-                   {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                   {:grubs {"1" {:text "2 apples" :completed false}
-                            "2" {:text "3 onions" :completed false}}
-                    :recipes {}}
-                   {:grubs {"1" {:text "2 apples" :completed false}
-                            "2" {:text "3 onions" :completed false}
-                            "3" {:text "milk" :completed false}}
-                    :recipes {}})
-    new-shadow => nil
-    out-event => {:type :diff
-                  :diff {:grubs {:deleted #{}
-                                 :updated {"2" {:text "3 onions" :completed false}
-                                           "3" {:text "milk" :completed false}}}
-                         :recipes {:deleted #{}, :updated nil}}
-                  :hash (hasch/uuid client-state)}))
-
-(fact "New state - client passes diff to server, does not update shadow"
-  (let [states (hashed-states
-                {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                {:grubs {"1" {:text "2 apples" :completed false}
-                         "2" {:text "3 onions" :completed false}}
-                 :recipes {}}
-                {:grubs {"1" {:text "2 apples" :completed false}
-                         "2" {:text "3 onions" :completed false}
-                         "3" {:text "milk" :completed false}}
-                 :recipes {}})
-        shadow {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-        event {:type :new-state
-               :state (:state (last states))
-               :client? true
-               :states states
-               :shadow shadow}
-        {:keys [new-states new-shadow out-event]} (state/handle-event event)]
-    new-states => (hashed-states
-                   {:grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                   {:grubs {"1" {:text "2 apples" :completed false}
-                            "2" {:text "3 onions" :completed false}}
-                    :recipes {}}
-                   {:grubs {"1" {:text "2 apples" :completed false}
-                            "2" {:text "3 onions" :completed false}
-                            "3" {:text "milk" :completed false}}
-                    :recipes {}})
-    new-shadow => nil
-    out-event => {:type :diff
-                  :diff {:grubs {:deleted #{}
-                                 :updated {"2" {:text "3 onions" :completed false}
-                                           "3" {:text "milk" :completed false}}}
-                         :recipes {:deleted #{}, :updated nil}}
-                  :hash (hasch/uuid shadow)}))
+(fact "Add history state does not add consecutive duplicate states"
+  (let [states [{:tag 1 :a :b}
+                {:tag 2 :c :d}]]
+    (s/add states {:tag 2 :c :d}) => states))
