@@ -62,9 +62,14 @@
       (httpkit/with-channel request ws-channel
         (let [to-client (chan)
               from-client (chan)
-              new-states (chan (a/sliding-buffer 1))]
+              new-states (chan (a/sliding-buffer 1))
+              on-close (fn []
+                         (a/unsub new-states-pub :new-state new-states)
+                         (a/close! new-states)
+                         (a/close! from-client)
+                         (a/close! to-client))]
           (a/sub new-states-pub :new-state new-states)
-          (ws/add-connected-client! ws-channel to-client from-client)
+          (ws/add-connected-client! ws-channel to-client from-client on-close)
           (sync/make-server-agent to-client from-client new-states states)))
       (handler request))))
 

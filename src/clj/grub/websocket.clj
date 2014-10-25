@@ -22,11 +22,15 @@
         received (t/read reader)]
     received))
 
-(defn add-connected-client! [ws-channel to from]
+(defn add-connected-client! [ws-channel to from on-close]
   (println "Client connected:" (.toString ws-channel))
   (a/go-loop [] (if-let [event (<! to)] 
                   (do (httpkit/send! ws-channel (write-msg event)) 
                       (recur))
                   (httpkit/close ws-channel)))
   (httpkit/on-receive ws-channel #(a/put! from (read-msg %)))
-  (httpkit/on-close ws-channel #(disconnected % ws-channel to from)))
+  (httpkit/on-close ws-channel (fn [status]
+                                 (println "Client disconnected:" 
+                                          (.toString ws-channel)
+                                          "with status" status)
+                                 (on-close))))
