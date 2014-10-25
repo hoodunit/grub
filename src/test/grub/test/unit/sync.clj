@@ -29,7 +29,7 @@
                      :grubs {"1" {:completed true, :text "2 apples"}}
                      :recipes {}}))
 
-  (fact "Diff, server changes - Apply diff, return changes"
+  (fact "Diff, server changes - Apply diff, don't return changes (now)"
     (let [states (atom [{:tag 0 :grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                         {:tag 1 :grubs {"1" {:text "2 apples" :completed false}
                                         "2" {:text "3 onions" :completed false}}
@@ -49,12 +49,7 @@
                             "2" {:text "3 onions" :completed false}} :recipes {}}
             {:tag 2 :grubs {"1" {:text "2 apples" :completed true} 
                             "2" {:text "3 onions" :completed false}} :recipes {}})
-      out-event =>
-      (just {:type :diff
-             :shadow-tag 4
-             :tag 2
-             :diff {:grubs {:- #{} :+ {"2" {:completed false, :text "3 onions"}}}
-                    :recipes {:- #{}, :+ nil}}})
+      out-event => nil
       new-shadow => {:tag 4
                      :grubs {"1" {:text "2 apples" :completed true}}
                      :recipes {}}))

@@ -72,7 +72,7 @@
                        :recipes {}}])
         server (atom [{:tag 44 :grubs {"1" {:text "2 apples" :completed false}}
                        :recipes {}}])
-        {:keys [new-client-states]} (client-server client server)
+        {:keys [new-client-states new-server-states]} (client-server client server)
         client-change {:tag 2
                        :grubs {"1" {:text "2 apples" :completed true}}
                        :recipes {}}
@@ -84,6 +84,7 @@
     (swap! server conj server-change)
     (>!! new-client-states client-change)
     (short-delay)
+    (>!! new-server-states (last @server))
     (states-in-sync? @client @server) => true
     (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}
                                      "2" {:text "milk" :completed false}}
