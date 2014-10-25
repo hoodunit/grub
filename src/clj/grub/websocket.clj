@@ -18,8 +18,9 @@
 
 (defn read-msg [msg]
   (let [in (ByteArrayInputStream. (.getBytes msg))
-        reader (t/reader in :json)]
-    (t/read reader)))
+        reader (t/reader in :json)
+        received (t/read reader)]
+    received))
 
 (defn add-connected-client! [ws-channel to from]
   (println "Client connected:" (.toString ws-channel))

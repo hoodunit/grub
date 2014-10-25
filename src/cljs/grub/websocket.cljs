@@ -22,7 +22,8 @@
   (send-pending-msg websocket pending-msg))
 
 (defn read-msg [msg]
-  (t/read reader (.-message msg)))
+  (let [received (t/read reader (.-message msg))]
+    received))
 
 (defn connect [pending-msg in out]
   (let [ws (goog.net.WebSocket.)

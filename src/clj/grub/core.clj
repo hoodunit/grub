@@ -56,14 +56,16 @@
    :stop-server nil
    :states (atom nil)})
 
-(defn handle-websocket [handler states new-states]
+(defn handle-websocket [handler states new-states-pub]
   (fn [{:keys [websocket?] :as request}]
     (if websocket?
       (httpkit/with-channel request ws-channel
         (let [to-client (chan)
-              from-client (chan)]
+              from-client (chan)
+              new-states (chan (a/sliding-buffer 1))]
+          (a/sub new-states-pub :new-state new-states)
           (ws/add-connected-client! ws-channel to-client from-client)
-          (sync/sync-new-client! to-client from-client new-states states)))
+          (sync/make-server-agent to-client from-client new-states states)))
       (handler request))))
 
 (defn handle-root [handler index]
@@ -80,20 +82,21 @@
        :body ""}
       (handler req))))
 
-(defn make-handler [{:keys [index states]} new-states]
+(defn make-handler [{:keys [index states]} new-states-pub]
   (-> (fn [req] "Not found")
       (file/wrap-file "public")
       (content-type/wrap-content-type)
       (handle-root index)
-      (handle-websocket states new-states)
+      (handle-websocket states new-states-pub)
       (wrap-bounce-favicon)))
 
 (defn start [{:keys [port db-name states] :as system}]
   (let [{:keys [db conn]} (db/connect db-name)
         new-states (chan)
+        new-states-pub (a/pub new-states (fn [_] :new-state))
         db-state (db/get-current-state db)
         _ (reset! states (state/new-states (if db-state db-state state/empty-state)))
-        stop-server (httpkit/run-server (make-handler system new-states) {:port port})]
+        stop-server (httpkit/run-server (make-handler system new-states-pub) {:port port})]
     (add-watch states :db (fn [_ _ old new] 
                             (when-not (= old new)
                               (let [new-state (state/get-latest new)]

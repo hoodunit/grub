@@ -130,37 +130,6 @@
 (fact "Diff of many changes has all changes"
   (diff/diff-states before-state after-state) => expected-diff)
 
-(fact "Diff and patch of many changes returns original state with new tag"
-  (let [diff (diff/diff-states before-state after-state)
-        result (diff/patch-state before-state diff)]
-    (dissoc result :tag) => after-state
-    (:tag result) => #(not (nil? %))))
-
-(fact "Diff of states with tags includes tags in diff"
-  (diff/diff-states {:tag "1"} {:tag "2"}) => {:tag "2" :shadow-tag "1"})
-
-(fact "Patch of state creates new tag by default"
-  (let [result (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0} {:grubs {:+ {:a {:b1 :b3}}} :- #{}})]
-    result => (contains {:grubs {:a {:b1 :b3}}})
-    (:tag result) => #(not (nil? %))
-    (:tag result) => #(not= % 0)))
-
-(fact "Patch of state sets new tag to patch tag if specified"
-  (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0}
-                    {:grubs {:+ {:a {:b1 :b3}}} :- #{} :tag 4}
-                    true)
-  =>
-  {:grubs {:a {:b1 :b3}} :tag 4})
-
-(fact "Empty patch of state sets new tag to patch tag if specified"
-  (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0}
-                    {:shadow-tag 0 :tag 4 :grubs {:+ nil :- #{}}}
-                    true)
-  =>
-  {:grubs {:a {:b1 :b2}} :tag 4})
-
-(fact "Patch of empty diff returns original state"
-  (diff/patch-state {:grubs {:a {:b1 :b2}} :tag 0}
-                    {:grubs {:+ nil :- #{}} :tag 4})
-  =>
-  {:grubs {:a {:b1 :b2}} :tag 0})
+(fact "Diff and patch of many changes returns original state"
+  (let [diff (diff/diff-states before-state after-state)]
+    (diff/patch-state before-state diff) => after-state))

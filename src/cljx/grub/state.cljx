@@ -1,14 +1,13 @@
 (ns grub.state
   (:require [grub.diff :as diff]
-            [grub.util :as util]
-            [grub.tag :as tag]))
+            [grub.util :as util]))
 
 (def num-history-states 20)
 
-(def empty-state {:tag (tag/oldest-tag) :grubs {} :recipes {}})
+(def empty-state {:tag 0 :grubs {} :recipes {}})
 
 (defn new-states [state]
-  [(assoc state :tag (tag/new-tag))])
+  [(assoc state :tag 0)])
 
 (defn get-latest [states]
   (last states))
@@ -22,7 +21,7 @@
   (let [last-state (last states)]
     (if (= last-state new-state)
       states
-      (let [new-states (conj states (assoc new-state :tag (tag/new-tag)))]
+      (let [new-states (conj states (assoc new-state :tag (inc (:tag last-state))))]
         (if (>= (count states) num-history-states)
           (into [] (rest new-states))
           new-states)))))
