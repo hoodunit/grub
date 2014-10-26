@@ -70,7 +70,7 @@
            :on-change #(om/set-state! owner :new-recipe-grubs (dom/event-val %))}]
          [:textarea.form-control.recipe-grubs-input
           {:ref :textarea
-           :rows (inc (recipe/num-newlines new-recipe-directions))
+           :rows 8
            :value new-recipe-directions
            :placeholder "Directions"
            :on-change #(om/set-state! owner :new-recipe-directions (dom/event-val %))}]
