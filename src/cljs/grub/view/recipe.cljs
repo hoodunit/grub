@@ -9,10 +9,11 @@
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
-(defn new-recipe [name grubs]
+(defn new-recipe [name grubs directions]
   {:id (str "recipe-" (uuid/make-random))
    :name name
-   :grubs grubs})
+   :grubs grubs
+   :directions directions})
 
 (defn parse-grubs-from-str [grubs-str]
   (->> grubs-str
@@ -36,18 +37,23 @@
     (condp = [current next]
       [:editing :waiting] (let [recipe (om/get-props owner)
                                 name (om/get-state owner :name)
-                                grubs (om/get-state owner :grubs)]
-                            (when-not (and (= name (:name @recipe))
-                                           (= grubs (:grubs @recipe)))
-                              (om/transact! recipe 
-                                            nil 
-                                            #(assoc % :name name :grubs grubs)
+                                grubs (om/get-state owner :grubs)
+                                directions (om/get-state owner :directions)]
+                            (when (or (not= name (:name @recipe))
+                                      (not= grubs (:grubs @recipe))
+                                      (not= directions (:directions @recipe)))
+                              (om/transact! recipe nil #(assoc % 
+                                                          :name name 
+                                                          :grubs grubs
+                                                          :directions directions)
                                             :local)))
       nil)
     (when-not (= current next) (om/set-state! owner :edit-state next))))
 
 (defn num-newlines [str]
-  (count (re-seq #"\n" str)))
+  (if (or (nil? str) (empty? str))
+    1
+    (count (re-seq #"\n" str))))
 
 (defn view [{:keys [id] :as recipe} owner {:keys [remove-recipe-ch]}]
   (reify
@@ -57,6 +63,7 @@
         {:edit-state :waiting
          :name (:name recipe)
          :grubs (:grubs recipe)
+         :directions (:directions recipe)
          :unmounted false}))
 
     om/IWillReceiveProps
@@ -67,7 +74,7 @@
         (om/set-state! owner :grubs grubs)))
 
     om/IRenderState
-    (render-state [this {:keys [edit-state name grubs]}]
+    (render-state [this {:keys [edit-state name grubs directions]}]
       (let [update (om/get-shared owner :recipe-update)]
         (html
          [:div.panel.panel-default.recipe-panel
@@ -97,6 +104,12 @@
              :rows (inc (num-newlines grubs))
              :value grubs
              :on-change #(om/set-state! owner :grubs (dom/event-val %))}]
+           [:textarea.form-control.recipe-grubs-input
+            {:ref :textarea
+             :rows (inc (num-newlines directions))
+             :value directions
+             :placeholder "Directions"
+             :on-change #(om/set-state! owner :directions (dom/event-val %))}]
            [:button.btn.btn-danger.pull-left.recipe-remove-btn
             {:type "button"
              :on-click #(put! remove-recipe-ch id)}
