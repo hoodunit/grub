@@ -3,27 +3,37 @@ Grub
 
 Grub is a real-time synced grocery list. Mainly it's a way for me to play around with Clojure[Script] and core.async.
 
-Dependencies
+Install dependencies
 ------------
-- mongodb
 - Java 7+
 <pre>
-$ sudo apt-get install oracle-java7-installer
-$ sudo apt-get install oracle-java7-set-default
+sudo apt-get install openjdk-7-jdk
+</pre>
+- MongoDB
+<pre>
+$ sudo apt-get install mongodb
 </pre>
 - leiningen 2.1.2+
 <pre>
+# For example:
 $ mkdir ~/bin
+$ echo "export PATH=\$:$HOME/bin" >> $HOME/.bashrc
+$ cd ~/bin
 $ wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
-$ mv lein ~/bin/.
 $ chmod a+x ~/bin/lein
-$ lein
 </pre>
 
-Running
+Build
 -------
 <pre>
-$ lein cljsbuild once
+$ lein cljx
+$ lein cljsbuild once dev
+</pre>
+
+Run
+-------
+<pre>
 $ lein run dev
 </pre>
-- By default it will be running at http://localhost:3000
+
+By default it runs at http://localhost:3000
