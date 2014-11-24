@@ -23,7 +23,9 @@
         [:h3.recipes-title "Recipes"]
         (om/build recipe-new/view {} {:opts {:add-recipe-ch add-recipe-ch}})
         [:ul#recipe-list.list-group.recipe-list
-         (for [recipe (vals recipes)]
+         (for [recipe (->> recipes
+                           vals
+                           (sort-by #(.toLowerCase (:name %))))]
            (om/build recipe/view 
                      recipe 
                      {:key :id :opts {:remove-recipe-ch remove-recipe-ch}}))]]))
