@@ -19,7 +19,9 @@
                  [cljs-uuid "0.0.4"]
                  [com.cognitect/transit-clj "0.8.259"]
                  [com.cognitect/transit-cljs "0.8.188"]]
-  :profiles {:uberjar {:aot :all}
+  :aliases {"cljx" ["with-profile" "cljx" "cljx"]}
+  :profiles {:cljx {}
+             :uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies [[midje "1.6.3"]
                                   [org.clojure/tools.namespace "0.2.3"]
@@ -29,12 +31,12 @@
             [lein-ring "0.8.6"]
             [com.keminglabs/cljx "0.4.0"]]
   :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "target/generated/cljs"]
-                             :compiler {:output-dir "public/js/out"
-                                        :output-to "public/js/grub.js"
+                             :compiler {:output-dir "resources/public/js/out"
+                                        :output-to "resources/public/js/grub.js"
                                         :optimizations :none
                                         :source-map true}}
                        :prod {:source-paths ["src/cljs" "target/generated/cljs"]
-                              :compiler {:output-to "public/js/grub.min.js"
+                              :compiler {:output-to "resources/public/js/grub.min.js"
                                          :optimizations :advanced
                                          :pretty-print false
                                          :preamble ["react/react.min.js"]

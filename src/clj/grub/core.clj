@@ -1,13 +1,16 @@
 (ns grub.core
+  (:gen-class)
   (:require [grub.websocket :as ws]
             [grub.db :as db]
             [grub.state :as state]
             [grub.sync :as sync]
             [ring.middleware.file :as file]
+            [ring.middleware.resource :as resource]
             [ring.middleware.content-type :as content-type]
             [ring.util.response :as resp]
             [org.httpkit.server :as httpkit]
             [clojure.core.async :as a :refer [<! >! chan go]]
+            [clojure.pprint :as pprint]
             [hiccup
              [page :refer [html5]]
              [page :refer [include-js include-css]]]
@@ -82,14 +85,12 @@
 (defn wrap-bounce-favicon [handler]
   (fn [req]
     (if (= [:get "/favicon.ico"] [(:request-method req) (:uri req)])
-      {:status 404
-       :headers {}
-       :body ""}
+      (resp/not-found "")
       (handler req))))
 
 (defn make-handler [{:keys [index states]} new-states-pub]
-  (-> (fn [req] "Not found")
-      (file/wrap-file "public")
+  (-> (fn [req] (resp/not-found "Not found"))
+      (resource/wrap-resource "public")
       (content-type/wrap-content-type)
       (handle-root index)
       (handle-websocket states new-states-pub)
