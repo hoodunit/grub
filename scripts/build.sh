@@ -18,6 +18,6 @@ echo "" &&
 echo "$ lein uberjar" &&
 lein uberjar &&
 mkdir target/builds
-RELEASE_NAME=grub-`date "+%F-%H%M"`-`git rev-parse HEAD | cut -c -10`.jar &&
-mv target/grub-standalone.jar target/builds/$RELEASE_NAME &&
-echo "Built package target/builds/$RELEASE_NAME"
+BUILD_NAME=grub-`date "+%F-%H%M"`-`git rev-parse HEAD | cut -c -10`.jar &&
+mv target/grub-standalone.jar target/builds/$BUILD_NAME &&
+echo "Built package target/builds/$BUILD_NAME"
