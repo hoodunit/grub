@@ -4,41 +4,37 @@
             [grub.db :as db]
             [grub.state :as state]
             [grub.sync :as sync]
-            [ring.middleware.file :as file]
             [ring.middleware.resource :as resource]
             [ring.middleware.content-type :as content-type]
             [ring.util.response :as resp]
             [org.httpkit.server :as httpkit]
             [clojure.core.async :as a :refer [<! >! chan go]]
-            [clojure.pprint :as pprint]
-            [hiccup
-             [page :refer [html5]]
-             [page :refer [include-js include-css]]]
-            [clojure.tools.cli :refer [parse-opts]]))
+            hiccup
+            [clojure.tools.cli :as cli]))
 
 (def prod-index-page
-  (html5
+  (hiccup/html5
    [:head
     [:title "Grub"]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    (include-css "/css/bootstrap.min.css")
-    (include-css "/css/styles.css")]
+    (hiccup/include-css "/css/bootstrap.min.css")
+    (hiccup/include-css "/css/styles.css")]
    [:body
     [:div#container]
-    (include-js "/js/grub.min.js")]))
+    (hiccup/include-js "/js/grub.min.js")]))
 
 (def dev-index-page
-  (html5
+  (hiccup/html5
    [:head
     [:title "Grub"]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    (include-css "/css/bootstrap.css")
-    (include-css "/css/styles.css")]
+    (hiccup/include-css "/css/bootstrap.css")
+    (hiccup/include-css "/css/styles.css")]
    [:body
     [:div#container]
-    (include-js "/js/react-0.11.2-with-addons.js")
-    (include-js "/js/out/goog/base.js")
-    (include-js "/js/grub.js")
+    (hiccup/include-js "/js/react-0.11.2-with-addons.js")
+    (hiccup/include-js "/js/out/goog/base.js")
+    (hiccup/include-js "/js/grub.js")
     [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))
 
 (def prod-system
@@ -115,7 +111,6 @@
       :stop-server stop-server
       :states states)))
 
-
 (defn stop [{:keys [db-conn stop-server states] :as system}]
   (remove-watch states :db)
   (stop-server)
@@ -150,7 +145,7 @@
   (System/exit status))
 
 (defn -main [& args]
-  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+  (let [{:keys [options arguments errors summary]} (cli/parse-opts args cli-options)]
     (println "options:" options)
     (cond
       (:help options) (exit 0 (usage summary))
