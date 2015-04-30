@@ -9,7 +9,7 @@
             [ring.util.response :as resp]
             [org.httpkit.server :as httpkit]
             [clojure.core.async :as a :refer [<! >! chan go]]
-            hiccup
+            [hiccup.page :as hiccup]
             [clojure.tools.cli :as cli]))
 
 (def prod-index-page
@@ -17,24 +17,24 @@
    [:head
     [:title "Grub"]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    (hiccup/include-css "/css/bootstrap.min.css")
-    (hiccup/include-css "/css/styles.css")]
+    (hiccup/include-css "./css/bootstrap.min.css")
+    (hiccup/include-css "./css/styles.css")]
    [:body
     [:div#container]
-    (hiccup/include-js "/js/grub.min.js")]))
+    (hiccup/include-js "./js/grub.min.js")]))
 
 (def dev-index-page
   (hiccup/html5
    [:head
     [:title "Grub"]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    (hiccup/include-css "/css/bootstrap.css")
-    (hiccup/include-css "/css/styles.css")]
+    (hiccup/include-css "./css/bootstrap.css")
+    (hiccup/include-css "./css/styles.css")]
    [:body
     [:div#container]
-    (hiccup/include-js "/js/react-0.11.2-with-addons.js")
-    (hiccup/include-js "/js/out/goog/base.js")
-    (hiccup/include-js "/js/grub.js")
+    (hiccup/include-js "./js/react-0.11.2-with-addons.js")
+    (hiccup/include-js "./js/out/goog/base.js")
+    (hiccup/include-js "./js/grub.js")
     [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))
 
 (def prod-system
