@@ -7,7 +7,10 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]
                    [grub.macros :refer [log logs]]))
 
-(def server-url (str "ws://" (.-host (.-location js/document))))
+(def protocol (.-protocol (.-location js/document)))
+(def ws-protocol (if (= protocol "http:") "ws://" "wss://"))
+(def host (.-host (.-location js/document)))
+(def server-url (str ws-protocol host))
 (def reader (t/reader :json))
 (def writer (t/writer :json))
 
