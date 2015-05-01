@@ -11,7 +11,7 @@
 (def protocol (.-protocol location))
 (def ws-protocol (if (= protocol "http:") "ws://" "wss://"))
 (def host (.-host location))
-(def path (.-pathname location))
+(def path (str (.-pathname location) "ws"))
 (def server-url (str ws-protocol host path))
 (def reader (t/reader :json))
 (def writer (t/writer :json))
