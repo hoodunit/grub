@@ -22,7 +22,7 @@
   (when (not (empty? new-grub-text))
     (let [new-grub (grub-view/new-grub new-grub-text)]
       (om/set-state! owner :new-grub-text "")
-      (om/transact! grubs nil #(assoc % (:id new-grub) new-grub) :local))))
+      (om/transact! grubs nil #(assoc % (keyword (:id new-grub)) new-grub) :local))))
 
 (defn view [grubs owner]
   (reify
@@ -71,5 +71,5 @@
         (go-loop []
                  (let [id (<! remove-grub-ch)]
                    (when-not (nil? id)
-                     (om/transact! grubs nil #(dissoc % id) :local)
+                     (om/transact! grubs nil #(dissoc % (keyword id)) :local)
                      (recur))))))))

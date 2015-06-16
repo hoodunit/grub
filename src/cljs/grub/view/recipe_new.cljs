@@ -2,17 +2,15 @@
   (:require [grub.view.dom :as dom]
             [grub.view.recipe :as recipe]
             [om.core :as om :include-macros true]
-            [sablono.core :as html :refer-macros [html]]
-            [cljs.core.async :as a :refer [<! chan]]
-            [cljs-uuid.core :as uuid])
+            [sablono.core :refer-macros [html]]
+            [cljs.core.async :as a :refer [<! chan]])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn add-recipe [owner name grubs directions]
   (when (and (not (empty? name))
              (not (empty? grubs)))
-    (let [recipes (om/get-props owner)
-          new-recipe (recipe/new-recipe name grubs directions)
+    (let [new-recipe (recipe/new-recipe name grubs directions)
           add-recipe-ch (om/get-state owner :add-recipe-ch)]
       (om/set-state! owner :new-recipe-name "")
       (om/set-state! owner :new-recipe-grubs "")

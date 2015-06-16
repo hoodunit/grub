@@ -6,7 +6,7 @@
 
 (defn map-by-key [key coll]
   (->> coll
-       (map (fn [a] [(get a key) a]))
+       (map (fn [a] [(keyword (get a key)) a]))
        (into {})))
 
 (defn printer []

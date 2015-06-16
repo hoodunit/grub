@@ -1,6 +1,4 @@
-(ns grub.state
-  (:require [grub.diff :as diff]
-            [grub.util :as util]))
+(ns grub.state)
 
 (def num-history-states 20)
 
