@@ -1,14 +1,8 @@
 (ns grub.websocket
-  (:require [grub.db :as db]
-            [org.httpkit.server :as httpkit]
+  (:require [org.httpkit.server :as httpkit]
             [clojure.core.async :as a :refer [<! >! chan go]]
             [cognitect.transit :as t])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
-
-(defn disconnected [status ws-channel to from]
-  (println "Client disconnected:" (.toString ws-channel) "with status" status)
-  (a/close! to)
-  (a/close! from))
 
 (defn write-msg [msg]
   (let [out (ByteArrayOutputStream. 4096)

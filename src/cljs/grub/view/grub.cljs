@@ -1,7 +1,7 @@
 (ns grub.view.grub
   (:require [grub.view.dom :as dom]
             [om.core :as om :include-macros true]
-            [sablono.core :as html :refer-macros [html]]
+            [sablono.core :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
             [cljs-uuid.core :as uuid])
   (:require-macros [grub.macros :refer [log logs]]

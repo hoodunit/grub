@@ -1,7 +1,6 @@
 (ns grub.db
   (:require [monger.core :as m]
             [monger.collection :as mc]
-            [monger.operators :as mo]
             [clojure.core.async :as a :refer [<! >! chan go]]))
 
 (def collection "grub-lists")

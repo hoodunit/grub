@@ -23,8 +23,8 @@
         >remote (chan)
         events (chan)
         view-state (view/render-app state/empty-state render-states new-states)
-        ws (websocket/connect pending-msg >remote events)
-        agent-states (sync/sync-client! >remote events new-states states)]
+        ws (websocket/connect pending-msg >remote events)]
+    (sync/sync-client! >remote events new-states states)
     (add-watch states :render (fn [_ _ old new]
                                 (when-not (= old new)
                                   (a/put! render-states (state/get-latest new)))))

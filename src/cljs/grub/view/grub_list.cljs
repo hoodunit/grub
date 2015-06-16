@@ -2,7 +2,7 @@
   (:require [grub.view.dom :as dom]
             [grub.view.grub :as grub-view]
             [om.core :as om :include-macros true]
-            [sablono.core :as html :refer-macros [html]]
+            [sablono.core :refer-macros [html]]
             [cljs.core.async :as a :refer [<! chan]])
   (:require-macros [grub.macros :refer [log logs]]
                    [cljs.core.async.macros :refer [go go-loop]]))
@@ -32,33 +32,32 @@
        :remove-grub-ch (chan)})
     om/IRenderState
     (render-state [this {:keys [new-grub-text remove-grub-ch] :as state}]
-      (let [add (om/get-shared owner :grub-add)]
-        (html 
-         [:div 
-          [:h3 "Grub List"]
-          [:div.input-group.add-grub-input-form
-           [:span.input-group-btn
-            [:input.form-control#add-grub-input 
-             {:type "text" 
-              :placeholder "What do you need?"
-              :value new-grub-text
-              :on-key-up #(when (dom/enter-pressed? %)
+      (html
+        [:div
+         [:h3 "Grub List"]
+         [:div.input-group.add-grub-input-form
+          [:span.input-group-btn
+           [:input.form-control#add-grub-input
+            {:type        "text"
+             :placeholder "What do you need?"
+             :value       new-grub-text
+             :on-key-up   #(when (dom/enter-pressed? %)
                             (add-grub owner grubs new-grub-text))
-              :on-change #(om/set-state! owner :new-grub-text (dom/event-val %))}]]
-           [:button.btn.btn-primary 
-            {:id "add-grub-btn" 
-             :type "button"
-             :on-click #(add-grub owner grubs new-grub-text)}
-            [:span.glyphicon.glyphicon-plus#add-grub-btn]]]
-          [:ul#grub-list.list-group
-           (for [grub (sort-grubs grubs)]
-             (om/build grub-view/view grub {:key :id :opts {:remove-ch remove-grub-ch}}))]
-          [:button.btn.pull-right 
-           {:id "clear-all-btn" 
-            :class (when (empty? grubs) "hidden")
-            :type "button"
-            :on-click #(om/update! grubs nil {} :local)}
-           "Clear all"]])))
+             :on-change   #(om/set-state! owner :new-grub-text (dom/event-val %))}]]
+          [:button.btn.btn-primary
+           {:id       "add-grub-btn"
+            :type     "button"
+            :on-click #(add-grub owner grubs new-grub-text)}
+           [:span.glyphicon.glyphicon-plus#add-grub-btn]]]
+         [:ul#grub-list.list-group
+          (for [grub (sort-grubs grubs)]
+            (om/build grub-view/view grub {:key :id :opts {:remove-ch remove-grub-ch}}))]
+         [:button.btn.pull-right
+          {:id       "clear-all-btn"
+           :class    (when (empty? grubs) "hidden")
+           :type     "button"
+           :on-click #(om/update! grubs nil {} :local)}
+          "Clear all"]]))
     om/IWillMount
     (will-mount [_]
       (let [add-grubs-ch (om/get-shared owner :add-grubs-ch)
