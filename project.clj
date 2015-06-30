@@ -3,29 +3,22 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.7.0-RC1"]
-                 [org.clojure/clojurescript "0.0-2371"]
+  :dependencies [
+                 [org.clojure/clojure "1.7.0-RC1"]
+                 [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [om "0.7.3"]
-                 [http-kit "2.1.18"]
-                 [ring/ring-core "1.3.0" :exclusions [org.clojure/tools.reader]]
-                 [ring/ring-devel "1.3.0" :exclusions [org.clojure/tools.reader]]
+                 [http-kit "2.1.19"]
+                 [ring/ring-core "1.3.2" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5"]
-                 [prismatic/dommy "0.1.2"]
-                 [com.novemberain/monger "2.0.0"]
+                 [prismatic/dommy "1.1.0"]
+                 [com.novemberain/monger "2.1.0"]
                  [org.clojure/tools.cli "0.3.1"]
-                 [clj-webdriver "0.6.1" :exclusions [org.clojure/core.cache]]
-                 [sablono "0.2.17"]
+                 [sablono "0.3.4"]
                  [cljs-uuid "0.0.4"]
-                 [com.cognitect/transit-clj "0.8.259"]
-                 [com.cognitect/transit-cljs "0.8.188"]]
+                 [com.cognitect/transit-clj "0.8.275"]
+                 [com.cognitect/transit-cljs "0.8.220"]]
   :aliases {"cljx" ["with-profile" "cljx" "cljx"]}
-  :profiles {:cljx {}
-             :uberjar {:aot :all}
-             :dev {:source-paths ["dev"]
-                   :dependencies [[midje "1.6.3"]
-                                  [org.clojure/tools.namespace "0.2.3"]
-                                  [org.clojure/java.classpath "0.2.0"]]}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.6"]
