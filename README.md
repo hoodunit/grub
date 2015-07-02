@@ -26,7 +26,6 @@ $ chmod a+x ~/bin/lein
 Build
 -------
 <pre>
-$ lein cljx
 $ lein cljsbuild once dev
 </pre>
 

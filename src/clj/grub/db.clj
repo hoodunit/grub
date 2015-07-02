@@ -1,7 +1,13 @@
 (ns grub.db
-  (:require [monger.core :as m]
+  (:require [datomic.api :as d :refer [q db]]
+            clojure.pprint
+            [monger.core :as m]
             [monger.collection :as mc]
             [clojure.core.async :as a :refer [<! >! chan go]]))
+
+;(def uri "datomic:mem://seattle")
+;(d/create-database uri)
+
 
 (def collection "grub-lists")
 

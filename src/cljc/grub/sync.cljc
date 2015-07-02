@@ -1,10 +1,10 @@
 (ns grub.sync
   (:require [grub.diff :as diff]
             [grub.state :as state]
-            #+clj [clojure.core.async :as a :refer [<! >! chan go]]
-            #+cljs [cljs.core.async :as a :refer [<! >! chan]])
-  #+cljs (:require-macros [grub.macros :refer [log logs]]
-                          [cljs.core.async.macros :refer [go]]))
+            #?(:clj [clojure.core.async :as a :refer [<! >! chan go]]
+               :cljs [cljs.core.async :as a :refer [<! >! chan]]))
+  #?(:cljs (:require-macros [grub.macros :refer [log logs]]
+                          [cljs.core.async.macros :refer [go]])))
 
 (def full-sync-request {:type :full-sync-request})
 
@@ -69,8 +69,8 @@
                    (assoc latest-state :tag (inc (:tag shadow))))}))
 
 (defmethod handle-event :default [msg]
-  #+cljs (logs "Unhandled message:" msg)
-  #+clj (println "Unhandled message:" msg)
+  #?(:cljs (logs "Unhandled message:" msg)
+     :clj (println "Unhandled message:" msg))
   {})
 
 (defn make-server-agent
@@ -127,12 +127,12 @@
                          {:keys [new-shadow out-event]} (handle-event event)]
                      (recur (if new-shadow new-shadow shadow) out-event))))))))
 
-#+cljs
-(defn sync-client! [>remote events new-states states]
-  (let [new-states* (chan (a/sliding-buffer 1))]
-    (go (loop []
-          (let [v (<! new-states)]
-            (>! new-states* v)
-            (recur))))
-    (make-client-agent >remote events new-states* states)
-    (a/put! >remote full-sync-request)))
+#?(:cljs
+   (defn sync-client! [>remote events new-states states]
+         (let [new-states* (chan (a/sliding-buffer 1))]
+              (go (loop []
+                        (let [v (<! new-states)]
+                             (>! new-states* v)
+                             (recur))))
+              (make-client-agent >remote events new-states* states)
+              (a/put! >remote full-sync-request))))

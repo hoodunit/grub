@@ -3,8 +3,7 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [
-                 [org.clojure/clojure "1.7.0-RC1"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [om "0.7.3"]
@@ -18,29 +17,25 @@
                  [cljs-uuid "0.0.4"]
                  [com.cognitect/transit-clj "0.8.275"]
                  [com.cognitect/transit-cljs "0.8.220"]]
-  :aliases {"cljx" ["with-profile" "cljx" "cljx"]}
+  :profiles {:uberjar {:aot :all}
+             :dev {:source-paths ["dev"]
+                   :dependencies [[org.clojure/tools.namespace "0.2.10"]
+                                  [org.clojure/java.classpath "0.2.2"]]}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
-            [lein-ring "0.8.6"]
-            [com.keminglabs/cljx "0.4.0"]]
-  :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "target/generated/cljs"]
+            [lein-ring "0.8.6"]]
+  :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "src/cljc" "target/generated/cljs"]
                              :compiler {:output-dir "resources/public/js/out"
                                         :output-to "resources/public/js/grub.js"
                                         :optimizations :none
                                         :source-map true}}
-                       :prod {:source-paths ["src/cljs" "target/generated/cljs"]
+                       :prod {:source-paths ["src/cljs" "src/cljc" "target/generated/cljs"]
                               :compiler {:output-to "resources/public/js/grub.min.js"
                                          :optimizations :advanced
                                          :pretty-print false
                                          :preamble ["react/react.min.js"]
                                          :externs ["react/externs/react.js"]}}}}
-  :cljx {:builds [{:source-paths ["src/cljx"]
-                   :output-path "target/classes"
-                   :rules :clj}
-                  {:source-paths ["src/cljx"]
-                   :output-path "target/generated/cljs"
-                   :rules :cljs}]}
-  :source-paths ["src/clj" "target/classes"]
+  :source-paths ["src/clj" "src/cljc" "target/classes"]
   :test-paths ["src/test"]
   :ring {:handler grub.core/app}
   :uberjar-name "grub-standalone.jar"
