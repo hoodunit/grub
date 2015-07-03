@@ -1,34 +1,71 @@
 (ns grub.db
-  (:require [datomic.api :as d :refer [q db]]
-            clojure.pprint
-            [monger.core :as m]
-            [monger.collection :as mc]
-            [clojure.core.async :as a :refer [<! >! chan go]]))
+  (:require [datomic.api :as d]
+            [clojure.core.async :as a :refer [<! >! chan go]]
+            [grub.util :as util]))
 
-;(def uri "datomic:mem://seattle")
-;(d/create-database uri)
+(def schema-tx (read-string (slurp "database_schema.edn")))
 
+(defn create-db [uri]
+  (d/create-database uri)
+  (let [conn (d/connect uri)]
+    @(d/transact conn schema-tx)))
 
-(def collection "grub-lists")
+(defn connect [uri]
+  (create-db uri)
+  (let [conn (d/connect uri)]
+    (println "Connected to datomic at " uri)
+    conn))
 
-(defn clear-all [db]
-  (mc/drop db collection))
+(defn map-keys [key-maps coll]
+  (reduce (fn [new-coll [key new-key]] (assoc new-coll new-key (get coll key))) {} key-maps))
 
-(defn update-db! [db state]
-  (mc/drop db collection)
-  (mc/insert db collection state))
+(defn get-current-state [conn]
+  (let [db (d/db conn)
+        get-entity (fn [[id]] (d/touch (d/entity db id)))
+        grub-ids (d/q '[:find ?g :where [?g :grub/id]] (d/db conn))
+        map-grub-keys #(map-keys {:grub/id :id :grub/text :text :grub/completed :completed} %)
+        grubs (->> grub-ids
+                   (map (comp map-grub-keys get-entity))
+                   vec
+                   (util/map-by-key :id))
+        recipe-ids (d/q '[:find ?r :where [?r :recipe/id]] (d/db conn))
+        map-recipe-keys #(map-keys {:recipe/id :id :recipe/name :name :recipe/grubs :grubs :recipe/directions :directions} %)
+        recipes (->> recipe-ids
+                     (map (comp map-recipe-keys get-entity))
+                     vec
+                     (util/map-by-key :id))]
+    {:grubs grubs
+     :recipes recipes}))
 
-(defn get-current-state [db]
-  (let [state (first (mc/find-maps db collection))]
-    (when state
-      (dissoc state :_id))))
+(defn grub-tx [grub]
+  [{:db/id           (d/tempid :db.part/user)
+    :grub/id         (:id grub)
+    :grub/text       (:text grub)
+    :grub/completed (:completed grub)}])
 
-(defn connect [db-name]
-  (let [conn (m/connect)
-        db (m/get-db conn db-name)]
-    (println "Connected to mongo at localhost:" db-name)
-    {:conn conn
-     :db db}))
+(defn recipe-tx [recipe]
+  [{:db/id            (d/tempid :db.part/user)
+    :recipe/id          (:id recipe)
+    :recipe/name        (:name recipe)
+    :recipe/grubs (:grubs recipe)
+    :recipe/directions  (:directions recipe)}])
+
+(defn update-db! [conn state]
+  (let [grubs-tx (->> state
+                      :grubs
+                      (vals)
+                      (map grub-tx)
+                      (flatten)
+                      (vec))
+        recipes-tx (->> state
+                        :recipes
+                        (vals)
+                        (map recipe-tx)
+                        (flatten)
+                        (vec))
+        tx (into grubs-tx recipes-tx)]
+    @(d/transact conn tx)))
 
 (defn disconnect [conn]
-  (m/disconnect conn))
+  (d/release conn))
+

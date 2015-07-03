@@ -39,8 +39,7 @@
 
 (def prod-system
   {:index prod-index-page
-   :db-name "grub"
-   :db nil
+   :database-uri "datomic:mem://grub"
    :db-conn nil
    :port 3000
    :stop-server nil
@@ -48,8 +47,7 @@
 
 (def dev-system
   {:index dev-index-page
-   :db-name "grub-dev"
-   :db nil
+   :database-uri "datomic:mem://grub"
    :db-conn nil
    :port 3000
    :stop-server nil
@@ -92,22 +90,21 @@
       (handle-websocket states new-states-pub)
       (wrap-bounce-favicon)))
 
-(defn start [{:keys [port db-name states] :as system}]
-  (let [{:keys [db conn]} (db/connect db-name)
+(defn start [{:keys [port database-uri states] :as system}]
+  (let [db-conn (db/connect database-uri)
         new-states (chan)
         new-states-pub (a/pub new-states (fn [_] :new-state))
-        db-state (db/get-current-state db)
+        db-state (db/get-current-state db-conn)
         _ (reset! states (state/new-states (if db-state db-state state/empty-state)))
         stop-server (httpkit/run-server (make-handler system new-states-pub) {:port port})]
     (add-watch states :db (fn [_ _ old new] 
                             (when-not (= old new)
                               (let [new-state (state/get-latest new)]
                                 (a/put! new-states new-state)
-                                (db/update-db! db new-state)))))
+                                (db/update-db! db-conn new-state)))))
     (println "Started server on localhost:" port)
     (assoc system 
-      :db db
-      :db-conn conn
+      :db-conn db-conn
       :stop-server stop-server
       :states states)))
 
@@ -149,7 +146,7 @@
     (println "options:" options)
     (cond
       (:help options) (exit 0 (usage summary))
-      (not= (count arguments) 1) (exit 1 (usage summary))
+      (not= (count arguments) 2) (exit 1 (usage summary))
       errors (exit 1 (error-msg errors)))
     (case (first arguments)
       "development" (start (merge dev-system options))

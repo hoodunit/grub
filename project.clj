@@ -16,7 +16,10 @@
                  [sablono "0.3.4"]
                  [cljs-uuid "0.0.4"]
                  [com.cognitect/transit-clj "0.8.275"]
-                 [com.cognitect/transit-cljs "0.8.220"]]
+                 [com.cognitect/transit-cljs "0.8.220"]
+                 [com.datomic/datomic-pro "0.9.5173" :exclusions [com.fasterxml.jackson.core/jackson-annotations]]]
+  :repositories {"my.datomic.com" {:url "https://my.datomic.com/repo"
+                                   :creds :gpg}}
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev"]
                    :dependencies [[org.clojure/tools.namespace "0.2.10"]
