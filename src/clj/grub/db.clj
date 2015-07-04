@@ -3,7 +3,59 @@
             [clojure.core.async :as a :refer [<! >! chan go]]
             [grub.util :as util]))
 
-(def schema-tx (read-string (slurp "database_schema.edn")))
+(def schema-tx [
+  ;; grubs
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :grub/id
+   :db/valueType          :db.type/keyword
+   :db/cardinality        :db.cardinality/one
+   :db/unique             :db.unique/identity
+   :db/doc                "Grub ID"
+   :db.install/_attribute :db.part/db}
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :grub/text
+   :db/valueType          :db.type/string
+   :db/cardinality        :db.cardinality/one
+   :db/fulltext           true
+   :db/doc                "The text of a grub item e.g. '3 apples'"
+   :db.install/_attribute :db.part/db}
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :grub/completed
+   :db/valueType          :db.type/boolean
+   :db/cardinality        :db.cardinality/one
+   :db/doc                "The status of a grub item (completed or not completed)"
+   :db.install/_attribute :db.part/db}
+
+  ;; recipes
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :recipe/id
+   :db/valueType          :db.type/keyword
+   :db/cardinality        :db.cardinality/one
+   :db/unique             :db.unique/identity
+   :db/doc                "Recipe ID"
+   :db.install/_attribute :db.part/db}
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :recipe/name
+   :db/valueType          :db.type/string
+   :db/cardinality        :db.cardinality/one
+   :db/fulltext           true
+   :db/doc                "Recipe name"
+   :db.install/_attribute :db.part/db}
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :recipe/grubs
+   :db/valueType          :db.type/string
+   :db/cardinality        :db.cardinality/one
+   :db/fulltext           true
+   :db/doc                "Recipe ingredients"
+   :db.install/_attribute :db.part/db}
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :recipe/directions
+   :db/valueType          :db.type/string
+   :db/cardinality        :db.cardinality/one
+   :db/fulltext           true
+   :db/doc                "Directions for making a recipe"
+   :db.install/_attribute :db.part/db}
+  ])
 
 (defn add-schema-to-db [uri]
   (d/transact (d/connect uri) schema-tx) )
