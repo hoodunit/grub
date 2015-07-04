@@ -39,19 +39,19 @@
 
 (def prod-system
   {:index prod-index-page
-   :database-uri "datomic:mem://grub"
+   :database-uri (System/getenv "GRUB_DATABASE_URI")
    :db-conn nil
    :port 3000
    :stop-server nil
    :states (atom nil)})
 
 (def dev-system
-  {:index dev-index-page
-   :database-uri "datomic:mem://grub"
-   :db-conn nil
-   :port 3000
-   :stop-server nil
-   :states (atom nil)})
+  {:index        dev-index-page
+   :database-uri (or (System/getenv "GRUB_DATABASE_URI") "datomic:mem://grub")
+   :db-conn      nil
+   :port         3000
+   :stop-server  nil
+   :states       (atom nil)})
 
 (defn handle-websocket [handler states new-states-pub]
   (fn [{:keys [websocket?] :as request}]
@@ -116,7 +116,7 @@
   system)
 
 (defn usage [options-summary]
-  (->> ["Usage: grub [options] action"
+  (->> ["Usage: <executable> [options] action"
         ""
         "Options:"
         options-summary
@@ -146,7 +146,7 @@
     (println "options:" options)
     (cond
       (:help options) (exit 0 (usage summary))
-      (not= (count arguments) 2) (exit 1 (usage summary))
+      (not= (count arguments) 1) (exit 1 (usage summary))
       errors (exit 1 (error-msg errors)))
     (case (first arguments)
       "development" (start (merge dev-system options))
