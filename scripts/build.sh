@@ -5,9 +5,6 @@ rm -rf target
 rm resources/public/js/grub.js
 rm resources/public/js/grub.min.js
 rm -rf resources/public/js/out
-echo ""
-echo "$ lein cljx"
-lein cljx &&
 echo "" &&
 echo "$ lein cljsbuild once dev" &&
 lein cljsbuild once dev &&
