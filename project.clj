@@ -27,12 +27,12 @@
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.6"]]
-  :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "src/cljc" "target/generated/cljs"]
+  :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "src/cljc"]
                              :compiler {:output-dir "resources/public/js/out"
                                         :output-to "resources/public/js/grub.js"
                                         :optimizations :none
                                         :source-map true}}
-                       :prod {:source-paths ["src/cljs" "src/cljc" "target/generated/cljs"]
+                       :prod {:source-paths ["src/cljs" "src/cljc"]
                               :compiler {:output-to "resources/public/js/grub.min.js"
                                          :optimizations :advanced
                                          :pretty-print false
