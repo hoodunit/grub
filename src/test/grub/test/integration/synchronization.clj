@@ -87,6 +87,7 @@
     (>!! new-client-states client-change)
     (short-delay)
     (>!! new-server-states (last @server))
+    (short-delay)
     (states-in-sync? @client @server)
     (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}
                                      "2" {:text "milk" :completed false}}
