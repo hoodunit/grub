@@ -22,7 +22,9 @@
      :new-server-states new-server-states}))
 
 (defn states-in-sync? [a b]
-  (state/state= (last a) (last b)))
+  (let [last-a (dissoc (last a) :tag)
+        last-b (dissoc (last b) :tag)]
+    last-a => last-b))
 
 (defn last-state [states]
   (-> states
@@ -45,7 +47,7 @@
     (swap! client conj client-change)
     (>!! new-client-states client-change)
     (short-delay)
-    (states-in-sync? @client @server) => true
+    (states-in-sync? @client @server)
     (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}}
                              :recipes {}}))
 
@@ -62,7 +64,7 @@
     (swap! server conj server-change)
     (>!! new-server-states server-change)
     (short-delay)
-    (states-in-sync? @client @server) => true
+    (states-in-sync? @client @server)
     (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}}
                              :recipes {}}))
 
@@ -85,7 +87,7 @@
     (>!! new-client-states client-change)
     (short-delay)
     (>!! new-server-states (last @server))
-    (states-in-sync? @client @server) => true
+    (states-in-sync? @client @server)
     (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}
                                      "2" {:text "milk" :completed false}}
                              :recipes {}}))
