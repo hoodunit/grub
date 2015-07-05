@@ -32,7 +32,6 @@
     (hiccup/include-css "./css/styles.css")]
    [:body
     [:div#container]
-    (hiccup/include-js "./js/react-0.11.2-with-addons.js")
     (hiccup/include-js "./js/out/goog/base.js")
     (hiccup/include-js "./js/grub.js")
     [:script {:type "text/javascript"} "goog.require(\"grub.core\")"]]))

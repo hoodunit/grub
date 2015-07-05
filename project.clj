@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 [om "0.7.3"]
+                 [org.omcljs/om "0.8.8"]
                  [http-kit "2.1.19"]
                  [ring/ring-core "1.3.2" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5"]
@@ -27,17 +27,15 @@
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.6"]]
-  :cljsbuild {:builds {:dev {:source-paths ["src/cljs" "src/cljc"]
-                             :compiler {:output-dir "resources/public/js/out"
-                                        :output-to "resources/public/js/grub.js"
-                                        :optimizations :none
-                                        :source-map true}}
+  :cljsbuild {:builds {:dev  {:source-paths ["src/cljs" "src/cljc"]
+                              :compiler     {:output-dir    "resources/public/js/out"
+                                             :output-to     "resources/public/js/grub.js"
+                                             :optimizations :none
+                                             :source-map    true}}
                        :prod {:source-paths ["src/cljs" "src/cljc"]
-                              :compiler {:output-to "resources/public/js/grub.min.js"
-                                         :optimizations :advanced
-                                         :pretty-print false
-                                         :preamble ["react/react.min.js"]
-                                         :externs ["react/externs/react.js"]}}}}
+                              :compiler     {:output-to     "resources/public/js/grub.min.js"
+                                             :optimizations :advanced
+                                             :pretty-print  false}}}}
   :source-paths ["src/clj" "src/cljc" "target/classes"]
   :test-paths ["src/test"]
   :ring {:handler grub.core/app}

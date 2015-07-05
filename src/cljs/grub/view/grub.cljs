@@ -60,7 +60,7 @@
                  (when (= edit-state :editing) "edit")]
          :on-click (fn [e] (when (#{:waiting :pressed} edit-state)
                              (om/transact! grub nil #(assoc % :completed (not completed)) :local)
-                             (.blur (om/get-node owner :grub-input))))
+                             (.blur (om/get-node owner "grub-input"))))
          :on-mouse-down #(transition-state owner :mouse-down) 
          :on-mouse-up #(transition-state owner :mouse-up) 
          :on-mouse-leave #(transition-state owner :mouse-leave)
@@ -70,7 +70,7 @@
         [:input.grub-input 
          {:type "text" 
           :readOnly (if (= edit-state :editing) "" "readonly")
-          :ref :grub-input
+          :ref "grub-input"
           :value (:grub-text state)
           :on-change #(om/set-state! owner :grub-text (.. % -target -value))
           :on-key-up #(when (dom/enter-pressed? %) (transition-state owner :enter))}]

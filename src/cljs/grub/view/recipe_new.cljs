@@ -49,8 +49,8 @@
     (render-state [this {:keys [edit-state new-recipe-name new-recipe-grubs new-recipe-directions]}]
       (html
        [:div.panel.panel-default.recipe-panel
-        {:on-click #(when (not (dom/click-on-elem? % (om/get-node owner :save-btn)))
-                      (transition-state owner :click))}
+        {:on-click #(when (not (dom/click-on-elem? % (om/get-node owner "save-btn")))
+                     (transition-state owner :click))}
         [:div.panel-heading.recipe-header.new
          [:input.form-control.recipe-header-input 
           {:id "new-recipe-name"
@@ -73,8 +73,8 @@
            :placeholder "Directions"
            :on-change #(om/set-state! owner :new-recipe-directions (dom/event-val %))}]
          [:button.btn.btn-primary.pull-right.recipe-done-btn
-          {:type "button"
-           :ref :save-btn
+          {:type     "button"
+           :ref      "save-btn"
            :on-click #(transition-state owner :save)}
           [:span.glyphicon.glyphicon-ok#save-recipe-btn]]]]))
 

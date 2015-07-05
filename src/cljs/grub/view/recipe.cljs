@@ -79,8 +79,8 @@
         (html
          [:div.panel.panel-default.recipe-panel
           {:on-click 
-           #(when (not (or (dom/click-on-elem? % (om/get-node owner :add-grubs-btn))
-                           (dom/click-on-elem? % (om/get-node owner :save-btn))))
+           #(when (not (or (dom/click-on-elem? % (om/get-node owner "add-grubs-btn"))
+                           (dom/click-on-elem? % (om/get-node owner "save-btn"))))
               (transition-state owner :click))}
           [:div.panel-heading.recipe-header
            {:class (when (= edit-state :editing) "edit")}
@@ -90,9 +90,9 @@
              :value name
              :on-change #(om/set-state! owner :name (dom/event-val %))}]
            [:button.btn.btn-primary.btn-sm.recipe-add-grubs-btn
-            {:type "button"
-             :class (when (= edit-state :editing) "hidden")
-             :ref :add-grubs-btn
+            {:type     "button"
+             :class    (when (= edit-state :editing) "hidden")
+             :ref      "add-grubs-btn"
              :on-click #(add-grubs (om/get-shared owner :add-grubs-ch) grubs)}
             [:span.glyphicon.glyphicon-plus]
             " Grubs"]]
@@ -115,8 +115,8 @@
              :on-click #(put! remove-recipe-ch id)}
             [:span.glyphicon.glyphicon-trash]]
            [:button.btn.btn-primary.pull-right.recipe-done-btn
-            {:type "button"
-             :ref :save-btn
+            {:type     "button"
+             :ref      "save-btn"
              :on-click #(transition-state owner :save)}
             [:span.glyphicon.glyphicon-ok]]]])))
     
