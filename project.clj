@@ -15,6 +15,7 @@
                  [org.clojure/tools.cli "0.3.1"]
                  [sablono "0.3.4"]
                  [cljs-uuid "0.0.4"]
+                 [midje "1.6.3"]
                  [com.cognitect/transit-clj "0.8.275"]
                  [com.cognitect/transit-cljs "0.8.220"]
                  [com.datomic/datomic-pro "0.9.5173" :exclusions [com.fasterxml.jackson.core/jackson-annotations]]]
