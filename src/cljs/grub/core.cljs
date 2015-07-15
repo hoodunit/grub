@@ -1,6 +1,6 @@
 (ns grub.core
   (:require [grub.state :as state]
-            [grub.sync :as sync]
+            [grub.client-sync :as sync]
             [grub.websocket :as websocket]
             [grub.view.app :as view]
             [cljs.core.async :as a :refer [<! >! chan]])

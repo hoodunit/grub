@@ -1,13 +1,14 @@
 (ns grub.test.unit.sync
   (:require [grub.state :as state]
-            [grub.sync :as sync]
+            [grub.client-sync :as client-sync]
+            [grub.server-sync :as server-sync]
             [midje.sweet :refer :all]))
 
 (facts "Server"
   (fact "Diff, no server changes - Apply diff, return empty diff"
     (let [states (atom [{:tag 0 :grubs {"1" {:text "2 apples" :completed false}} :recipes {}}])
           {:keys [out-event new-shadow]} 
-          (sync/handle-event 
+          (server-sync/handle-event
            {:type :diff
             :tag 4
             :shadow-tag 0
@@ -35,7 +36,7 @@
                                         "2" {:text "3 onions" :completed false}}
                          :recipes {}}])
           {:keys [new-shadow out-event]} 
-          (sync/handle-event 
+          (server-sync/handle-event
            {:type :diff
             :shadow-tag 0
             :tag 4
@@ -66,7 +67,7 @@
                  :states states
                  :shadow state/empty-state
                  :client? false}
-          {:keys [new-shadow out-event]} (sync/handle-event event)]
+          {:keys [new-shadow out-event]} (server-sync/handle-event event)]
       out-event => {:type :full-sync
                     :full-state {:tag 15
                                  :grubs {"1" {:text "2 apples" :completed false}
@@ -80,7 +81,7 @@
                  :shadow {:tag 3 :grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                  :client? false
                  :new-state {:grubs {"1" {:text "2 apples" :completed true}} :recipes {}}}
-          {:keys [new-shadow out-event]} (sync/handle-event event)]
+          {:keys [new-shadow out-event]} (server-sync/handle-event event)]
       @states => [{:tag 14 :grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                   {:tag 15 :grubs {"1" {:text "2 apples" :completed true}} :recipes {}}]
       new-shadow => {:tag 4 :grubs {"1" {:text "2 apples" :completed true}} :recipes {}}
@@ -91,7 +92,7 @@
                            :recipes {:+ nil :- #{}}}}))
   
   (fact "Server sends full sync if client requests it"
-    (let [result (sync/handle-event 
+    (let [result (server-sync/handle-event
                   {:type :full-sync-request
                    :states (atom [{:tag 14 :grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
                                   {:tag 15 :grubs {"1" {:text "2 apples" :completed false}
@@ -122,7 +123,7 @@
                  :shadow {:tag 0 :grubs {"1" {:text "2 apples" :completed false}}
                           :recipes {}}
                  :client? true}
-          {:keys [new-shadow out-event]} (sync/handle-event event)]
+          {:keys [new-shadow out-event]} (client-sync/handle-event event)]
       @states => 
       (just {:tag 0 :grubs {"1" {:completed false, :text "2 apples"}}, :recipes {}}
             {:tag 1
@@ -133,7 +134,7 @@
 
   (fact "Client state is unchanged on receiving empty diff"
     (let [states (atom [{:tag 0 :grubs {"1" {:text "2 apples" :completed false}} :recipes {}}])]
-      (sync/handle-event 
+      (client-sync/handle-event
        {:type :diff
         :shadow-tag 0
         :tag 4
@@ -146,7 +147,7 @@
                    :recipes {}}]))
   
   (fact "Client returns no response on empty diff"
-    (-> (sync/handle-event 
+    (-> (client-sync/handle-event
          {:type :diff
           :shadow-tag 0
           :tag 4
@@ -158,7 +159,7 @@
     => nil)
 
   (fact "Client updates server shadow on empty diff"
-    (-> (sync/handle-event 
+    (-> (client-sync/handle-event
          {:type :diff
           :shadow-tag 0
           :tag 4
@@ -168,23 +169,3 @@
           :client? true})
         :new-shadow)
     => {:tag 4 :grubs {"1" {:completed false, :text "2 apples"}} :recipes {}}))
-
-(facts "Full sync"
-  (fact "Server sends full sync if client requests it"
-    (let [result (sync/handle-event 
-                  {:type :full-sync-request
-                   :states (atom [{:tag 14 :grubs {"1" {:text "2 apples" :completed false}} :recipes {}}
-                                  {:tag 15 :grubs {"1" {:text "2 apples" :completed false}
-                                                   "2" {:text "3 onions" :completed false}}
-                                   :recipes {}}])})]
-      (:new-shadow result) => 
-      (just {:tag #(not (nil? %))
-             :grubs {"1" {:text "2 apples" :completed false}
-                     "2" {:text "3 onions" :completed false}}
-             :recipes {}})
-      (:out-event result) => 
-      {:type :full-sync
-       :full-state {:tag 15
-                    :grubs {"1" {:text "2 apples" :completed false}
-                            "2" {:text "3 onions" :completed false}}
-                    :recipes {}}})))

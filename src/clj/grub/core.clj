@@ -3,7 +3,7 @@
   (:require [grub.websocket :as ws]
             [grub.db :as db]
             [grub.state :as state]
-            [grub.sync :as sync]
+            [grub.server-sync :as sync]
             [ring.middleware.resource :as resource]
             [ring.middleware.content-type :as content-type]
             [ring.util.response :as resp]

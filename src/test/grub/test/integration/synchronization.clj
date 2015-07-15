@@ -1,13 +1,9 @@
 (ns grub.test.integration.synchronization
-  (:require [grub.sync :as sync]
-            [grub.state :as state]
+  (:require [grub.client-sync :as client-sync]
+            [grub.server-sync :as server-sync]
             [clojure.test :refer :all]
             [midje.sweet :refer :all]
             [clojure.core.async :as a :refer [<!! >!! chan go]]))
-
-(defn <!!? [c]
-  (let [[v p] (a/alts!! [c (a/timeout 100)])]
-    v))
 
 (defn client-server [client-states server-states]
   (let [server-shadow (last @server-states)
@@ -16,8 +12,8 @@
         >client (chan)
         new-server-states (chan)
         >server (chan)]
-    (sync/make-client-agent >server >client new-client-states client-states server-shadow)
-    (sync/make-server-agent >client >server new-server-states server-states client-shadow)
+    (client-sync/make-client-agent >server >client new-client-states client-states server-shadow)
+    (server-sync/make-server-agent >client >server new-server-states server-states client-shadow)
     {:new-client-states new-client-states
      :new-server-states new-server-states}))
 
@@ -92,4 +88,3 @@
     (last-state @client) => {:grubs {"1" {:text "2 apples" :completed true}
                                      "2" {:text "milk" :completed false}}
                              :recipes {}}))
-
