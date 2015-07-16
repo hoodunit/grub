@@ -2,7 +2,6 @@
   (:gen-class)
   (:require [grub.websocket :as ws]
             [grub.db :as db]
-            [grub.state :as state]
             [grub.server-sync :as sync]
             [ring.middleware.resource :as resource]
             [ring.middleware.content-type :as content-type]
@@ -41,32 +40,27 @@
    :database-uri (System/getenv "GRUB_DATABASE_URI")
    :db-conn nil
    :port 3000
-   :stop-server nil
-   :states (atom nil)})
+   :stop-server nil})
 
 (def dev-system
   {:index        dev-index-page
    :database-uri (or (System/getenv "GRUB_DATABASE_URI") "datomic:mem://grub")
    :db-conn      nil
    :port         3000
-   :stop-server  nil
-   :states       (atom nil)})
+   :stop-server  nil})
 
-(defn handle-websocket [handler states new-states-pub]
+(defn handle-websocket [handler db-conn]
   (fn [{:keys [websocket?] :as request}]
     (if websocket?
       (httpkit/with-channel request ws-channel
-        (let [to-client (chan)
-              from-client (chan)
-              new-states (chan (a/sliding-buffer 1))
+        (let [up (chan)
+              down (chan)
+              saved (chan)
               on-close (fn []
-                         (a/unsub new-states-pub :new-state new-states)
-                         (a/close! new-states)
-                         (a/close! from-client)
-                         (a/close! to-client))]
-          (a/sub new-states-pub :new-state new-states)
-          (ws/add-connected-client! ws-channel to-client from-client on-close)
-          (sync/make-server-agent to-client from-client new-states states)))
+                         (a/close! up)
+                         (a/close! down))]
+          (ws/add-connected-client! ws-channel down up on-close)
+          (sync/make-server-agent up down saved db-conn)))
       (handler request))))
 
 (defn handle-root [handler index]
@@ -81,37 +75,25 @@
       (resp/not-found "")
       (handler req))))
 
-(defn make-handler [{:keys [index states]} new-states-pub]
+(defn make-handler [{:keys [index]} db-conn]
   (-> (fn [req] (resp/not-found "Not found"))
       (resource/wrap-resource "public")
       (content-type/wrap-content-type)
       (handle-root index)
-      (handle-websocket states new-states-pub)
+      (handle-websocket db-conn)
       (wrap-bounce-favicon)))
 
-(defn start [{:keys [port database-uri states] :as system}]
+(defn start [{:keys [port database-uri] :as system}]
   (let [db-conn (db/connect database-uri)
-        new-states (chan)
-        new-states-pub (a/pub new-states (fn [_] :new-state))
-        db-state (db/get-current-state db-conn)
-        _ (reset! states (state/new-states (if db-state db-state state/empty-state)))
-        stop-server (httpkit/run-server (make-handler system new-states-pub) {:port port})]
-    (add-watch states :db (fn [_ _ old new] 
-                            (when-not (= old new)
-                              (let [new-state (state/get-latest new)]
-                                (a/put! new-states new-state)
-                                (db/update-db! db-conn new-state)))))
+        stop-server (httpkit/run-server (make-handler system db-conn) {:port port})]
     (println "Started server on localhost:" port)
     (assoc system 
       :db-conn db-conn
-      :stop-server stop-server
-      :states states)))
+      :stop-server stop-server)))
 
-(defn stop [{:keys [db-conn stop-server states] :as system}]
-  (remove-watch states :db)
+(defn stop [{:keys [db-conn stop-server] :as system}]
   (stop-server)
   (db/disconnect db-conn)
-  (reset! states nil)
   system)
 
 (defn usage [options-summary]

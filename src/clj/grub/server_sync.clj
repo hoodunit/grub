@@ -1,10 +1,9 @@
 (ns grub.server-sync
   (:require [grub.diff :as diff]
             [grub.state :as state]
-            #?(:cljs [cljs.core.async :as a :refer [<! >! chan]]
-               :clj [clojure.core.async :as a :refer [<! >! chan go]]))
-  #?(:cljs (:require-macros [grub.macros :refer [log logs]]
-             [cljs.core.async.macros :refer [go]])))
+            [clojure.core.async :as a :refer [<! >! chan go]]
+            [grub.db :as db]
+            [clojure.pprint :refer [pprint]]))
 
 (defn full-sync [state]
   {:type :full-sync
@@ -58,28 +57,30 @@
                    (assoc latest-state :tag (inc (:tag shadow))))}))
 
 (defmethod handle-event :default [msg]
-  #?(:clj (println "Unhandled message:" msg))
+  (println "Unhandled message:" msg)
   {})
 
 (defn make-server-agent
-  ([>remote events new-states states]
-   (make-server-agent >remote events new-states states state/empty-state))
-  ([>remote events new-states states initial-shadow]
-   (go (loop [shadow initial-shadow]
-         (let [[v c] (a/alts! [new-states events] :priority true)]
-           (cond (nil? v) nil ;; drop out of loop
-                 (= c new-states)
-                 (let [event {:type :new-state
-                              :new-state v
-                              :shadow shadow
-                              :states states}
-                       {:keys [out-event new-shadow]} (handle-event event)]
-                   (when out-event (a/put! >remote out-event))
-                   (recur (if new-shadow new-shadow shadow)))
-                 (= c events)
-                 (let [event (assoc v
-                               :states states
-                               :shadow shadow)
-                       {:keys [new-shadow out-event]} (handle-event event)]
-                   (when out-event (a/put! >remote out-event))
-                   (recur (if new-shadow new-shadow shadow)))))))))
+  ([up down saved db-conn]
+   (go (loop [shadow (db/get-current-state db-conn)]
+         (let [[event c] (a/alts! [up saved] :priority true)]
+           (println "Handling event:")
+           (pprint event)
+           (when-not (nil? event)
+             (case (:type event)
+
+               :diff
+               (let [history-state (db/get-history-state db-conn (:shadow-tag event))
+                     new-state (db/patch-state! db-conn (:diff event))
+                     new-shadow (diff/patch-state history-state (:diff event))
+                     return-diff (diff/diff-states new-shadow new-state)]
+                 (>! down return-diff)
+                 (recur new-shadow))
+
+               :full-sync-request
+               (do (println "full sync!")
+                   (>! down (full-sync (db/get-current-state db-conn)))
+                   (recur shadow))
+               (do (println "Unhandled event")
+                   (println event)
+                   (recur shadow)))))))))

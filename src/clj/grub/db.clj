@@ -1,7 +1,8 @@
 (ns grub.db
   (:require [datomic.api :as d]
             [clojure.core.async :as a :refer [<! >! chan go]]
-            [grub.util :as util]))
+            [grub.util :as util]
+            [clojure.pprint :refer [pprint]]))
 
 (def schema-tx [
   ;; grubs
@@ -91,30 +92,35 @@
     {:grubs grubs
      :recipes recipes}))
 
-(defn grub-tx [grub]
-  [{:db/id           (d/tempid :db.part/user)
-    :grub/id         (:id grub)
-    :grub/text       (:text grub)
-    :grub/completed (:completed grub)}])
+(defn remove-keys-with-nil-vals [mapcoll]
+  (->> mapcoll
+       (remove (fn [[k v]] (nil? v)))
+       (reduce (fn [cur [k v]] (assoc cur k v)) {})))
 
-(defn recipe-tx [recipe]
-  [{:db/id            (d/tempid :db.part/user)
-    :recipe/id          (:id recipe)
-    :recipe/name        (:name recipe)
-    :recipe/grubs (:grubs recipe)
-    :recipe/directions  (:directions recipe)}])
+(defn upsert-grub-tx [grub]
+  [(remove-keys-with-nil-vals {:db/id          (d/tempid :db.part/user)
+                               :grub/id        (:id grub)
+                               :grub/text      (:text grub)
+                               :grub/completed (:completed grub)})])
+
+(defn upsert-recipe-tx [recipe]
+  [(remove-keys-with-nil-vals {:db/id             (d/tempid :db.part/user)
+                               :recipe/id         (:id recipe)
+                               :recipe/name       (:name recipe)
+                               :recipe/grubs      (:grubs recipe)
+                               :recipe/directions (:directions recipe)})])
 
 (defn update-db! [conn state]
   (let [grubs-tx (->> state
                       :grubs
                       (vals)
-                      (map grub-tx)
+                      (map upsert-grub-tx)
                       (flatten)
                       (vec))
         recipes-tx (->> state
                         :recipes
                         (vals)
-                        (map recipe-tx)
+                        (map upsert-recipe-tx)
                         (flatten)
                         (vec))
         tx (into grubs-tx recipes-tx)]
@@ -123,3 +129,49 @@
 (defn disconnect [conn]
   (d/release conn))
 
+(defn get-history-state [db-conn tag]
+  (get-current-state db-conn))
+
+
+(defn patch-map [state diff]
+  (-> state
+      (#(apply dissoc % (into [] (:- diff))))
+      (#(merge-with merge % (:+ diff)))))
+
+(defn patch-state [state diff]
+  (->> state
+       (keys)
+       (map (fn [k] [k (patch-map (k state) (k diff))]))
+       (into {})))
+
+
+(def empty-diff {:grubs {:- #{} :+ nil}
+                 :recipes {:- #{} :+ nil}})
+
+(def added-diff
+  {:grubs {:- #{}
+           :+ {"grub-completed" {:completed true}
+               "grub-updated" {:text "Ketchup"}
+               "grub-added" {:completed false :text "Toothpaste"}}}
+   :recipes {:- #{} :+ nil}})
+
+(defn diff-tx [diff]
+  (let [grubs-tx (->> diff
+                      :grubs
+                      :+
+                      (map (fn [[k v]] (assoc v :id k)))
+                      (map upsert-grub-tx)
+                      (flatten)
+                      (vec))
+        recipes-tx (->> diff
+                        :recipes
+                        :+
+                        (map (fn [[k v]] (assoc v :id k)))
+                        (map upsert-recipe-tx)
+                        (flatten)
+                        (vec))]
+    (into grubs-tx recipes-tx)))
+
+(defn patch-state! [conn diff]
+  (pprint (diff-tx diff))
+  @(d/transact conn (diff-tx diff)))
