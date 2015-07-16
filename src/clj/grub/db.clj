@@ -156,21 +156,31 @@
    :recipes {:- #{} :+ nil}})
 
 (defn diff-tx [diff]
-  (let [grubs-tx (->> diff
-                      :grubs
-                      :+
-                      (map (fn [[k v]] (assoc v :id k)))
-                      (map upsert-grub-tx)
-                      (flatten)
-                      (vec))
-        recipes-tx (->> diff
-                        :recipes
-                        :+
-                        (map (fn [[k v]] (assoc v :id k)))
-                        (map upsert-recipe-tx)
-                        (flatten)
-                        (vec))]
-    (into grubs-tx recipes-tx)))
+  (let [grubs-upsert-tx (->> diff
+                             :grubs
+                             :+
+                             (map (fn [[k v]] (assoc v :id k)))
+                             (map upsert-grub-tx)
+                             (flatten)
+                             (vec))
+        grubs-retract-tx (->> diff
+                              :grubs
+                              :-
+                              (map (fn [id] [:db.fn/retractEntity [:grub/id id]]))
+                              (vec))
+        recipes-upsert-tx (->> diff
+                               :recipes
+                               :+
+                               (map (fn [[k v]] (assoc v :id k)))
+                               (map upsert-recipe-tx)
+                               (flatten)
+                               (vec))
+        recipes-retract-tx (->> diff
+                              :recipes
+                              :-
+                              (map (fn [id] [:db.fn/retractEntity [:recipe/id id]]))
+                              (vec))]
+    (vec (concat grubs-upsert-tx grubs-retract-tx recipes-upsert-tx recipes-retract-tx))))
 
 (defn patch-state! [conn diff]
   (pprint (diff-tx diff))
