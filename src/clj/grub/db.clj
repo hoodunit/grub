@@ -74,23 +74,25 @@
 (defn remap-keys [key-maps coll]
   (reduce (fn [new-coll [key new-key]] (assoc new-coll new-key (get coll key))) {} key-maps))
 
-(defn get-current-state [conn]
-  (let [db (d/db conn)
-        get-entity (fn [[id]] (d/touch (d/entity db id)))
-        grub-ids (d/q '[:find ?g :where [?g :grub/id]] (d/db conn))
-        map-grub-keys #(remap-keys {:grub/id :id :grub/text :text :grub/completed :completed} %)
-        grubs (->> grub-ids
-                   (map (comp map-grub-keys get-entity))
+(defn query-entities [db entity-key]
+  (->> db
+       (d/q [:find '?e :where ['?e entity-key]])
+       ((fn [[id]] (d/entity db id)))))
+
+(defn get-current-db-state [db]
+  (let [grubs (->> (query-entities db :grub/id)
+                   (map #(remap-keys {:grub/id :id :grub/text :text :grub/completed :completed} %))
                    vec
                    (util/map-by-key :id))
-        recipe-ids (d/q '[:find ?r :where [?r :recipe/id]] (d/db conn))
-        map-recipe-keys #(remap-keys {:recipe/id :id :recipe/name :name :recipe/grubs :grubs :recipe/directions :directions} %)
-        recipes (->> recipe-ids
-                     (map (comp map-recipe-keys get-entity))
+        recipes (->> (query-entities db :recipe/id)
+                     (map #(remap-keys {:recipe/id :id :recipe/name :name :recipe/grubs :grubs :recipe/directions :directions} %))
                      vec
                      (util/map-by-key :id))]
     {:grubs grubs
      :recipes recipes}))
+
+(defn get-current-state [conn]
+  (get-current-db-state (d/db conn)))
 
 (defn remove-keys-with-nil-vals [mapcoll]
   (->> mapcoll
