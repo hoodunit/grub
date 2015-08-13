@@ -1,0 +1,7 @@
+channel input:{0,1,2}
+
+USER(i) = input!i -> USER((i+1)%3)
+CLIENT(i) = input?j -> CLIENT(j)
+SYSTEM = USER(0) ||| CLIENT(0)
+
+assert SYSTEM :[deadlock free [F]]
