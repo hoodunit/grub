@@ -9,10 +9,10 @@ diff(state1, state2) = (state2 - state1) % S
 empty(patch) = patch == 0
 
 CLIENT(i, state, shadow) = 
-   input.i?new_state
+   input!i?new_state
    -> up!i!diff(shadow, new_state)
    -> CLIENT(i, new_state, shadow)
-[] down.i?patch
+[] down!i?patch
    -> if empty(patch)
      then CLIENT(i, state, state)
      else 
@@ -26,9 +26,9 @@ CLIENT(i, state, shadow) =
          -> CLIENT(i, apply(state, patch), apply(shadow, patch))
 
 SERVER(i, shadow) = 
-   up.i?patch
+   up!i?patch
    -> save!i!patch
-   -> saved.i?new_state
+   -> saved!i?new_state
    -> down!i!diff(apply(shadow, patch), new_state)
    -> SERVER(i, apply(shadow, patch))
 [] saved?j?new_state
@@ -38,11 +38,8 @@ SERVER(i, shadow) =
 
 DB(state) = save?i?patch -> saved!i!apply(state, patch) -> DB(apply(state, patch))
 
-state = 0
-SYSTEM = CLIENT(0, state, state)
-  ||| CLIENT(1, state, state)
-  ||| SERVER(0, state)
-  ||| SERVER(1, state) 
-  ||| DB(state)
+CONN(i, init) = (CLIENT(i, init, init) [|{| up.i, down.i |}|] SERVER(i, init)) [|{| save, saved |}|] DB(init)
+
+SYSTEM = CONN(0,0) ||| CONN(1,0)
 
 assert SYSTEM :[deadlock free [F]]
