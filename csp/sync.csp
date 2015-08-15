@@ -4,15 +4,22 @@ channel input, render, up, down, save, saved:STATES
 
 apply(state, patch) = (state + patch) % S
 diff(state1, state2) = (state2 - state1) % S
+empty(patch) = patch == 0
 
 CLIENT(i, state, shadow) = 
    input?new_state
    -> up!diff(shadow, new_state)
    -> CLIENT(i, new_state, shadow)
 [] down?patch
-   -> if patch != 0 
-     then render!apply(state, patch) -> CLIENT(i, apply(state, patch), apply(shadow, patch))
-     else CLIENT(i, state, state)
+   -> if empty(patch)
+     then CLIENT(i, state, state)
+     else 
+       if diff(apply(shadow, patch), apply(state, patch)) != 0
+       then up!diff(apply(shadow, patch), apply(state, patch))
+         -> render!apply(state, patch)
+         -> CLIENT(i, apply(shadow, patch), apply(state, patch))
+       else render!apply(state, patch)
+         -> CLIENT(i, apply(shadow, patch), apply(state, patch))
 
 SERVER(i, shadow) = 
    up?patch
