@@ -1,19 +1,27 @@
-N = 3
-channel input, render, up, down, save:{0..N-1}
+N = 2
+S = 3
+STATES = {0..S-1}
+CONN_NAMES = {0..N-1}
+channel input, render, up, down:STATES
+channel save:CONN_NAMES.STATES
 
-apply(state, patch) = (state + patch) % N
-diff(state1, state2) = (state2 - state1) % N
+apply(state, patch) = (state + patch) % S
+diff(state1, state2) = (state2 - state1) % S
 
-CLIENT(state, shadow) = 
-   input?new_state -> up!diff(shadow, new_state) -> CLIENT(new_state, shadow)
+CLIENT(i, state, shadow) = 
+   input?new_state -> up!diff(shadow, new_state) -> CLIENT(i, new_state, shadow)
 [] down?patch -> if patch != 0 
-     then render!apply(state, patch) -> CLIENT(apply(state, patch), apply(shadow, patch))
-     else CLIENT(state, state)
+     then render!apply(state, patch) -> CLIENT(i, apply(state, patch), apply(shadow, patch))
+     else CLIENT(i, state, state)
 
-SERVER(state, shadow) = 
-  up?patch -> save!apply(state, patch) -> down!diff(apply(shadow, patch), apply(state, patch))
-  -> SERVER(apply(state, patch), apply(shadow, patch))
+SERVER(i, state, shadow) = 
+   up?patch -> save!i!apply(state, patch)
+   -> down!diff(apply(shadow, patch), apply(state, patch))
+   -> SERVER(i, apply(state, patch), apply(shadow, patch))
+[] save?save_i?new_state -> if (new_state == state) then SERVER(i, state, shadow) else
+   down!diff(apply(shadow, patch), apply(state, patch))
+   -> SERVER(i, apply(state, patch), apply(shadow, patch)
 
-SYSTEM = CLIENT(0, 0) ||| SERVER(0, 0)
+SYSTEM = CLIENT(0, 0, 0) ||| CLIENT(1, 0, 0) ||| SERVER(0, 0, 0) ||| SERVER(1, 0, 0)
 
 assert SYSTEM :[deadlock free [F]]
