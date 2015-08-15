@@ -1,27 +1,37 @@
-N = 2
 S = 3
 STATES = {0..S-1}
-CONN_NAMES = {0..N-1}
-channel input, render, up, down:STATES
-channel save:CONN_NAMES.STATES
+channel input, render, up, down, save, saved:STATES
 
 apply(state, patch) = (state + patch) % S
 diff(state1, state2) = (state2 - state1) % S
 
 CLIENT(i, state, shadow) = 
-   input?new_state -> up!diff(shadow, new_state) -> CLIENT(i, new_state, shadow)
-[] down?patch -> if patch != 0 
+   input?new_state
+   -> up!diff(shadow, new_state)
+   -> CLIENT(i, new_state, shadow)
+[] down?patch
+   -> if patch != 0 
      then render!apply(state, patch) -> CLIENT(i, apply(state, patch), apply(shadow, patch))
      else CLIENT(i, state, state)
 
-SERVER(i, state, shadow) = 
-   up?patch -> save!i!apply(state, patch)
-   -> down!diff(apply(shadow, patch), apply(state, patch))
-   -> SERVER(i, apply(state, patch), apply(shadow, patch))
-[] save?save_i?new_state -> if (new_state == state) then SERVER(i, state, shadow) else
-   down!diff(apply(shadow, patch), apply(state, patch))
-   -> SERVER(i, apply(state, patch), apply(shadow, patch)
+SERVER(i, shadow) = 
+   up?patch
+   -> save!patch
+   -> saved?new_state
+   -> down!diff(apply(shadow, patch), new_state)
+   -> SERVER(i, apply(shadow, patch))
+[] saved?new_state
+   -> if (new_state == shadow)
+      then SERVER(i, shadow)
+      else down!diff(shadow, new_state) -> SERVER(i, new_state)
 
-SYSTEM = CLIENT(0, 0, 0) ||| CLIENT(1, 0, 0) ||| SERVER(0, 0, 0) ||| SERVER(1, 0, 0)
+DB(state) = save?patch -> saved!apply(state, patch) -> DB(apply(state, patch))
+
+state = 0
+SYSTEM = CLIENT(0, state, state)
+  ||| CLIENT(1, state, state)
+  ||| SERVER(0, state)
+  ||| SERVER(1, state) 
+  ||| DB(state)
 
 assert SYSTEM :[deadlock free [F]]
