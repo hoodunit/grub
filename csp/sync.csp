@@ -11,8 +11,10 @@ empty(patch) = patch == 0
 CLIENT(i, state, shadow) = 
    input!i?new_state
    -> up!i!diff(shadow, new_state)
-   -> CLIENT(i, new_state, shadow)
-[] down!i?patch
+   -> CLIENT'(i, state, shadow)
+[] CLIENT'(i, state, shadow)
+
+CLIENT'(i, state, shadow) = down!i?patch
    -> if empty(patch)
      then CLIENT(i, state, state)
      else 
@@ -24,6 +26,8 @@ CLIENT(i, state, shadow) =
        else
          render!i!apply(state, patch)
          -> CLIENT(i, apply(state, patch), apply(shadow, patch))
+
+
 
 SERVER(i, shadow) = 
    up!i?patch
