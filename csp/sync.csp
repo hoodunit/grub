@@ -27,8 +27,6 @@ CLIENT'(i, state, shadow) = down!i?patch
          render!i!apply(state, patch)
          -> CLIENT(i, apply(state, patch), apply(shadow, patch))
 
-
-
 SERVER(i, shadow) = 
    up!i?patch
    -> save!i!patch
@@ -40,10 +38,12 @@ SERVER(i, shadow) =
       then SERVER(i, shadow)
       else down!i!diff(shadow, new_state) -> SERVER(i, new_state)
 
-DB(state) = save?i?patch -> saved!i!apply(state, patch) -> DB(apply(state, patch))
+DB(state) = save?i?patch 
+   -> saved!i!apply(state, patch) 
+   -> DB(apply(state, patch))
 
-CONN(i, init) = (CLIENT(i, init, init) [|{| up.i, down.i |}|] SERVER(i, init)) [|{| save, saved |}|] DB(init)
+CONN(i, init) = CLIENT(i, init, init) [|{| up.i, down.i |}|] SERVER(i, init)
 
-SYSTEM = CONN(0,0) ||| CONN(1,0)
+SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
 
 assert SYSTEM :[deadlock free [F]]
