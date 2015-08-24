@@ -2,7 +2,7 @@ N = 2
 S = 3
 CLIENTS = {0..N-1}
 STATES = {0..S-1}
-channel input, render, up, down, save, saved:CLIENTS.STATES
+channel input, render, up, down, save, saved, bufsave, bufsaved:CLIENTS.STATES
 
 apply(state, patch) = (state + patch) % S
 diff(state1, state2) = (state2 - state1) % S
@@ -30,19 +30,25 @@ CLIENT'(i, state, shadow) = down!i?patch
 SERVER(i, shadow) = 
    up!i?patch
    -> save!i!patch
-   -> saved!i?new_state
+   -> bufsaved!i?new_state
    -> down!i!diff(apply(shadow, patch), new_state)
    -> SERVER(i, apply(shadow, patch))
-[] saved?j?new_state
+[] bufsaved?j?new_state
    -> if (new_state == shadow)
       then SERVER(i, shadow)
       else down!i!diff(shadow, new_state) -> SERVER(i, new_state)
 
-DB(state) = save?i?patch 
-   -> saved!i!apply(state, patch) 
+BUF(i) = saved?j?new_state -> BUF'(i, j, new_state)
+BUF'(i, j, new_state) = saved?j'?new_state' -> BUF'(i, j', new_state')
+   [] bufsaved!j!new_state -> BUF(i)
+
+DB(state) = save?i?patch
+   -> saved!i!apply(state, patch)
    -> DB(apply(state, patch))
 
-CONN(i, init) = CLIENT(i, init, init) [|{| up.i, down.i |}|] SERVER(i, init)
+DBB = DB(0)
+
+CONN(i, init) = (CLIENT(i, init, init) [|{| up.i, down.i |}|] SERVER(i, init)) [|{| bufsaved |}|] BUF(i)
 
 SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
 
