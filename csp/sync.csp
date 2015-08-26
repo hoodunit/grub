@@ -18,14 +18,12 @@ CLIENT'(i, state, shadow) = down!i?patch
    -> if empty(patch)
      then CLIENT(i, state, state)
      else 
-       if diffS(apply(shadow, patch), apply(state, patch)) != 0
+       render!i!apply(state, patch)
+    -> if diffS(apply(shadow, patch), apply(state, patch)) != 0
        then 
-         render!i!apply(state, patch)
-         -> up!i!diffS(apply(shadow, patch), apply(state, patch))
+         up!i!diffS(apply(shadow, patch), apply(state, patch))
          -> CLIENT(i, apply(state, patch), apply(shadow, patch))
-       else
-         render!i!apply(state, patch)
-         -> CLIENT(i, apply(state, patch), apply(shadow, patch))
+       else CLIENT(i, apply(state, patch), apply(shadow, patch))
 
 SERVER(i, shadow) = 
    up!i?patch
@@ -33,13 +31,13 @@ SERVER(i, shadow) =
    -> saved!i?new_state
    -> down!i!diffS(apply(shadow, patch), new_state)
    -> SERVER(i, apply(shadow, patch))
-[] bufsaved?j?new_state
+[] bufsaved?j:diff(CLIENTS,{i})?new_state
    -> if (new_state == shadow)
       then SERVER(i, shadow)
       else down!i!diffS(shadow, new_state) -> SERVER(i, new_state)
 
-BUF(i) = saved?j?new_state -> BUF'(i, j, new_state)
-BUF'(i, j, new_state) = saved?j'?new_state' -> BUF'(i, j', new_state')
+BUF(i) = saved?j:diff(CLIENTS,{i})?new_state -> BUF'(i, j, new_state)
+BUF'(i, j, new_state) = saved?j':diff(CLIENTS,{i})?new_state' -> BUF'(i, j', new_state')
    [] bufsaved!j!new_state -> BUF(i)
 
 DB(state) = save?i?patch
