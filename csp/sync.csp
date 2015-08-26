@@ -5,23 +5,23 @@ STATES = {0..S-1}
 channel input, render, up, down, save, saved, bufsave, bufsaved:CLIENTS.STATES
 
 apply(state, patch) = (state + patch) % S
-diff(state1, state2) = (state2 - state1) % S
+diffS(state1, state2) = (state2 - state1) % S
 empty(patch) = patch == 0
 
 CLIENT(i, state, shadow) = 
-   input!i?new_state
-   -> up!i!diff(shadow, new_state)
-   -> CLIENT'(i, state, shadow)
+   input!i?new_state:diff(STATES,{state})
+   -> up!i!diffS(shadow, new_state)
+   -> CLIENT'(i, new_state, shadow)
 [] CLIENT'(i, state, shadow)
 
 CLIENT'(i, state, shadow) = down!i?patch
    -> if empty(patch)
      then CLIENT(i, state, state)
      else 
-       if diff(apply(shadow, patch), apply(state, patch)) != 0
+       if diffS(apply(shadow, patch), apply(state, patch)) != 0
        then 
          render!i!apply(state, patch)
-         -> up!i!diff(apply(shadow, patch), apply(state, patch))
+         -> up!i!diffS(apply(shadow, patch), apply(state, patch))
          -> CLIENT(i, apply(state, patch), apply(shadow, patch))
        else
          render!i!apply(state, patch)
@@ -30,13 +30,13 @@ CLIENT'(i, state, shadow) = down!i?patch
 SERVER(i, shadow) = 
    up!i?patch
    -> save!i!patch
-   -> bufsaved!i?new_state
-   -> down!i!diff(apply(shadow, patch), new_state)
+   -> saved!i?new_state
+   -> down!i!diffS(apply(shadow, patch), new_state)
    -> SERVER(i, apply(shadow, patch))
 [] bufsaved?j?new_state
    -> if (new_state == shadow)
       then SERVER(i, shadow)
-      else down!i!diff(shadow, new_state) -> SERVER(i, new_state)
+      else down!i!diffS(shadow, new_state) -> SERVER(i, new_state)
 
 BUF(i) = saved?j?new_state -> BUF'(i, j, new_state)
 BUF'(i, j, new_state) = saved?j'?new_state' -> BUF'(i, j', new_state')
@@ -46,10 +46,69 @@ DB(state) = save?i?patch
    -> saved!i!apply(state, patch)
    -> DB(apply(state, patch))
 
-DBB = DB(0)
-
 CONN(i, init) = (CLIENT(i, init, init) [|{| up.i, down.i |}|] SERVER(i, init)) [|{| bufsaved |}|] BUF(i)
 
 SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
 
 assert SYSTEM :[deadlock free [F]]
+assert SYSTEM :[divergence-free]
+
+-- Suppose that there are a finite number n of inputs.
+-- I.e. users click around and then, at some point, after
+-- n actions.
+LimitedInputs(0) = STOP
+LimitedInputs(n) = input?i?state -> LimitedInputs(n-1)
+
+-- For instance, maybe only 3 actions occur.
+LimitedSystem = LimitedInputs(3) [|{| input |}|] SYSTEM
+
+-- If we look only at render events on each side
+channel rend:STATES
+Rends = render?i?state -> rend!state -> Rends
+RendersLeft = (LimitedSystem [|{| render |}|] Rends) \diff(Events, productions(rend))
+RendersRight = LimitedSystem \diff(Events, productions(render.1)) [|{| render |}|] Rends
+
+-- Then (for any chosen n) the final event on both side
+-- should be a render of the same final state s
+-- i.e. the final events are render.0.s and render.1.s
+-- for some s.
+
+-- Can we specify this as a trace refinement?
+
+-- The trace of the renders of each side should look like this:
+-- T^<render.0.s>
+-- S^<render.1.s>
+
+-- What does it mean to say A [T= B? B trace-refines A i.e. traces(B) subset traces(A)
+-- i.e. all possible traces of B occur within A
+
+-- What if we force each side to coordinate with a process that, when done, emits a certain render event and then stops. Like renderLeft, renderRight?
+-- We could force it to behave in such a way that it can only stop if both render the same event at the same time.
+-- And then assert that it stops and does not diverge?
+
+-- What does diverging mean again?
+
+-- assert SYSTEM [T= InputsLeftS
+-- assert RendersLeft [T= RendersRight
+-- assert RendersRight [T= RendersLeft
+
+
+-- Suppose an event occurs every time the system is in sync.
+-- Or, more simplified, every time the two clients are in sync (excluding the database).
+channel sync
+SYNC(state) = sync -> SYNC'(state, state)
+SYNC'(state0, state1) =
+   render!0?state -> (if state == state1 then sync -> SYNC'(state, state) else SYNC'(state, state1))
+[] render!1?state -> (if state == state0 then sync -> SYNC'(state, state) else SYNC'(state0, state))
+[] input?a?b -> SYNC'(state0, state1)
+[] up?a?b -> SYNC'(state0, state1)
+[] down?a?b -> SYNC'(state0, state1)
+[] save?a?b -> SYNC'(state0, state1)
+[] saved?a?b -> SYNC'(state0, state1)
+[] bufsave?a?b -> SYNC'(state0, state1)
+[] bufsaved?a?b -> SYNC'(state0, state1)
+
+--[] e:diff(Events, {sync}) @ e -> SYNC'(state0, state1)
+--DoNothingOnNonSyncEvents = [] e:diff(Events, {sync}) @ e -> DoNothingOnNonSyncEvents
+
+SyncSystem = SYSTEM [| diff(Events, {sync}) |] SYNC(0)
