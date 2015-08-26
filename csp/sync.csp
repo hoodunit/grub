@@ -2,7 +2,9 @@ N = 2
 S = 3
 CLIENTS = {0..N-1}
 STATES = {0..S-1}
-channel input, render, up, down, save, saved, bufsave, bufsaved:CLIENTS.STATES
+PATCHES = {0..S-1}
+channel input, render, saved, bufsaved:CLIENTS.STATES
+channel up, down, save, bufdown:CLIENTS.PATCHES
 
 apply(state, patch) = (state + patch) % S
 diffS(state1, state2) = (state2 - state1) % S
@@ -14,7 +16,7 @@ CLIENT(i, state, shadow) =
    -> CLIENT'(i, new_state, shadow)
 [] CLIENT'(i, state, shadow)
 
-CLIENT'(i, state, shadow) = down!i?patch
+CLIENT'(i, state, shadow) = bufdown!i?patch
    -> if empty(patch)
      then CLIENT(i, state, state)
      else 
@@ -24,6 +26,10 @@ CLIENT'(i, state, shadow) = down!i?patch
          up!i!diffS(apply(shadow, patch), apply(state, patch))
          -> CLIENT(i, apply(state, patch), apply(shadow, patch))
        else CLIENT(i, apply(state, patch), apply(shadow, patch))
+
+DOWNBUF(i) = down!i?patch -> DOWNBUF'(i, patch)
+DOWNBUF'(i, patch) = down!i?patch' -> DOWNBUF'(i, patch')
+   [] bufdown!i!patch -> DOWNBUF(i)
 
 SERVER(i, shadow) = 
    up!i?patch
@@ -36,16 +42,15 @@ SERVER(i, shadow) =
       then SERVER(i, shadow)
       else down!i!diffS(shadow, new_state) -> SERVER(i, new_state)
 
-BUF(i) = saved?j:diff(CLIENTS,{i})?new_state -> BUF'(i, j, new_state)
-BUF'(i, j, new_state) = saved?j':diff(CLIENTS,{i})?new_state' -> BUF'(i, j', new_state')
-   [] bufsaved!j!new_state -> BUF(i)
+SAVEDBUF(i) = saved?j:diff(CLIENTS,{i})?new_state -> SAVEDBUF'(i, j, new_state)
+SAVEDBUF'(i, j, new_state) = saved?j':diff(CLIENTS,{i})?new_state' -> SAVEDBUF'(i, j', new_state')
+   [] bufsaved!j!new_state -> SAVEDBUF(i)
 
 DB(state) = save?i?patch
    -> saved!i!apply(state, patch)
    -> DB(apply(state, patch))
 
-CONN(i, init) = (CLIENT(i, init, init) [|{| up.i, down.i |}|] SERVER(i, init)) [|{| bufsaved |}|] BUF(i)
-
+CONN(i, init) = (CLIENT(i, init, init) [|{| bufdown.i |}|] DOWNBUF(i)) [|{| up.i, down.i |}|] (SERVER(i, init) [|{| bufsaved |}|] SAVEDBUF(i))
 SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
 
 assert SYSTEM :[deadlock free [F]]
@@ -103,7 +108,6 @@ SYNC'(state0, state1) =
 [] down?a?b -> SYNC'(state0, state1)
 [] save?a?b -> SYNC'(state0, state1)
 [] saved?a?b -> SYNC'(state0, state1)
-[] bufsave?a?b -> SYNC'(state0, state1)
 [] bufsaved?a?b -> SYNC'(state0, state1)
 
 --[] e:diff(Events, {sync}) @ e -> SYNC'(state0, state1)
