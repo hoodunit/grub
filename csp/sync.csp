@@ -58,7 +58,8 @@ assert SYSTEM :[divergence-free]
 
 -- Suppose that there are a finite number n of inputs.
 -- I.e. users click around and then, at some point, after
--- n actions.
+-- n actions, stops entering input. Our system should
+-- eventually sync after this.
 LimitedInputs(0) = STOP
 LimitedInputs(n) = input?i?state -> LimitedInputs(n-1)
 
@@ -99,18 +100,80 @@ RendersRight = LimitedSystem \diff(Events, productions(render.1)) [|{| render |}
 -- Suppose an event occurs every time the system is in sync.
 -- Or, more simplified, every time the two clients are in sync (excluding the database).
 channel sync
-SYNC(state) = sync -> SYNC'(state, state)
+--SYNC(state) = sync -> SYNC'(state, state)
 SYNC'(state0, state1) =
    render!0?state -> (if state == state1 then sync -> SYNC'(state, state) else SYNC'(state, state1))
 [] render!1?state -> (if state == state0 then sync -> SYNC'(state, state) else SYNC'(state0, state))
-[] input?a?b -> SYNC'(state0, state1)
+[] input!0?state -> (if state == state1 then sync -> SYNC'(state, state) else SYNC'(state, state1))
+[] input!1?state -> (if state == state0 then sync -> SYNC'(state, state) else SYNC'(state0, state))
 [] up?a?b -> SYNC'(state0, state1)
 [] down?a?b -> SYNC'(state0, state1)
 [] save?a?b -> SYNC'(state0, state1)
 [] saved?a?b -> SYNC'(state0, state1)
 [] bufsaved?a?b -> SYNC'(state0, state1)
+[] bufdown?a?b -> SYNC'(state0, state1)
 
---[] e:diff(Events, {sync}) @ e -> SYNC'(state0, state1)
---DoNothingOnNonSyncEvents = [] e:diff(Events, {sync}) @ e -> DoNothingOnNonSyncEvents
+SyncSystem = SYSTEM [| diff(Events, {sync}) |] SYNC'(0, 0)
 
-SyncSystem = SYSTEM [| diff(Events, {sync}) |] SYNC(0)
+-- Limiting the number of inputs on our system to make it computationally feasible.
+LimitedSyncSystem = SyncSystem [|{| input |}|] LimitedInputs(2)
+
+-- This has deadlock because it stops
+assert LimitedSyncSystem :[deadlock free [F]]
+
+-- It does NOT diverge i.e. it will eventually stop in all cases.
+assert LimitedSyncSystem :[divergence-free]
+
+-- Given a finite number of inputs, the system syncs if
+-- the sync event is the last event that happens before this stops
+-- We can at least prove that the system is in sync at SOME point, right?
+assert STOP [T= LimitedSyncSystem \ diff(Events, {sync})
+
+-- ^ This fails, which means that there exists some trace of behavior in
+-- which sync occurs. This is not exactly what we are trying to prove. We
+-- want to show that ALL traces have a sync event.
+-- This ^ type of assertion can only be used to show that an event never occurs.
+-- Can we construct a process specification such that an event will occur only
+-- when the process winds up in an undesirable state?
+-- E.g. if it is NOT in sync at the end, then it throws out a notInSync event?
+-- Then we could prove that this never happens.
+-- How do we know when it "ends"? One side gets an input that is the last one. 
+-- Then we know that neither side will get more inputs. That input will be sent up
+-- then the client will wait for a response down. It may get more than one response down
+-- if the buffer already had something. It may get as many as two down events.
+
+-- What if we say it ends when input stops and either a) the system gets in sync or 
+-- b) n events occur (and the system is not in sync)? Can we can show that, for some n,
+-- the system will always be in sync within n events? Or in other words that for some n
+-- the "not in sync" event cannot occur? The not in sync event occurs only when our time is up.
+
+-- So if the system shoots out notSync when count = 0, then we lose. Our system doesn't always sync.
+-- Can we show that notSync never occurs? If notSync never occurs, then when count = 0 our system
+-- is always in sync and we have succeeded.
+
+channel notSync
+NOTSYNC(0, state0, state1) = if state0 != state1 then notSync -> STOP else STOP
+NOTSYNC(n, state0, state1) =
+   render!0?state -> NOTSYNC(n-1, state, state1)
+[] render!1?state -> NOTSYNC(n-1, state0, state)
+[] input!0?state -> NOTSYNC(n-1, state, state1)
+[] input!1?state -> NOTSYNC(n-1, state0, state)
+[] up?a?b -> NOTSYNC(n, state0, state1)
+[] down?a?b -> NOTSYNC(n, state0, state1)
+[] save?a?b -> NOTSYNC(n, state0, state1)
+[] saved?a?b -> NOTSYNC(n, state0, state1)
+[] bufsaved?a?b -> NOTSYNC(n, state0, state1)
+[] bufdown?a?b -> NOTSYNC(n, state0, state1)
+
+NotSyncSystem = SYSTEM [| diff(Events, {notSync}) |] NOTSYNC(10, 0, 0)
+
+assert STOP [T= NotSyncSystem \ diff(Events, {notSync})
+
+-- So this allows n inputs/renders and then checks if it is synced and if not, throws notSync. The issue
+-- is that we check if notSync after these events but we don't check if it gets in sync already before that.
+-- Would that be strong enough? If we say that after input stops, at some point afterwards the system must be in sync at least once. That doesn't ensure that it doesn't end up out of sync, only that it was in sync at some point after input stops.
+
+-- If we only think about inputs and renders, we want to see something like this at the end:
+-- render!0!state, render!1!state
+-- OR input!0!state, render!1!state
+-- OR input!1!state, render!0!state
