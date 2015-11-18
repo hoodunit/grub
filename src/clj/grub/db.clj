@@ -71,25 +71,42 @@
     (println "Connected to datomic at " uri)
     conn))
 
-(defn remap-keys [key-maps coll]
-  (reduce (fn [new-coll [key new-key]] (assoc new-coll new-key (get coll key))) {} key-maps))
+(def all-grubs-query
+  [:find '?id '?text '?complete
+   :where
+   ['?e :grub/id '?id]
+   ['?e :grub/text '?text]
+   ['?e :grub/completed '?complete]])
 
-(defn query-entities [db entity-key]
-  (->> db
-       (d/q [:find '?e :where ['?e entity-key]])
-       ((fn [[id]] (d/entity db id)))))
+(def all-recipes-query
+  [:find '?id '?name '?grubs '?directions
+   :where
+   ['?e :recipe/id '?id]
+   ['?e :recipe/name '?name]
+   ['?e :recipe/grubs '?grubs]
+   ['?e :recipe/directions '?directions]])
+
+(defn grub-as-map [[id text complete]]
+  {:id id :text text :complete complete})
+
+(defn recipe-as-map [[id name grubs directions]]
+  {:id id :name name :grubs grubs :directions directions})
+
+(defn get-db-grubs [db]
+  (->> (d/q all-grubs-query db)
+       (map grub-as-map)
+       vec
+       (util/map-by-key :id)))
+
+(defn get-db-recipes [db]
+  (->> (d/q all-recipes-query db)
+       (map recipe-as-map)
+       vec
+       (util/map-by-key :id)))
 
 (defn get-current-db-state [db]
-  (let [grubs (->> (query-entities db :grub/id)
-                   (map #(remap-keys {:grub/id :id :grub/text :text :grub/completed :completed} %))
-                   vec
-                   (util/map-by-key :id))
-        recipes (->> (query-entities db :recipe/id)
-                     (map #(remap-keys {:recipe/id :id :recipe/name :name :recipe/grubs :grubs :recipe/directions :directions} %))
-                     vec
-                     (util/map-by-key :id))]
-    {:grubs grubs
-     :recipes recipes}))
+  {:grubs (get-db-grubs db)
+   :recipes (get-db-recipes db)})
 
 (defn get-current-state [conn]
   (get-current-db-state (d/db conn)))
@@ -112,50 +129,11 @@
                                :recipe/grubs      (:grubs recipe)
                                :recipe/directions (:directions recipe)})])
 
-(defn update-db! [conn state]
-  (let [grubs-tx (->> state
-                      :grubs
-                      (vals)
-                      (map upsert-grub-tx)
-                      (flatten)
-                      (vec))
-        recipes-tx (->> state
-                        :recipes
-                        (vals)
-                        (map upsert-recipe-tx)
-                        (flatten)
-                        (vec))
-        tx (into grubs-tx recipes-tx)]
-    @(d/transact conn tx)))
-
 (defn disconnect [conn]
   (d/release conn))
 
 (defn get-history-state [db-conn tag]
   (get-current-state db-conn))
-
-
-(defn patch-map [state diff]
-  (-> state
-      (#(apply dissoc % (into [] (:- diff))))
-      (#(merge-with merge % (:+ diff)))))
-
-(defn patch-state [state diff]
-  (->> state
-       (keys)
-       (map (fn [k] [k (patch-map (k state) (k diff))]))
-       (into {})))
-
-
-(def empty-diff {:grubs {:- #{} :+ nil}
-                 :recipes {:- #{} :+ nil}})
-
-(def added-diff
-  {:grubs {:- #{}
-           :+ {"grub-completed" {:completed true}
-               "grub-updated" {:text "Ketchup"}
-               "grub-added" {:completed false :text "Toothpaste"}}}
-   :recipes {:- #{} :+ nil}})
 
 (defn diff-tx [diff]
   (let [grubs-upsert-tx (->> diff
@@ -185,5 +163,4 @@
     (vec (concat grubs-upsert-tx grubs-retract-tx recipes-upsert-tx recipes-retract-tx))))
 
 (defn patch-state! [conn diff]
-  (pprint (diff-tx diff))
   @(d/transact conn (diff-tx diff)))
