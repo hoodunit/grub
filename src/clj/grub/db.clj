@@ -72,11 +72,11 @@
     conn))
 
 (def all-grubs-query
-  [:find '?id '?text '?complete
+  [:find '?id '?text '?completed
    :where
    ['?e :grub/id '?id]
    ['?e :grub/text '?text]
-   ['?e :grub/completed '?complete]])
+   ['?e :grub/completed '?completed]])
 
 (def all-recipes-query
   [:find '?id '?name '?grubs '?directions
@@ -86,8 +86,8 @@
    ['?e :recipe/grubs '?grubs]
    ['?e :recipe/directions '?directions]])
 
-(defn grub-as-map [[id text complete]]
-  {:id id :text text :complete complete})
+(defn grub-as-map [[id text completed]]
+  {:id id :text text :completed completed})
 
 (defn recipe-as-map [[id name grubs directions]]
   {:id id :name name :grubs grubs :directions directions})

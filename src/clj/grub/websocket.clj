@@ -4,7 +4,7 @@
             [cognitect.transit :as t])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
-(def DEBUG true)
+(def DEBUG false)
 
 (defn write-msg [msg]
   (let [out (ByteArrayOutputStream. 4096)

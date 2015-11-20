@@ -49,18 +49,29 @@
    :port         3000
    :stop-server  nil})
 
+(defn sync-client-with-db! [ws-channel db-conn]
+  (let [from-client (chan)
+        to-client (chan)
+        diffs (chan)
+        full-sync-reqs (chan)
+        on-close (fn []
+                   (a/close! from-client)
+                   (a/close! to-client)
+                   (a/close! diffs)
+                   (a/close! full-sync-reqs))]
+    (ws/add-connected-client! ws-channel to-client from-client on-close)
+    (sync/sync-server! to-client diffs full-sync-reqs db-conn)
+    (go (loop [] (let [event (<! from-client)]
+                   (cond
+                     (nil? event) nil                       ;; drop out of loop
+                     (= (:type event) :diff) (do (>! diffs event) (recur))
+                     (= (:type event) :full-sync-request) (do (>! full-sync-reqs event) (recur))
+                     :else (do (println "Unknown event:" event) (recur))))))))
+
 (defn handle-websocket [handler db-conn]
   (fn [{:keys [websocket?] :as request}]
     (if websocket?
-      (httpkit/with-channel request ws-channel
-        (let [up (chan)
-              down (chan)
-              saved (chan)
-              on-close (fn []
-                         (a/close! up)
-                         (a/close! down))]
-          (ws/add-connected-client! ws-channel down up on-close)
-          (sync/make-server-agent up down saved db-conn)))
+      (httpkit/with-channel request ws-channel (sync-client-with-db! ws-channel db-conn))
       (handler request))))
 
 (defn handle-root [handler index]

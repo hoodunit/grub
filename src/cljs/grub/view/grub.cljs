@@ -8,8 +8,8 @@
                    [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn new-grub [text]
-  {:id (str "grub-" (uuid/make-random))
-   :text text
+  {:id        (keyword (str "grub-" (uuid/make-random)))
+   :text      text
    :completed false})
 
 (def transitions
