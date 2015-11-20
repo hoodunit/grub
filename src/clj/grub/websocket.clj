@@ -4,6 +4,8 @@
             [cognitect.transit :as t])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
+(def DEBUG true)
+
 (defn write-msg [msg]
   (let [out (ByteArrayOutputStream. 4096)
         writer (t/writer out :json)]
@@ -18,13 +20,16 @@
 
 (defn add-connected-client! [ws-channel to from on-close]
   (println "Client connected:" (.toString ws-channel))
-  (a/go-loop [] (if-let [event (<! to)] 
-                  (do (httpkit/send! ws-channel (write-msg event)) 
+  (a/go-loop [] (if-let [event (<! to)]
+                  (do (when DEBUG (println "DOWN" event "\n"))
+                      (httpkit/send! ws-channel (write-msg event))
                       (recur))
                   (httpkit/close ws-channel)))
-  (httpkit/on-receive ws-channel #(a/put! from (read-msg %)))
+  (httpkit/on-receive ws-channel #(let [msg (read-msg %)]
+                                   (when DEBUG (println "UP" msg "\n"))
+                                   (a/put! from msg)))
   (httpkit/on-close ws-channel (fn [status]
-                                 (println "Client disconnected:" 
+                                 (println "Client disconnected:"
                                           (.toString ws-channel)
                                           "with status" status)
                                  (on-close))))

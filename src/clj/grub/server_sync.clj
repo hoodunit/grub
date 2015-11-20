@@ -60,27 +60,26 @@
   (println "Unhandled message:" msg)
   {})
 
-(defn make-server-agent
-  ([up down saved db-conn]
-   (go (loop [shadow (db/get-current-state db-conn)]
-         (let [[event c] (a/alts! [up saved] :priority true)]
-           (println "Handling event:")
-           (pprint event)
-           (when-not (nil? event)
-             (case (:type event)
+(defn make-server-agent [up down saved db-conn]
+  (go (loop [shadow (db/get-current-state db-conn)]
+        (let [[event c] (a/alts! [up saved] :priority true)]
+          (when-not (nil? event)
+            (case (:type event)
 
-               :diff
-               (let [history-state (db/get-history-state db-conn (:shadow-tag event))
-                     new-state (db/patch-state! db-conn (:diff event))
-                     new-shadow (diff/patch-state history-state (:diff event))
-                     return-diff (diff/diff-states new-shadow new-state)]
-                 (>! down return-diff)
-                 (recur new-shadow))
+              :diff
+              (let [history-state (db/get-history-state db-conn (:shadow-tag event))
+                    new-state (db/patch-state! db-conn (:diff event))
+                    new-shadow (diff/patch-state history-state (:diff event))
+                    return-diff (diff/diff-states new-shadow new-state)]
+                (println "**************************history-state:" history-state)
+                (println "**************************new-state:" new-state)
+                (println "**************************new-shadow:" new-shadow)
+                (println "return diff:" return-diff)
+                (>! down return-diff)
+                (recur new-shadow))
 
-               :full-sync-request
-               (do (println "full sync!")
-                   (>! down (full-sync (db/get-current-state db-conn)))
-                   (recur shadow))
-               (do (println "Unhandled event")
-                   (println event)
-                   (recur shadow)))))))))
+              :full-sync-request
+              (do (>! down (full-sync (db/get-current-state db-conn)))
+                  (recur shadow))
+              (do (println "Unhandled event:" event)
+                  (recur shadow))))))))

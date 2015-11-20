@@ -26,7 +26,7 @@
                    :dependencies [[org.clojure/tools.namespace "0.2.10"]
                                   [org.clojure/java.classpath "0.2.2"]]}}
   :min-lein-version "2.1.2"
-  :plugins [[lein-cljsbuild "1.0.3"]
+  :plugins [[lein-cljsbuild "1.1.1"]
             [lein-ring "0.8.6"]]
   :cljsbuild {:builds {:dev  {:source-paths ["src/cljs" "src/cljc"]
                               :compiler     {:output-dir    "resources/public/js/out"

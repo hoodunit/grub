@@ -4,40 +4,24 @@
             [grub.websocket :as websocket]
             [grub.view.app :as view]
             [cljs.core.async :as a :refer [<! >! chan]])
-  (:require-macros [grub.macros :refer [log logs]]))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]] ))
 
-(def system
-  {:pending-msg (atom nil)
-   :ws (atom nil)
-   :channels {:local-states (chan)
-              :remote-states (chan)
-              :to-remote (chan)
-              :from-remote (chan)}
-   :states (atom nil)
-   :view-state nil})
+(defn start-app []
+  (let [ui-state (atom state/empty-state)
+        from-server (chan)
+        to-server (chan)
+        new-ui-states (chan)
+        diffs (chan)
+        full-syncs (chan)]
+    (sync/sync-client! to-server new-ui-states diffs full-syncs ui-state)
+    (websocket/connect to-server from-server)
+    (view/render-app ui-state new-ui-states)
+    (go-loop [] (let [event (<! from-server)]
+                  (cond
+                    (nil? event) nil                    ;; drop out of loop
+                    (= (:type event) :diff) (do (>! diffs event) (recur))
+                    (= (:type event) :full-sync) (do (>! full-syncs event) (recur))
+                    :else (do (println "Unknown event:" event) (recur)))))))
 
-(defn start [{:keys [states pending-msg] :as system}]
-  (reset! states sync/empty-state)
-  (let [new-states (chan)
-        render-states (chan)
-        >remote (chan)
-        events (chan)
-        view-state (view/render-app state/empty-state render-states new-states)
-        ws (websocket/connect pending-msg >remote events)]
-    (sync/sync-client! >remote events new-states states)
-    (add-watch states :render (fn [_ _ old new]
-                                (when-not (= old new)
-                                  (a/put! render-states (state/get-latest new)))))
-    (assoc system
-      :ws ws
-      :channels {:new-states new-states
-                 :>remote >remote
-                 :events events}
-      :states states
-      :view-state view-state)))
-
-(defn stop [{:keys [channels ws]} system]
-  (doseq [c (vals channels)] (a/close! c))
-  (websocket/disconnect ws))
-
-(start system)
+(enable-console-print!)
+(start-app)
