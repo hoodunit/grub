@@ -1,179 +1,66 @@
-N = 2
-S = 3
-CLIENTS = {0..N-1}
-STATES = {0..S-1}
-PATCHES = {0..S-1}
-channel input, render, saved, bufsaved:CLIENTS.STATES
-channel up, down, save, bufdown:CLIENTS.PATCHES
+NUM_CLIENTS = 2
+NUM_DB_STATES = 10
+NUM_CLIENT_COUNTS = 10
+CLIENTS = {0..NUM_CLIENTS-1}
+TIMES = {0..NUM_DB_STATES-1}
+COUNT = {0..NUM_CLIENT_COUNTS-1}
 
-apply(state, patch) = (state + patch) % S
-diffS(state1, state2) = (state2 - state1) % S
-empty(patch) = patch == 0
+channel input:CLIENTS
+channel save:CLIENTS
+channel render:CLIENTS.TIMES.COUNT
+channel up:CLIENTS.TIMES.COUNT
+channel down:CLIENTS.TIMES.COUNT.TIMES
+channel bufdown:CLIENTS.TIMES.COUNT.TIMES
+channel saved:CLIENTS.TIMES
+channel bufsaved:CLIENTS.TIMES
 
-CLIENT(i, state, shadow) = 
-   input!i?new_state:diff(STATES,{state})
-   -> up!i!diffS(shadow, new_state)
-   -> CLIENT'(i, new_state, shadow)
-[] CLIENT'(i, state, shadow)
+next_t(t) = (t + 1) % NUM_DB_STATES
+next_count(count) = (count + 1) % NUM_CLIENT_COUNTS
 
-CLIENT'(i, state, shadow) = bufdown!i?patch
-   -> if empty(patch)
-     then CLIENT(i, state, state)
-     else 
-       render!i!apply(state, patch)
-    -> if diffS(apply(shadow, patch), apply(state, patch)) != 0
-       then 
-         up!i!diffS(apply(shadow, patch), apply(state, patch))
-         -> CLIENT(i, apply(state, patch), apply(shadow, patch))
-       else CLIENT(i, apply(state, patch), apply(shadow, patch))
+CLIENT(i, t, count) = 
+   input!i
+   -> render!i!t!next_count(count)
+   -> up!i!t!next_count(count)
+   -> CLIENT'(i, t, next_count(count))
+[] CLIENT'(i, t, count)
 
-DOWNBUF(i) = down!i?patch -> DOWNBUF'(i, patch)
-DOWNBUF'(i, patch) = down!i?patch' -> DOWNBUF'(i, patch')
-   [] bufdown!i!patch -> DOWNBUF(i)
+CLIENT'(i, t, count) = bufdown!i?client_t?client_count?server_t
+   -> if t == client_t and count == client_count -- No changes on our side since
+     then 
+       render!i!server_t!0
+       -> CLIENT(i, server_t, 0) -- We are now in sync with server at time server_t
+     else  -- We had changes since so we are out of sync
+       render!i!server_t!1
+       -> up!i!server_t!1
+       -> CLIENT(i, server_t, 1)
 
-SERVER(i, shadow) = 
-   up!i?patch
-   -> save!i!patch
-   -> saved!i?new_state
-   -> down!i!diffS(apply(shadow, patch), new_state)
-   -> SERVER(i, apply(shadow, patch))
-[] bufsaved?j:diff(CLIENTS,{i})?new_state
-   -> if (new_state == shadow)
-      then SERVER(i, shadow)
-      else down!i!diffS(shadow, new_state) -> SERVER(i, new_state)
+DOWNBUF(i) = down!i?client_t?client_count?server_t -> DOWNBUF'(i, client_t, client_count, server_t)
+DOWNBUF'(i, client_t, client_count, server_t) = 
+  down!i?client_t'?client_count'?server_t' -> DOWNBUF'(i, client_t', client_count', server_t')
+  [] bufdown!i!client_t!client_count!server_t -> DOWNBUF(i)
 
-SAVEDBUF(i) = saved?j:diff(CLIENTS,{i})?new_state -> SAVEDBUF'(i, j, new_state)
-SAVEDBUF'(i, j, new_state) = saved?j':diff(CLIENTS,{i})?new_state' -> SAVEDBUF'(i, j', new_state')
-   [] bufsaved!j!new_state -> SAVEDBUF(i)
+SERVER(i, client_t, count) = 
+   up!i?server_t?client_count
+   -> save!i
+   -> saved!i?new_server_t
+   -> down!i!server_t!client_count!new_server_t
+   -> SERVER(i, new_server_t, 0)
+[] bufsaved?j?new_server_t
+   -> if new_server_t == client_t
+      then SERVER(i, client_t, count)
+      else down!i!client_t!count!new_server_t
+        -> SERVER(i, new_server_t, 0)
 
-DB(state) = save?i?patch
-   -> saved!i!apply(state, patch)
-   -> DB(apply(state, patch))
+SAVEDBUF(i) = saved?j?t -> SAVEDBUF'(i, j, t)
+SAVEDBUF'(i, j, t) = saved?j'?new_t -> SAVEDBUF'(i, j', new_t)
+   [] bufsaved!j!t -> SAVEDBUF(i)
 
-CONN(i, init) = (CLIENT(i, init, init) [|{| bufdown.i |}|] DOWNBUF(i)) [|{| up.i, down.i |}|] (SERVER(i, init) [|{| bufsaved |}|] SAVEDBUF(i))
+DB(t) = save?i
+   -> saved!i!next_t(t)
+   -> DB(next_t(t))
+
+CONN(i, t0) = (CLIENT(i, t0, 0) [|{| bufdown.i |}|] DOWNBUF(i)) [|{| up.i, down.i |}|] (SERVER(i, t0, 0) [|{| bufsaved |}|] SAVEDBUF(i))
 SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
 
 assert SYSTEM :[deadlock free [F]]
 assert SYSTEM :[divergence-free]
-
--- Suppose that there are a finite number n of inputs.
--- I.e. users click around and then, at some point, after
--- n actions, stops entering input. Our system should
--- eventually sync after this.
-LimitedInputs(0) = STOP
-LimitedInputs(n) = input?i?state -> LimitedInputs(n-1)
-
--- For instance, maybe only 3 actions occur.
-LimitedSystem = LimitedInputs(3) [|{| input |}|] SYSTEM
-
--- If we look only at render events on each side
-channel rend:STATES
-Rends = render?i?state -> rend!state -> Rends
-RendersLeft = (LimitedSystem [|{| render |}|] Rends) \diff(Events, productions(rend))
-RendersRight = LimitedSystem \diff(Events, productions(render.1)) [|{| render |}|] Rends
-
--- Then (for any chosen n) the final event on both side
--- should be a render of the same final state s
--- i.e. the final events are render.0.s and render.1.s
--- for some s.
-
--- Can we specify this as a trace refinement?
-
--- The trace of the renders of each side should look like this:
--- T^<render.0.s>
--- S^<render.1.s>
-
--- What does it mean to say A [T= B? B trace-refines A i.e. traces(B) subset traces(A)
--- i.e. all possible traces of B occur within A
-
--- What if we force each side to coordinate with a process that, when done, emits a certain render event and then stops. Like renderLeft, renderRight?
--- We could force it to behave in such a way that it can only stop if both render the same event at the same time.
--- And then assert that it stops and does not diverge?
-
--- What does diverging mean again?
-
--- assert SYSTEM [T= InputsLeftS
--- assert RendersLeft [T= RendersRight
--- assert RendersRight [T= RendersLeft
-
-
--- Suppose an event occurs every time the system is in sync.
--- Or, more simplified, every time the two clients are in sync (excluding the database).
-channel sync
---SYNC(state) = sync -> SYNC'(state, state)
-SYNC'(state0, state1) =
-   render!0?state -> (if state == state1 then sync -> SYNC'(state, state) else SYNC'(state, state1))
-[] render!1?state -> (if state == state0 then sync -> SYNC'(state, state) else SYNC'(state0, state))
-[] input!0?state -> (if state == state1 then sync -> SYNC'(state, state) else SYNC'(state, state1))
-[] input!1?state -> (if state == state0 then sync -> SYNC'(state, state) else SYNC'(state0, state))
-[] up?a?b -> SYNC'(state0, state1)
-[] down?a?b -> SYNC'(state0, state1)
-[] save?a?b -> SYNC'(state0, state1)
-[] saved?a?b -> SYNC'(state0, state1)
-[] bufsaved?a?b -> SYNC'(state0, state1)
-[] bufdown?a?b -> SYNC'(state0, state1)
-
-SyncSystem = SYSTEM [| diff(Events, {sync}) |] SYNC'(0, 0)
-
--- Limiting the number of inputs on our system to make it computationally feasible.
-LimitedSyncSystem = SyncSystem [|{| input |}|] LimitedInputs(2)
-
--- This has deadlock because it stops
-assert LimitedSyncSystem :[deadlock free [F]]
-
--- It does NOT diverge i.e. it will eventually stop in all cases.
-assert LimitedSyncSystem :[divergence-free]
-
--- Given a finite number of inputs, the system syncs if
--- the sync event is the last event that happens before this stops
--- We can at least prove that the system is in sync at SOME point, right?
-assert STOP [T= LimitedSyncSystem \ diff(Events, {sync})
-
--- ^ This fails, which means that there exists some trace of behavior in
--- which sync occurs. This is not exactly what we are trying to prove. We
--- want to show that ALL traces have a sync event.
--- This ^ type of assertion can only be used to show that an event never occurs.
--- Can we construct a process specification such that an event will occur only
--- when the process winds up in an undesirable state?
--- E.g. if it is NOT in sync at the end, then it throws out a notInSync event?
--- Then we could prove that this never happens.
--- How do we know when it "ends"? One side gets an input that is the last one. 
--- Then we know that neither side will get more inputs. That input will be sent up
--- then the client will wait for a response down. It may get more than one response down
--- if the buffer already had something. It may get as many as two down events.
-
--- What if we say it ends when input stops and either a) the system gets in sync or 
--- b) n events occur (and the system is not in sync)? Can we can show that, for some n,
--- the system will always be in sync within n events? Or in other words that for some n
--- the "not in sync" event cannot occur? The not in sync event occurs only when our time is up.
-
--- So if the system shoots out notSync when count = 0, then we lose. Our system doesn't always sync.
--- Can we show that notSync never occurs? If notSync never occurs, then when count = 0 our system
--- is always in sync and we have succeeded.
-
-channel notSync
-NOTSYNC(0, state0, state1) = if state0 != state1 then notSync -> STOP else STOP
-NOTSYNC(n, state0, state1) =
-   render!0?state -> NOTSYNC(n-1, state, state1)
-[] render!1?state -> NOTSYNC(n-1, state0, state)
-[] input!0?state -> NOTSYNC(n-1, state, state1)
-[] input!1?state -> NOTSYNC(n-1, state0, state)
-[] up?a?b -> NOTSYNC(n, state0, state1)
-[] down?a?b -> NOTSYNC(n, state0, state1)
-[] save?a?b -> NOTSYNC(n, state0, state1)
-[] saved?a?b -> NOTSYNC(n, state0, state1)
-[] bufsaved?a?b -> NOTSYNC(n, state0, state1)
-[] bufdown?a?b -> NOTSYNC(n, state0, state1)
-
-NotSyncSystem = SYSTEM [| diff(Events, {notSync}) |] NOTSYNC(10, 0, 0)
-
-assert STOP [T= NotSyncSystem \ diff(Events, {notSync})
-
--- So this allows n inputs/renders and then checks if it is synced and if not, throws notSync. The issue
--- is that we check if notSync after these events but we don't check if it gets in sync already before that.
--- Would that be strong enough? If we say that after input stops, at some point afterwards the system must be in sync at least once. That doesn't ensure that it doesn't end up out of sync, only that it was in sync at some point after input stops.
-
--- If we only think about inputs and renders, we want to see something like this at the end:
--- render!0!state, render!1!state
--- OR input!0!state, render!1!state
--- OR input!1!state, render!0!state
