@@ -45,14 +45,14 @@ SERVER(i, client_t, count) =
    -> saved!i?new_server_t
    -> down!i!server_t!client_count!new_server_t
    -> SERVER(i, new_server_t, 0)
-[] bufsaved?j?new_server_t
+[] bufsaved?j:diff(CLIENTS,{i})?new_server_t
    -> if new_server_t == client_t
       then SERVER(i, client_t, count)
       else down!i!client_t!count!new_server_t
         -> SERVER(i, new_server_t, 0)
 
-SAVEDBUF(i) = saved?j?t -> SAVEDBUF'(i, j, t)
-SAVEDBUF'(i, j, t) = saved?j'?new_t -> SAVEDBUF'(i, j', new_t)
+SAVEDBUF(i) = saved?j:diff(CLIENTS,{i})?t -> SAVEDBUF'(i, j, t)
+SAVEDBUF'(i, j, t) = saved?j':diff(CLIENTS,{i})?new_t -> SAVEDBUF'(i, j', new_t)
    [] bufsaved!j!t -> SAVEDBUF(i)
 
 DB(t) = save?i
@@ -64,3 +64,111 @@ SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(
 
 assert SYSTEM :[deadlock free [F]]
 assert SYSTEM :[divergence-free]
+
+-- Suppose we limit our specification to say that each
+-- user makes a finite number of changes n.
+LimitedInputs(0) = STOP
+LimitedInputs(n) = input?i -> LimitedInputs(n-1)
+
+-- Here is a system that is limited to 3 inputs per client:
+LimitedSystem = LimitedInputs(3) [|{| input |}|] SYSTEM
+
+-- We can check first that this limited system is clear of deadlock.
+
+assert LimitedSystem :[deadlock free [F]]
+assert LimitedSystem :[divergence-free]
+
+-- It should have deadlock because we forced it to stop after x moves. The deadlock should not occur in fewer than that many inputs, though.
+
+-- Should it be divergence free? It should be divergence free because it has no tau events. Divergence means refusing to engage in any visible events indefinitely but not refusing all events at any point.
+
+
+-- To diverge means to engage in tau events such that the events we care about can never occur.
+-- E.g. if we hide all the events we don't care about, like inputs and all renders until the last ones,
+-- we could check to see if the system is divergence free at the end.
+
+-- Suppose we take our limited system and hide everything except the final renders. If we allow 3
+-- inputs, both clients should eventually render the latest server state with no changes of their own
+-- i.e. engage in events render.0.3.0 and render.1.3.0
+assert LimitedSystem \diff(Events, {render.0.3.0, render.1.3.0}) :[divergence-free]
+
+-- If this limited system is free of divergence, then it will never wind up in a state where it keeps
+-- engaging in other events we don't care about, but instead will engage in the events we do care about
+-- and stop (?).
+
+-- Let's make this even simpler first. Let's allow only one change.
+OneInput = LimitedInputs(1) [|{| input |}|] SYSTEM
+
+-- Can we prove our one change MUST be synced?
+assert OneInput \diff(Events, {render.0.1.0, render.1.1.0}) :[divergence-free]
+
+-- This does not diverge. I think this means that the OneInput system MUST, in all possible paths, engage in our two events and then stop. Or does it mean this? What if it only engaged in one and then stopped? To diverge means to get into a loop of engaging in tau events. What if it just stops immediately? Isn't that divergence free?
+
+-- Can we make a system such that it will stop only if it is in sync at some point? And 
+
+-- Can we make a system such that it will stop unless it is in sync at some point and goes into an infinite loop? Then if we show that in all cases it is free of deadlocks i.e. in all cases it must be in sync at some point.
+
+-- We can also make assertions about one process refining another e.g. 
+-- assert SPEC [m= SYSTEM where m=(TFRV)D?
+
+-- If SPEC [FD= SYSTEM, then all traces of SYSTEM are contained within the traces of SPEC, all failures of SYSTEM ...
+
+SYNC = render.0.1.0 -> render.1.1.0 -> STOP
+    [] render.1.1.0 -> render.0.1.0 -> STOP
+
+SYNC2 = input.0 -> render.0.1.0 -> render.1.1.0 -> STOP
+     [] input.0 -> render.1.1.0 -> render.0.1.0 -> STOP
+     [] input.1 -> render.0.1.0 -> render.1.1.0 -> STOP
+     [] input.1 -> render.1.1.0 -> render.0.1.0 -> STOP
+
+assert SYNC2 [T= SYSTEM
+
+-- i.e. it is POSSIBLE for our system to behave like SYNC2 (passes)
+
+assert SYNC2 [F= SYSTEM
+
+-- i.e. our system MUST behave like SYNC2
+assert SYNC2 [FD= SYSTEM
+
+-- This fails for several reasons. 1) It is possible for our system to do e.g. input.0 -> input.1, which is not allowed by SYNC2. 2) It is possible for our system to keep taking input. We have no guarantees about consistency so a final sync could happen infinitely later. Actually, we can't guarantee our system is EVER in sync because a user could keep putting in input before sync responses are ever received. Or wait. Is that actually true? We don't accept further input until sync happens....
+
+-- Suppose we limit inputs to client 0, then try this again.
+
+ClientInputs(i) = input!i -> ClientInputs(i)
+ClientZeroInput = ClientInputs(0) [|{| input |}|] SYSTEM
+
+-- Our specification says: if we input something, then both sides must render that something i.e. they are both synced. Order doesn't matter.
+
+SyncOneInput = input.0 -> render.0.0.1 -> (render.0.1.0 -> render.1.1.0 -> STOP []
+                                           render.1.1.0 -> render.0.1.0 -> STOP)
+                           
+-- Now if this specification is a failures/divergences refinement of our system, then the system must behave like our refinement. We limit our system to only take inputs from client zero. Expectation: this will pass. We do not allow more inputs from client zero until their input has been ACKed. Oh wait. But it is possible that this input is ACKed, then we push out more input, and the other side doesn't get synced until after our second change makes it.
+assert SyncOneInput [FD= ClientZeroInput \diff(Events, {input.0, render.0.0.1, render.1.1.0})
+
+-- So let's make it even more trivial. We limit the number of inputs to 1, too.
+
+OneInputFromClientZero = (ClientZeroInput [|{| input |}|] LimitedInputs(1))
+assert SyncOneInput [FD= OneInputFromClientZero \diff(Events, {input.0, render.0.0.1, render.1.1.0})
+
+
+-- This is like writing a unit test but much much more powerful. We are doing a simple test: given one input from client zero, both sides must come into sync IN ALL POSSIBLE SEQUENCES OF EVENTS. That is, regardless of timing of events, it must hold.
+-- Update: this actually failed, because our specification is too strong. The spec says after input.0 -> render.0.0.1 we must be able to accept either ordering of rendering events. Our implementation, however, can get into a state where only one sequence of events is possible. So we need to loosen our specification or our assertion to say OK, that's fine, as long as one of these sequences occurs.
+
+-- Do these fail?
+assert SyncOneInput [T= OneInputFromClientZero \diff(Events, {input.0, render.0.0.1, render.1.1.0})
+
+-- This succeeds, meaning it is POSSIBLE for the constrained implementation to behave like our spec.
+
+assert SyncOneInput [F= OneInputFromClientZero \diff(Events, {input.0, render.0.0.1, render.1.1.0})
+
+-- This fails with the same example as the FD refinement.
+-- What if we add nondeterminism?
+
+SyncOneInputNondeterm = input.0 -> render.0.0.1 -> (render.0.1.0 -> render.1.1.0 -> STOP |~|
+                                                    render.1.1.0 -> render.0.1.0 -> STOP)
+assert SyncOneInputNondeterm [FD= OneInputFromClientZero \diff(Events, {input.0, render.0.0.1, render.1.1.0, render.0.1.0})
+
+-- I.e. you don't have to accept both options at the same points, you just have to nondeterministically choose one of the options in all cases. That would be good enough for me. Expectation: this should succeed.
+-- Result: fails. Our spec assumes that following a render event, the other render event must be in the allowed acceptances. The implementation does not necessarily have this.
+-- But is this a bug? What does it mean for something to have this event in their acceptances? Does it just mean they can accept it at that point? We don't need to be that strong, we just need to say hey, accept it at SOME point after.
+-- Update: it was a specification bug. We had missed specifying our third render event. So I think the acceptance set here means it will accept that event at some point. This assertion now passes. We have written one comprehensive unit test.
