@@ -62,25 +62,38 @@ SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(
 assert SYSTEM :[deadlock free [F]]
 assert SYSTEM :[divergence-free]
 
-
 -----------------------------------------
--- Simple sync: one change will sync to other client
+-- One way sync: changes on one client will sync to other client
 -----------------------------------------
 
 -- Suppose we limit our specification to say that each
 -- user makes a finite number of changes n.
-LimitedInputs(0) = STOP
-LimitedInputs(n) = input?i -> LimitedInputs(n-1)
+MaxInputs(0) = STOP
+MaxInputs(n) = input?i -> MaxInputs(n-1)
 
 -- Suppose we limit inputs to client 0.
 
-ClientInputs(i) = input!i -> ClientInputs(i)
-ClientZeroInput = ClientInputs(0) [|{| input |}|] SYSTEM
+OnlyClient(i) = input!i -> OnlyClient(i)
+ClientZeroInput = OnlyClient(0) [|{| input |}|] SYSTEM
 
-OneInputFromClientZero = (ClientZeroInput [|{| input |}|] LimitedInputs(1))
+OneInputFromClientZero = (OnlyClient(0) [|{| input |}|] MaxInputs(1)) [|{| input |}|] SYSTEM
 
--- Now, we want to show that given these constraints, when a change comes in on client 0, the change will be rendered on both client 0 and client 1.
+-- Now we show that a change on client 0 will make it to client 1.
 
-SyncOneInputNondeterm = input.0 -> render.0.0 -> (render.0.1 -> render.1.1 -> STOP |~|
-                                                    render.1.1 -> render.0.1 -> STOP)
-assert SyncOneInputNondeterm [FD= OneInputFromClientZero \diff(Events, {input.0, render.0.0, render.0.1, render.1.1})
+SyncOneInput = input.0 -> render.1.1 -> STOP
+assert SyncOneInput [FD= OneInputFromClientZero \diff(Events, {input.0, render.1.1})
+
+-- Expanding on this: what if we have two changes? We just care that, eventually, both of them get synced.
+SyncTwoInputs = input.0 -> input.0 -> render.1.2 -> STOP
+
+assert SyncTwoInputs [FD= (ClientZeroInput [|{| input |}|] MaxInputs(2)) \diff(Events, {input.0, render.1.2})
+
+-- Can we do this for an arbitrary n changes?
+OneWaySync(n) = input.0 -> OneWaySync'(n, n-1)
+OneWaySync'(n, 0) = render.1.n -> STOP
+OneWaySync'(n, i) = input.0 -> OneWaySync'(n, i-1)
+
+OneSideInputs(n) = (ClientZeroInput [|{| input |}|] MaxInputs(n)) \diff(Events, {input.0, render.1.n})
+
+assert OneWaySync(1) [FD= OneSideInputs(1)
+assert OneWaySync(9) [FD= OneSideInputs(9)
