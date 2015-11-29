@@ -16,7 +16,6 @@ next_t(t) = (t + 1) % NUM_DB_STATES
 
 CLIENT(i, t) = 
    input!i
-   -> render!i!t
    -> up!i!t
    -> CLIENT'(i, t)
 [] CLIENT'(i, t)
