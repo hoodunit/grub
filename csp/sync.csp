@@ -25,10 +25,7 @@ CLIENT'(i, t) =
    -> render!i!server_t
    -> CLIENT(i, server_t)
 
-DOWNBUF(i) = down!i?client_t?server_t -> DOWNBUF'(i, client_t, server_t)
-DOWNBUF'(i, client_t, server_t) = 
-  down!i?client_t'?server_t' -> DOWNBUF'(i, client_t', server_t')
-  [] bufdown!i!client_t!server_t -> DOWNBUF(i)
+DOWNBUF(i) = down!i?client_t?server_t -> bufdown!i!client_t!server_t -> DOWNBUF(i)
 
 SERVER(i, client_t) = 
    up!i?server_t
@@ -96,3 +93,18 @@ OneSideInputs(n) = (ClientZeroInput [|{| input |}|] MaxInputs(n)) \diff(Events, 
 
 assert OneWaySync(1) [FD= OneSideInputs(1)
 assert OneWaySync(9) [FD= OneSideInputs(9)
+
+-----------------------------------------
+-- Two way sync: changes on both clients will sync to both
+-----------------------------------------
+
+-- Start simple.
+-- Let's just constrain our system to say, first client 0 does a change then client 1 does a change.
+
+AlternateInputs = input.0 -> input.1 -> STOP
+
+-- Then our specification becomes simple:
+TwoWaySync = input.0 -> input.1 -> ((render.0.2 -> render.1.2 -> STOP) |~|
+                                    (render.1.2 -> render.0.2 -> STOP))
+
+assert TwoWaySync [FD= (SYSTEM [|{| input |}|] AlternateInputs) \diff(Events, {input.0, input.1, render.0.2, render.1.2})
