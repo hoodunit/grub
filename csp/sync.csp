@@ -10,7 +10,7 @@ channel up:CLIENTS.TIMES
 channel down:CLIENTS.TIMES.TIMES
 channel bufdown:CLIENTS.TIMES.TIMES
 channel saved:CLIENTS.TIMES
-channel bufsaved:CLIENTS.TIMES
+channel report_queue:CLIENTS.TIMES
 
 next_t(t) = (t + 1) % NUM_DB_STATES
 
@@ -33,21 +33,21 @@ SERVER(i, client_t) =
    -> saved!i?new_server_t
    -> down!i!server_t!new_server_t
    -> SERVER(i, new_server_t)
-[] bufsaved?j:diff(CLIENTS,{i})?new_server_t
+[] report_queue?j:diff(CLIENTS,{i})?new_server_t
    -> if new_server_t == client_t
       then SERVER(i, client_t)
       else down!i!client_t!new_server_t
         -> SERVER(i, new_server_t)
 
-SAVEDBUF(i) = saved?j:diff(CLIENTS,{i})?t -> SAVEDBUF'(i, j, t)
-SAVEDBUF'(i, j, t) = saved?j':diff(CLIENTS,{i})?new_t -> SAVEDBUF'(i, j', new_t)
-   [] bufsaved!j!t -> SAVEDBUF(i)
+REPORTQUEUE(i) = saved?j:diff(CLIENTS,{i})?t -> REPORTQUEUE'(i, j, t)
+REPORTQUEUE'(i, j, t) = saved?j':diff(CLIENTS,{i})?new_t -> REPORTQUEUE'(i, j', new_t)
+   [] report_queue!j!t -> REPORTQUEUE(i)
 
 DB(t) = save?i
    -> saved!i!next_t(t)
    -> DB(next_t(t))
 
-CONN(i, t0) = (CLIENT(i, t0) [|{| bufdown.i |}|] DOWNBUF(i)) [|{| up.i, down.i |}|] (SERVER(i, t0) [|{| bufsaved |}|] SAVEDBUF(i))
+CONN(i, t0) = (CLIENT(i, t0) [|{| bufdown.i |}|] DOWNBUF(i)) [|{| up.i, down.i |}|] (SERVER(i, t0) [|{| report_queue |}|] REPORTQUEUE(i))
 SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
 
 
@@ -108,3 +108,9 @@ TwoWaySync = input.0 -> input.1 -> ((render.0.2 -> render.1.2 -> STOP) |~|
                                     (render.1.2 -> render.0.2 -> STOP))
 
 assert TwoWaySync [FD= (SYSTEM [|{| input |}|] AlternateInputs) \diff(Events, {input.0, input.1, render.0.2, render.1.2})
+
+-- Issue: our system is (no longer) free of deadlock, probably because of buffer changes. Yup. Basically the same deadlock problem exists here as without the buffer, it just means you have to fill up the buffer first.
+-- Really our server should know to send down one event at a time. It might be that it actually will only work this way anyway, as the original file says only one item can be in transit at a time. So what if we rework to make this true?
+-- The server then would not take in buffered report queue events until the client "acked" the previous
+
+-- Is this deadlock ACTUALLY a problem? The real underlying istuation is that server and client don't have to sync on events, both can send both ways asynchronously. But we pretend that they sync on these.
