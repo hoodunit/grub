@@ -3,29 +3,21 @@ NUM_DB_STATES = 10
 CLIENTS = {0..NUM_CLIENTS-1}
 TIMES = {0..NUM_DB_STATES-1}
 
-channel input:CLIENTS
 channel save:CLIENTS
 channel render:CLIENTS.TIMES
 channel up:CLIENTS.TIMES
 channel down:CLIENTS.TIMES.TIMES
-channel bufdown:CLIENTS.TIMES.TIMES
 channel saved:CLIENTS.TIMES
 channel report_queue:CLIENTS.TIMES
 
 next_t(t) = (t + 1) % NUM_DB_STATES
 
-CLIENT(i, t) = 
-   input!i
-   -> up!i!t
-   -> CLIENT'(i, t)
-[] CLIENT'(i, t)
+CLIENT(i, t) = up!i!t -> CLIENT'(i, t) [] CLIENT'(i, t)
 
 CLIENT'(i, t) = 
-   bufdown!i?client_t?server_t
+   down!i?client_t?server_t
    -> render!i!server_t
    -> CLIENT(i, server_t)
-
-DOWNBUF(i) = down!i?client_t?server_t -> bufdown!i!client_t!server_t -> DOWNBUF(i)
 
 SERVER(i, client_t) = 
    up!i?server_t
@@ -47,7 +39,7 @@ DB(t) = save?i
    -> saved!i!next_t(t)
    -> DB(next_t(t))
 
-CONN(i, t0) = (CLIENT(i, t0) [|{| bufdown.i |}|] DOWNBUF(i)) [|{| up.i, down.i |}|] (SERVER(i, t0) [|{| report_queue |}|] REPORTQUEUE(i))
+CONN(i, t0) = CLIENT(i, t0) [|{| up.i, down.i |}|] (SERVER(i, t0) [|{| report_queue |}|] REPORTQUEUE(i))
 SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
 
 
@@ -65,31 +57,31 @@ assert SYSTEM :[divergence-free]
 -- Suppose we limit our specification to say that each
 -- user makes a finite number of changes n.
 MaxInputs(0) = STOP
-MaxInputs(n) = input?i -> MaxInputs(n-1)
+MaxInputs(n) = up?i?t -> MaxInputs(n-1)
 
 -- Suppose we limit inputs to client 0.
 
-OnlyClient(i) = input!i -> OnlyClient(i)
-ClientZeroInput = OnlyClient(0) [|{| input |}|] SYSTEM
+OnlyClient(i) = up!i?t -> OnlyClient(i)
+ClientZeroInput = OnlyClient(0) [|{| up |}|] SYSTEM
 
-OneInputFromClientZero = (OnlyClient(0) [|{| input |}|] MaxInputs(1)) [|{| input |}|] SYSTEM
+OneInputFromClientZero = (OnlyClient(0) [|{| up |}|] MaxInputs(1)) [|{| up |}|] SYSTEM
 
 -- Now we show that a change on client 0 will make it to client 1.
 
-SyncOneInput = input.0 -> render.1.1 -> STOP
-assert SyncOneInput [FD= OneInputFromClientZero \diff(Events, {input.0, render.1.1})
+SyncOneInput = up.0.0 -> render.1.1 -> STOP
+assert SyncOneInput [FD= OneInputFromClientZero \diff(Events, union(productions(up.0), {render.1.1}))
 
 -- Expanding on this: what if we have two changes? We just care that, eventually, both of them get synced.
-SyncTwoInputs = input.0 -> input.0 -> render.1.2 -> STOP
+SyncTwoInputs = up.0.0 -> up.0.1 -> render.1.2 -> STOP
 
-assert SyncTwoInputs [FD= (ClientZeroInput [|{| input |}|] MaxInputs(2)) \diff(Events, {input.0, render.1.2})
+assert SyncTwoInputs [FD= (ClientZeroInput [|{| up |}|] MaxInputs(2)) \diff(Events, union(productions(up.0), {render.1.2}))
 
 -- Can we do this for an arbitrary n changes?
-OneWaySync(n) = input.0 -> OneWaySync'(n, n-1)
+OneWaySync(n) = up.0.0 -> OneWaySync'(n, n-1)
 OneWaySync'(n, 0) = render.1.n -> STOP
-OneWaySync'(n, i) = input.0 -> OneWaySync'(n, i-1)
+OneWaySync'(n, i) = up.0.n-i -> OneWaySync'(n, i-1)
 
-OneSideInputs(n) = (ClientZeroInput [|{| input |}|] MaxInputs(n)) \diff(Events, {input.0, render.1.n})
+OneSideInputs(n) = (ClientZeroInput [|{| up |}|] MaxInputs(n)) \diff(Events, union(productions(up.0), {render.1.n}))
 
 assert OneWaySync(1) [FD= OneSideInputs(1)
 assert OneWaySync(9) [FD= OneSideInputs(9)
@@ -101,16 +93,12 @@ assert OneWaySync(9) [FD= OneSideInputs(9)
 -- Start simple.
 -- Let's just constrain our system to say, first client 0 does a change then client 1 does a change.
 
-AlternateInputs = input.0 -> input.1 -> STOP
+AlternateInputs = up.0.0 -> up.1?t -> STOP
 
--- Then our specification becomes simple:
-TwoWaySync = input.0 -> input.1 -> ((render.0.2 -> render.1.2 -> STOP) |~|
-                                    (render.1.2 -> render.0.2 -> STOP))
+-- Then our specification becomes simple. If client 0 inputs something then client one inputs something, at some point both should call render with the state after both changes hit the database (t=2).
+TwoWaySync = up.0.0 -> ((up.1.0 -> TwoWaySyncRender) |~|
+                        (up.1.1 -> TwoWaySyncRender))
+TwoWaySyncRender = ((render.0.2 -> render.1.2 -> STOP) |~|
+                    (render.1.2 -> render.0.2 -> STOP))
 
-assert TwoWaySync [FD= (SYSTEM [|{| input |}|] AlternateInputs) \diff(Events, {input.0, input.1, render.0.2, render.1.2})
-
--- Issue: our system is (no longer) free of deadlock, probably because of buffer changes. Yup. Basically the same deadlock problem exists here as without the buffer, it just means you have to fill up the buffer first.
--- Really our server should know to send down one event at a time. It might be that it actually will only work this way anyway, as the original file says only one item can be in transit at a time. So what if we rework to make this true?
--- The server then would not take in buffered report queue events until the client "acked" the previous
-
--- Is this deadlock ACTUALLY a problem? The real underlying istuation is that server and client don't have to sync on events, both can send both ways asynchronously. But we pretend that they sync on these.
+assert TwoWaySync [FD= (SYSTEM [|{| up |}|] AlternateInputs) \diff(Events, union(union(productions(up.0), productions(up.1)), {render.0.2, render.1.2}))
