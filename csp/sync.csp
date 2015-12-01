@@ -1,4 +1,4 @@
-NUM_CLIENTS = 2
+NUM_CLIENTS = 3
 NUM_DB_STATES = 10
 CLIENTS = {0..NUM_CLIENTS-1}
 TIMES = {0..NUM_DB_STATES-1}
@@ -40,8 +40,10 @@ DB(t) = save?i
    -> DB(next_t(t))
 
 CONN(i, t0) = CLIENT(i, t0) [|{| up.i, down.i |}|] (SERVER(i, t0) [|{| report_queue |}|] REPORTQUEUE(i))
-SYSTEM = (CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)
+SYSTEM = ((CONN(0,0) [|{| save.0, saved |}|] DB(0)) [|{| save.1, saved |}|] CONN(1,0)) [| diff(productions(save), {save.0, save.1}) |] STOP
 
+CONNS = [| productions(saved) |] i:CLIENTS @ CONN(i, 0)
+SYSTEM' = DB(0) [|{| save, saved |}|] CONNS
 
 -----------------------------------------
 -- Assertions
@@ -112,3 +114,22 @@ Sync'(n, 0) = (render.0.n -> render.1.n -> STOP) |~| (render.1.n -> render.0.n -
 Sync'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> Sync'(n, m-1)
    
 assert Sync(5) [FD= (SYSTEM [|{| up |}|] MaxInputs(5)) \diff(Events, union(productions(up), {render.0.5, render.1.5}))
+
+-----------------------------------------
+-- 3 way sync: changes on 3 clients will sync to all
+-----------------------------------------
+
+- Can we extend our previous result to 3 clients?
+
+SyncThree(n) = |~| i:CLIENTS @ up!i!0 -> SyncThree'(n, n-1)
+SyncThree'(n, 0) = 
+  (render.0.n -> render.1.n -> render.2.n -> STOP) |~|
+  (render.0.n -> render.2.n -> render.1.n -> STOP) |~|
+  (render.1.n -> render.0.n -> render.2.n -> STOP) |~|
+  (render.1.n -> render.2.n -> render.0.n -> STOP) |~|
+  (render.2.n -> render.0.n -> render.1.n -> STOP) |~|
+  (render.2.n -> render.1.n -> render.0.n -> STOP)
+SyncThree'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncThree'(n, m-1)
+
+MaxInputSystem(n) = SYSTEM' [|{| up |}|] MaxInputs(n)
+assert SyncThree(5) [FD= MaxInputSystem(5) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
