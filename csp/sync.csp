@@ -54,7 +54,7 @@ assert SYSTEM :[divergence-free]
 -- One way sync: changes on one client will sync to other client
 -----------------------------------------
 
--- Suppose we limit our specification to say that each
+-- Suppose we limit our implemenetation to say that each
 -- user makes a finite number of changes n.
 MaxInputs(0) = STOP
 MaxInputs(n) = up?i?t -> MaxInputs(n-1)
@@ -102,3 +102,13 @@ TwoWaySyncRender = ((render.0.2 -> render.1.2 -> STOP) |~|
                     (render.1.2 -> render.0.2 -> STOP))
 
 assert TwoWaySync [FD= (SYSTEM [|{| up |}|] AlternateInputs) \diff(Events, union(union(productions(up.0), productions(up.1)), {render.0.2, render.1.2}))
+
+-- Let's extend this to an arbitrary number of inputs from either client (we don't care which). In the end we expect both to render the same DB state.
+-- This is basically the general specification for eventual consistency. We are saying that supposing n finite inputs
+-- from either client, eventually both of the clients get in sync and then stop.
+
+Sync(n) = (up.0.0 -> Sync'(n, n-1)) |~| (up.1.0 -> Sync'(n, n-1))
+Sync'(n, 0) = (render.0.n -> render.1.n -> STOP) |~| (render.1.n -> render.0.n -> STOP)
+Sync'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> Sync'(n, m-1)
+   
+assert Sync(5) [FD= (SYSTEM [|{| up |}|] MaxInputs(5)) \diff(Events, union(productions(up), {render.0.5, render.1.5}))
