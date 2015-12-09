@@ -119,7 +119,7 @@ assert Sync(5) [FD= (SYSTEM [|{| up |}|] MaxInputs(5)) \diff(Events, union(produ
 -- 3 way sync: changes on 3 clients will sync to all
 -----------------------------------------
 
-- Can we extend our previous result to 3 clients?
+-- Can we extend our previous result to 3 clients?
 
 SyncThree(n) = |~| i:CLIENTS @ up!i!0 -> SyncThree'(n, n-1)
 SyncThree'(n, 0) = 
@@ -133,3 +133,21 @@ SyncThree'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncThree'(n, m-1)
 
 MaxInputSystem(n) = SYSTEM' [|{| up |}|] MaxInputs(n)
 assert SyncThree(5) [FD= MaxInputSystem(5) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
+
+-----------------------------------------
+-- N way sync: changes on n clients will sync to all
+-----------------------------------------
+
+sequences({}) = {<>}
+sequences(a) = {<z>^z' | z <- a, z' <- sequences(diff(a, {z}))}
+
+renderAll(sequence, t) = ; i:sequence @ render!i.t -> SKIP
+
+SyncAll(n) = |~| i:CLIENTS @ up!i!0 -> SyncThree'(n, n-1)
+SyncAll'(n, 0) = |~| renderSeq:sequences(CLIENTS) @ renderAll(renderSeq, n)
+SyncAll'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncAll'(n, m-1)
+
+assert SyncAll(9) [FD= MaxInputSystem(9) \diff(Events, union(productions(up), {render.i.9 | i <- CLIENTS}))
+
+-- This proves that given n clients, if we restrict them to x inputs total from any client in any order, eventually all n clients will render the same state i.e. they will be in sync.
+-- Note that this doesn't say anything about timing other except that eventually it will happen. 
