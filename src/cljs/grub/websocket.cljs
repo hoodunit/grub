@@ -7,7 +7,7 @@
             [grub.event :as event])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
-(def DEBUG true)
+(def DEBUG false)
 
 (def location (.-location js/document))
 (def protocol (.-protocol location))
