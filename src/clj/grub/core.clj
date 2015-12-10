@@ -41,8 +41,9 @@
       "development" (server/start (merge server/dev-system options))
       "dev"         (server/start (merge server/dev-system options))
       "e2e"         (let [system (server/start (merge server/dev-system options))]
-                      (e2e/run-e2e-tests system)
+                      (e2e/run-e2e-tests (:database-uri system) (str "http://localhost:" (:port system)))
                       (server/stop system))
+      "e2e-prod"    (e2e/run-manual-e2e-tests (System/getenv "GRUB_PRODUCTION_URL"))
       "production"  (server/start (merge server/prod-system options))
       "prod"        (server/start (merge server/prod-system options))
       (exit 1 (usage summary)))))

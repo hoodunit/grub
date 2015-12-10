@@ -7,9 +7,9 @@
 (defn set-chromedriver-path! []
   (System/setProperty "webdriver.chrome.driver" "bin/chromedriver"))
 
-(defn start-client []
+(defn start-client [server-url]
   (let [driver (new-driver {:browser :chrome})]
-    (taxi/to driver "http://localhost:3000")
+    (taxi/to driver server-url)
     driver))
 
 (defn grub-text [driver elem]
@@ -79,20 +79,27 @@
     (let [client (nth clients (rand-int (count clients)))]
       (make-random-change-on-client client))))
 
-(defn eventual-sync-test [db-uri]
+(defn eventual-sync-test [db-uri server-url]
   (let [num-clients 4
         num-changes 100]
     (println "Starting" num-clients "clients")
-    (let [clients (repeatedly 4 start-client)]
+    (let [clients (repeatedly 4 #(start-client server-url))]
       (println "Making" num-changes "random changes")
       (make-random-changes-on-clients clients)
-      (println "Sleeping for a moment")
-      (Thread/sleep 2000)
-      (println "Verifying clients are in sync")
-      (assert-all-clients-in-sync clients (get-db-grubs db-uri))
-      (println "Closing clients")
-      (doseq [client clients] (stop-client client)))))
+      (if db-uri
+        (do
+          (println "Sleeping for a moment")
+          (Thread/sleep 2000)
+          (println "Verifying clients are in sync")
+          (assert-all-clients-in-sync clients (get-db-grubs db-uri))
+          (println "Closing clients")
+          (doseq [client clients] (stop-client client)))
+        (println "Verify clients are in sync")))))
 
-(defn run-e2e-tests [system]
+(defn run-e2e-tests [db-uri server-url]
   (set-chromedriver-path!)
-  (eventual-sync-test (:database-uri system)))
+  (eventual-sync-test db-uri server-url))
+
+(defn run-manual-e2e-tests [server-url]
+  (set-chromedriver-path!)
+  (eventual-sync-test nil server-url))
