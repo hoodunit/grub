@@ -132,9 +132,6 @@
 (defn disconnect [conn]
   (d/release conn))
 
-(defn get-history-state [db-conn tag]
-  (get-current-state db-conn))
-
 (defn diff-tx [diff]
   (let [grubs-upsert-tx (->> diff
                              :grubs
@@ -164,3 +161,24 @@
 
 (defn patch-state! [conn diff]
   @(d/transact conn (diff-tx diff)))
+
+(defn report-queue-channel [conn]
+  (let [queue (d/tx-report-queue conn)
+        changes (chan)
+        pub (a/mult changes)]
+    (go (loop []
+          (let [report (.. queue take)]
+            (>! changes report)
+            (recur))))
+    pub))
+
+(defn report-queue-subscribe [report-ch]
+  (let [reports (chan)
+        report-buffer (chan (a/sliding-buffer 1))]
+    (a/tap report-ch reports)
+    (a/pipe reports report-buffer)
+    {:report-queue report-buffer
+     :tap report-ch}))
+
+(defn report-queue-unsubscribe [report-ch tap]
+  (a/untap report-ch tap))

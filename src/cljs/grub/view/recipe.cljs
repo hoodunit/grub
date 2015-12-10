@@ -6,8 +6,7 @@
             [sablono.core :refer-macros [html]]
             [cljs.core.async :as a :refer [<! put! chan]]
             [cljs-uuid.core :as uuid])
-  (:require-macros [grub.macros :refer [log logs]]
-                   [cljs.core.async.macros :refer [go go-loop]]))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn new-recipe [name grubs directions]
   {:id (str "recipe-" (uuid/make-random))

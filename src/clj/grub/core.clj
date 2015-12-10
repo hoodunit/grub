@@ -3,6 +3,7 @@
   (:require [grub.websocket :as ws]
             [grub.db :as db]
             [grub.server-sync :as sync]
+            [grub.test.e2e.sync :as e2e]
             [ring.middleware.resource :as resource]
             [ring.middleware.content-type :as content-type]
             [ring.util.response :as resp]
@@ -49,18 +50,21 @@
    :port         3000
    :stop-server  nil})
 
-(defn sync-client-with-db! [ws-channel db-conn]
+(defn sync-client-with-db! [ws-channel db-conn db-reports]
   (let [from-client (chan)
         to-client (chan)
         diffs (chan)
         full-sync-reqs (chan)
+        {:keys [report-queue tap]} (db/report-queue-subscribe db-reports)
         on-close (fn []
+                   (db/report-queue-unsubscribe db-reports tap)
                    (a/close! from-client)
                    (a/close! to-client)
                    (a/close! diffs)
-                   (a/close! full-sync-reqs))]
+                   (a/close! full-sync-reqs)
+                   )]
     (ws/add-connected-client! ws-channel to-client from-client on-close)
-    (sync/sync-server! to-client diffs full-sync-reqs db-conn)
+    (sync/start-sync! to-client diffs full-sync-reqs db-conn report-queue)
     (go (loop [] (let [event (<! from-client)]
                    (cond
                      (nil? event) nil                       ;; drop out of loop
@@ -68,10 +72,10 @@
                      (= (:type event) :full-sync-request) (do (>! full-sync-reqs event) (recur))
                      :else (do (println "Unknown event:" event) (recur))))))))
 
-(defn handle-websocket [handler db-conn]
+(defn handle-websocket [handler db-conn db-reports]
   (fn [{:keys [websocket?] :as request}]
     (if websocket?
-      (httpkit/with-channel request ws-channel (sync-client-with-db! ws-channel db-conn))
+      (httpkit/with-channel request ws-channel (sync-client-with-db! ws-channel db-conn db-reports))
       (handler request))))
 
 (defn handle-root [handler index]
@@ -86,20 +90,22 @@
       (resp/not-found "")
       (handler req))))
 
-(defn make-handler [{:keys [index]} db-conn]
+(defn make-handler [{:keys [index]} db-conn db-reports]
   (-> (fn [req] (resp/not-found "Not found"))
       (resource/wrap-resource "public")
       (content-type/wrap-content-type)
       (handle-root index)
-      (handle-websocket db-conn)
+      (handle-websocket db-conn db-reports)
       (wrap-bounce-favicon)))
 
 (defn start [{:keys [port database-uri] :as system}]
   (let [db-conn (db/connect database-uri)
-        stop-server (httpkit/run-server (make-handler system db-conn) {:port port})]
+        db-reports (db/report-queue-channel db-conn)
+        stop-server (httpkit/run-server (make-handler system db-conn db-reports) {:port port})]
     (println "Started server on localhost:" port)
     (assoc system 
       :db-conn db-conn
+      :db-reports db-reports
       :stop-server stop-server)))
 
 (defn stop [{:keys [db-conn stop-server] :as system}]
@@ -143,6 +149,9 @@
     (case (first arguments)
       "development" (start (merge dev-system options))
       "dev"         (start (merge dev-system options))
+      "e2e"         (let [system (start (merge dev-system options))]
+                      (e2e/run-e2e-tests system)
+                      (stop system))
       "production"  (start (merge prod-system options))
       "prod"        (start (merge prod-system options))
       (exit 1 (usage summary)))))

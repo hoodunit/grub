@@ -4,8 +4,7 @@
             [om.core :as om :include-macros true]
             [sablono.core :refer-macros [html]]
             [cljs.core.async :as a :refer [<! chan]])
-  (:require-macros [grub.macros :refer [log logs]]
-                   [cljs.core.async.macros :refer [go go-loop]]))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn add-recipe [owner name grubs directions]
   (when (and (not (empty? name))

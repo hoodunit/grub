@@ -36,8 +36,6 @@
                        :<events <events
                        :add-grubs-ch add-grubs-ch}
               :tx-listen (fn [{:keys [new-state tag]} _]
-                           (println "new ui state?" tag)
                            (when (= tag :local)
-                             (println "new ui state")
                              (put! new-ui-states new-state)))})
     nil))

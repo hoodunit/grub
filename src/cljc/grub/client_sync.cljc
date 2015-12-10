@@ -1,57 +1,65 @@
 (ns grub.client-sync
   (:require [grub.diff :as diff]
             [grub.state :as state]
+            [grub.event :as event]
     #?(:cljs [cljs.core.async :as a :refer [<! >! chan]]
        :clj [clojure.core.async :as a :refer [<! >! chan go]]))
   #?(:cljs (:require-macros [cljs.core.async.macros :refer [go]])))
 
-(def DEBUG true)
+(def DEBUG false)
 
-(def full-sync-request {:type :full-sync-request})
+(defn sync-client! [initial-state to-server ui-state-buffer diffs full-syncs connected ui-state]
+  (go (loop [client-state initial-state
+             server-state initial-state
+             awaiting-ack? false]
+        (let [channels (if awaiting-ack?
+                         [diffs full-syncs connected]
+                         [diffs full-syncs connected ui-state-buffer])
+              [event ch] (a/alts! channels)]
+          (when DEBUG (println event))
+          (when-not (nil? event)
+            (condp = ch
+              full-syncs (let [{:keys [full-state]} event]
+                           (reset! ui-state full-state)
+                           (when DEBUG (println "Full sync, new ui state tag:" (:tag @ui-state)))
+                           (recur full-state full-state false))
+              ui-state-buffer (let [new-ui-state @ui-state]
+                                (if (state/state= server-state new-ui-state)
+                                  (recur server-state server-state false)
+                                  (do
+                                    (when DEBUG (println "Changes, current ui state tag:" (:tag new-ui-state)))
+                                    (>! to-server (event/diff-msg server-state new-ui-state))
+                                    (recur new-ui-state server-state true))))
+              diffs (let [{:keys [diff]} event]
+                      (if (= (:shadow-tag diff) (:tag server-state))
+                        ;; Our state is based on what they think it's based on
+                        (let [;; Update server state we are based on
+                              new-server-state (diff/patch-state client-state diff)
+                              ;; Apply changes directly to UI
+                              new-client-state (swap! ui-state diff/patch-state diff)]
+                          (when DEBUG (println "Applied diff, new ui tag:" (:tag new-client-state)))
+                          (when DEBUG (println "Applied diff, new server tag:" (:tag new-server-state)))
+                          ;; If there are any diffs to reconcile, they will come back through input buffer
+                          (recur new-client-state new-server-state false))
 
-(defn diff-msg [shadow state]
-  (let [diff (diff/diff-states shadow state)]
-    {:type :diff
-     :diff diff
-     :tag (:tag state)
-     :shadow-tag (:tag shadow)}))
+                        ;; State mismatch, do full sync
+                        (do (>! to-server (event/full-sync-request))
+                            (recur client-state server-state true))))
+              connected
+              ;; Need to make sure we are in sync, send diff
+              (do
+                (when DEBUG (println "Reconnected, sending diff"))
+                (>! to-server (event/diff-msg server-state @ui-state))
+                (recur client-state server-state true))
 
-(defn update-states [states diff]
-  (let [state (state/get-latest states)
-        new-state (diff/patch-state state diff)]
-    (state/add states new-state)))
+              (throw "Bug: Received a sync event on an unknown channel")))))))
 
-(defn sync-client! [to-server new-ui-states diffs full-syncs ui-state]
+(defn start-sync! [to-server new-ui-states diffs full-syncs connected ui-state]
   (let [ui-state-buffer (chan (a/sliding-buffer 1))]
     (a/pipe new-ui-states ui-state-buffer)
-    (reset! ui-state state/empty-state)
-    (go (loop [state (assoc @ui-state :tag 0)
-               shadow state
-               awaiting-ack? false]
-          (let [channels (if awaiting-ack? [diffs full-syncs] [diffs full-syncs ui-state-buffer])]
-            (let [[event ch] (a/alts! channels)]
-              (when DEBUG (println event))
-              (when-not (nil? event)
-                (condp = ch
-                  ui-state-buffer (let [new-state (assoc event :tag (inc (:tag state)))]
-                                    (println "new-state:\n" new-state)
-                                    (>! to-server (diff-msg shadow new-state))
-                                    (recur new-state shadow true))
-                  full-syncs (let [{:keys [full-state tag]} event
-                                   new-tag (inc (:tag state))
-                                   new-state (assoc full-state :tag new-tag)]
-                               (reset! ui-state full-state)
-                               (recur new-state (assoc full-state :tag tag) false))
-                  diffs (let [{:keys [diff shadow-tag tag]} event]
-                          (cond (< shadow-tag (:tag state)) (recur state shadow false)
-                                (= shadow-tag (:tag state))
-                                (let [new-shadow (assoc (diff/patch-state state diff) :tag tag)
-                                      new-state (assoc (swap! ui-state diff/patch-state diff) :tag (inc (:tag state)))]
-                                  (if (state/state= new-shadow new-state)
-                                    (recur new-state new-shadow false)
-                                    (do (>! to-server (diff-msg new-shadow new-state))
-                                        (recur new-state new-shadow true))))
-                                :else (do (>! to-server (full-sync-request (:tag shadow)))
-                                          (recur state shadow true))))
-                  (println "An error occurred, received value on unknown channel")))))))
-    (a/put! to-server full-sync-request)))
+    (go (<! connected)
+        (>! to-server (event/full-sync-request))
+        (let [full-sync-event (<! full-syncs)
+              initial-state (:full-state full-sync-event)]
+          (reset! ui-state initial-state)
+          (sync-client! initial-state to-server ui-state-buffer diffs full-syncs connected ui-state)))))

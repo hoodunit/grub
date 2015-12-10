@@ -1,53 +1,71 @@
 (ns grub.server-sync
-  (:require [grub.diff :as diff]
-            [grub.state :as state]
+  (:require [grub.db :as db]
+            [grub.diff :as diff]
+            [grub.event :as event]
+            [grub.util :as util]
             [datomic.api :as d]
-            [clojure.core.async :as a :refer [<! >! chan go]]
-            [grub.db :as db]
-            [clojure.pprint :refer [pprint]]))
+            [clojure.core.async :as a :refer [<! >! chan go]]))
 
-(defn full-sync [state tag]
-  {:type :full-sync
-   :full-state state
-   :tag tag})
+(def DEBUG false)
 
-(def empty-state state/empty-state)
+(defn make-printer []
+  (let [print-chan (chan)]
+    (go (loop []
+          (println (<! print-chan))
+          (recur)))
+    print-chan))
 
-(defn diff-msg [shadow state]
-  (println "diff-msg")
-  (let [diff (diff/diff-states shadow state)]
-    {:type :diff
-     :diff diff
-     :tag (:tag state)
-     :shadow-tag (:tag shadow)}))
+(def debug-print
+  (let [printer (make-printer)]
+    (fn [msg] (when DEBUG (a/put! printer msg)))))
 
-(defn sync-server! [to-client diffs full-sync-reqs db-conn]
-  (go (loop []
-        (let [[event ch] (a/alts! [full-sync-reqs diffs])]
-          (when-not (nil? event)
-            (condp = ch
-              diffs
-              (let [{:keys [diff shadow-tag tag]} event
-                    client-shadow-db (d/as-of (d/db db-conn) shadow-tag)
-                    client-shadow-state (db/get-current-db-state client-shadow-db)
-                    {:keys [db-after]} (db/patch-state! db-conn diff)
-                    new-tag (d/basis-t db-after)
-                    new-state (assoc (db/get-current-db-state db-after) :tag new-tag)
-                    new-shadow (assoc (diff/patch-state client-shadow-state diff) :tag tag)
-                    return-diff (diff-msg new-shadow new-state)]
-                (println "************************* as-of:" new-tag)
-                (println "client-shadow:" (pprint (dissoc client-shadow-state :recipes)))
-                (println "new-state:" (pprint (dissoc new-state :recipes)))
-                (println "new-shadow" (pprint (dissoc new-shadow :recipes)))
-                ;(println "**************************history-state:" history-state)
-                ;(println "**************************new-state:" new-state)
-                ;(println "**************************new-shadow:" new-shadow)
-                ;(println "return diff:" return-diff)
-                (>! to-client return-diff)
-                (recur))
+(defn rand-id [] (util/rand-str 10))
 
-              full-sync-reqs
-              (do (>! to-client (full-sync (db/get-current-state db-conn) (d/basis-t (d/db db-conn))))
-                  (recur))
-              (do (println "Unhandled event:" event)
-                  (recur))))))))
+(defn start-sync! [to-client diffs full-sync-reqs db-conn report-queue]
+  (let [id (rand-id)]
+    (go (loop [client-tag nil
+               awaiting-state? true]
+          (let [channels (if awaiting-state? [full-sync-reqs diffs] [full-sync-reqs diffs report-queue])
+                [event ch] (a/alts! channels)]
+            (when-not (nil? event)
+              (condp = ch
+                diffs
+                (let [{:keys [diff shadow-tag tag]} event
+                      client-shadow-db (d/as-of (d/db db-conn) shadow-tag)
+                      client-shadow-state (db/get-current-db-state client-shadow-db)
+                      a (debug-print (str id " " "Got diff from client: " shadow-tag " -> " tag))
+                      {:keys [db-after]} (db/patch-state! db-conn diff)
+                      new-tag (d/basis-t db-after)
+                      new-state (assoc (db/get-current-db-state db-after) :tag new-tag)
+                      new-shadow (assoc (diff/patch-state client-shadow-state diff) :tag tag)
+                      return-diff (event/diff-msg new-shadow new-state)]
+                  (debug-print (str id " " "Send diff to client : " tag " -> " new-tag))
+                  (>! to-client return-diff)
+                  (recur new-tag false))
+
+                full-sync-reqs
+                (let [current-db (d/db db-conn)
+                      current-tag (d/basis-t current-db)
+                      current-state (assoc (db/get-current-db-state current-db) :tag current-tag)]
+                  (debug-print (str id " " "Full sync client to : " current-tag))
+                  (>! to-client (event/full-sync current-state))
+                  (recur current-tag false))
+
+                report-queue
+                (let [tx-report event
+                      new-db-state (:db-after tx-report)
+                      new-tag (d/basis-t new-db-state)]
+                  (if (>= client-tag new-tag)
+                    ;; Already up to date, do nothing
+                    (do (debug-print (str id " " "Got report " new-tag " but client already up-to-date at " new-tag))
+                        (recur client-tag false))
+
+                    ;; Changes, send them down
+                    (let [new-state (assoc (db/get-current-db-state new-db-state) :tag new-tag)
+                          client-db (d/as-of (d/db db-conn) client-tag)
+                          client-state (assoc (db/get-current-db-state client-db) :tag client-tag)]
+                      (debug-print (str id " " "Got report, send diff to client: " client-tag " -> " new-tag))
+                      (>! to-client (event/diff-msg client-state new-state))
+                      (recur new-tag false))))
+
+                (throw (Throwable. "Bug: Received an event on unknown channel")))))))))

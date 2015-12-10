@@ -4,8 +4,7 @@
             [om.core :as om :include-macros true]
             [sablono.core :refer-macros [html]]
             [cljs.core.async :refer [<! chan]])
-  (:require-macros [grub.macros :refer [log logs]]
-                   [cljs.core.async.macros :refer [go go-loop]]))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defn view [recipes owner]
   (reify

@@ -15,10 +15,14 @@
                  [org.clojure/tools.cli "0.3.1"]
                  [sablono "0.3.4"]
                  [cljs-uuid "0.0.4"]
-                 [midje "1.6.3"]
+                 [midje "1.8.2"]
                  [com.cognitect/transit-clj "0.8.275"]
                  [com.cognitect/transit-cljs "0.8.220"]
-                 [com.datomic/datomic-pro "0.9.5173" :exclusions [com.fasterxml.jackson.core/jackson-annotations]]]
+                 [com.datomic/datomic-pro "0.9.5344" 
+                  :exclusions [com.fasterxml.jackson.core/jackson-annotations
+                               org.apache.httpcomponents/httpclient]]
+                 [clj-webdriver "0.7.2"]
+                 [org.seleniumhq.selenium/selenium-java "2.47.0"]]
   :repositories {"my.datomic.com" {:url "https://my.datomic.com/repo"
                                    :creds :gpg}}
   :profiles {:uberjar {:aot :all}
