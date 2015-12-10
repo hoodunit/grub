@@ -10,28 +10,20 @@
                  [http-kit "2.1.19"]
                  [ring/ring-core "1.3.2" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5"]
-                 [prismatic/dommy "1.1.0"]
-                 [com.novemberain/monger "2.1.0"]
                  [org.clojure/tools.cli "0.3.1"]
                  [sablono "0.3.4"]
                  [cljs-uuid "0.0.4"]
                  [midje "1.8.2"]
                  [com.cognitect/transit-clj "0.8.275"]
                  [com.cognitect/transit-cljs "0.8.220"]
-                 [com.datomic/datomic-pro "0.9.5344" 
-                  :exclusions [com.fasterxml.jackson.core/jackson-annotations
-                               org.apache.httpcomponents/httpclient]]
+                 [com.datomic/datomic-pro "0.9.5344" :exclusions [com.fasterxml.jackson.core/jackson-annotations
+                                                                  org.apache.httpcomponents/httpclient]]
                  [clj-webdriver "0.7.2"]
                  [org.seleniumhq.selenium/selenium-java "2.47.0"]]
-  :repositories {"my.datomic.com" {:url "https://my.datomic.com/repo"
-                                   :creds :gpg}}
-  :profiles {:uberjar {:aot :all}
-             :dev {:source-paths ["dev"]
-                   :dependencies [[org.clojure/tools.namespace "0.2.10"]
-                                  [org.clojure/java.classpath "0.2.2"]]}}
+  :repositories {"my.datomic.com" {:url "https://my.datomic.com/repo" :creds :gpg}}
+  :profiles {:uberjar {:aot :all}}
   :min-lein-version "2.1.2"
-  :plugins [[lein-cljsbuild "1.1.1"]
-            [lein-ring "0.8.6"]]
+  :plugins [[lein-cljsbuild "1.1.1"]]
   :cljsbuild {:builds {:dev  {:source-paths ["src/cljs" "src/cljc"]
                               :compiler     {:output-dir    "resources/public/js/out"
                                              :output-to     "resources/public/js/grub.js"
