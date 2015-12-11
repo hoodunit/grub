@@ -21,7 +21,8 @@
                  [clj-webdriver "0.7.2"]
                  [org.seleniumhq.selenium/selenium-java "2.47.0"]]
   :repositories {"my.datomic.com" {:url "https://my.datomic.com/repo" :creds :gpg}}
-  :profiles {:uberjar {:aot :all}}
+  :profiles {:uberjar {:aot :all}
+             :dev {:plugins [[lein-midje "3.1.3"]]}}
   :min-lein-version "2.1.2"
   :plugins [[lein-cljsbuild "1.1.1"]]
   :cljsbuild {:builds {:dev  {:source-paths ["src/cljs" "src/cljc"]
