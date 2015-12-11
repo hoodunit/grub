@@ -1,5 +1,5 @@
 NUM_CLIENTS = 3
-NUM_DB_STATES = 10
+NUM_DB_STATES = 8
 CLIENTS = {0..NUM_CLIENTS-1}
 TIMES = {0..NUM_DB_STATES-1}
 
@@ -10,11 +10,13 @@ channel connect:CLIENTS
 channel up:CLIENTS.TIMES
 channel resync:CLIENTS.TIMES
 channel down:CLIENTS.TIMES.TIMES
+channel downbuf:CLIENTS.TIMES.TIMES
 channel saved:CLIENTS.TIMES
 channel query_db:CLIENTS.TIMES
 channel report_queue:CLIENTS.TIMES
 
-next_t(t) = (t + 1) % NUM_DB_STATES
+--next_t(t) = (t + 1) % NUM_DB_STATES
+next_t(t) = (t + 1)
 
 CLIENT(i, t) = up!i!t -> CLIENT'(i, t) [] CLIENT'(i, t)
 
@@ -29,22 +31,31 @@ DISCONNECTED_CLIENT(i, t) =
   -> resync!i!t
   -> CLIENT'(i, t)
 
+DOWNBUF(i) = downbuf!i?t?t' -> DOWNBUF_FULL(i, t, t')
+[] disconnect!i -> DISCONNECTED_DOWNBUF(i)
+DOWNBUF_FULL(i, t, t') =
+   down!i!t!t' -> DOWNBUF(i)
+[] downbuf!i?tnew?tnew' -> DOWNBUF_FULL(i, tnew, tnew')
+[] disconnect!i -> DISCONNECTED_DOWNBUF(i)
+
+DISCONNECTED_DOWNBUF(i) = connect!i -> DOWNBUF(i)
+
 SERVER(i, client_t) =
    (report_queue?j:diff(CLIENTS,{i})?new_server_t
    -> if new_server_t <= client_t
       then SERVER(i, client_t)
-      else down!i!client_t!new_server_t -> SERVER(i, new_server_t))
+      else downbuf!i!client_t!new_server_t -> SERVER(i, new_server_t))
 [] SERVER'(i)
 
 SERVER'(i) =
    resync!i?client_t
    -> query_db!i?db_t
-   -> down!i!client_t!db_t
+   -> downbuf!i!client_t!db_t
    -> SERVER(i, db_t)
 [] up!i?server_t
    -> save!i
    -> saved!i?new_server_t
-   -> down!i!server_t!new_server_t
+   -> downbuf!i!server_t!new_server_t
    -> SERVER(i, new_server_t)
 [] disconnect!i -> DISCONNECTED_SERVER(i)
 
@@ -64,7 +75,7 @@ DISCONNECTED_REPORTQUEUE(i) = connect!i -> REPORTQUEUE(i)
 DB(t) = save?i -> saved!i!next_t(t) -> DB(next_t(t))
 [] query_db?i!t -> DB(t)
 
-CONN(i, t0) = CLIENT(i, t0) [|{| up.i, down.i, resync.i, connect.i, disconnect.i |}|] (SERVER(i, t0) [|{| report_queue, connect.i, disconnect.i |}|] REPORTQUEUE(i))
+CONN(i, t0) = (CLIENT(i, t0) [|{| down.i, connect.i, disconnect.i |}|] DOWNBUF(i)) [|{| up.i, downbuf.i, resync.i, connect.i, disconnect.i |}|] (SERVER(i, t0) [|{| report_queue, connect.i, disconnect.i |}|] REPORTQUEUE(i))
 CONNS = [| productions(saved) |] i:CLIENTS @ CONN(i, 0)
 SYSTEM = DB(0) [|{| save, saved, query_db |}|] CONNS
 
