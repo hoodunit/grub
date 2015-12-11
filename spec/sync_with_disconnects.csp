@@ -8,8 +8,10 @@ channel render:CLIENTS.TIMES
 channel disconnect:CLIENTS
 channel connect:CLIENTS
 channel up:CLIENTS.TIMES
+channel resync:CLIENTS.TIMES
 channel down:CLIENTS.TIMES.TIMES
 channel saved:CLIENTS.TIMES
+channel query_db:CLIENTS.TIMES
 channel report_queue:CLIENTS.TIMES
 
 next_t(t) = (t + 1) % NUM_DB_STATES
@@ -17,39 +19,54 @@ next_t(t) = (t + 1) % NUM_DB_STATES
 CLIENT(i, t) = up!i!t -> CLIENT'(i, t) [] CLIENT'(i, t)
 
 CLIENT'(i, t) =
-   down!i?client_t?server_t
-   -> render!i!server_t
-   -> CLIENT(i, server_t)
---[] disconnect!i -> DISCONNECTED_CLIENT(i, t)
+  (down!i?client_t?server_t
+   -> if server_t == t then CLIENT(i, server_t)
+      else render!i!server_t -> CLIENT(i, server_t))
+  [] disconnect!i -> DISCONNECTED_CLIENT(i, t)
 
---DISCONNECTED_CLIENT(i, t) =
---  connect!i
---  -> up!i!t
---  -> CLIENT'(i, t)
+DISCONNECTED_CLIENT(i, t) =
+  connect!i
+  -> resync!i!t
+  -> CLIENT'(i, t)
 
 SERVER(i, client_t) =
-   up!i?server_t
+   (report_queue?j:diff(CLIENTS,{i})?new_server_t
+   -> if new_server_t <= client_t
+      then SERVER(i, client_t)
+      else down!i!client_t!new_server_t -> SERVER(i, new_server_t))
+[] SERVER'(i)
+
+SERVER'(i) =
+   resync!i?client_t
+   -> query_db!i?db_t
+   -> down!i!client_t!db_t
+   -> SERVER(i, db_t)
+[] up!i?server_t
    -> save!i
    -> saved!i?new_server_t
    -> down!i!server_t!new_server_t
    -> SERVER(i, new_server_t)
-[] report_queue?j:diff(CLIENTS,{i})?new_server_t
-   -> if new_server_t == client_t
-      then SERVER(i, client_t)
-      else down!i!client_t!new_server_t
-        -> SERVER(i, new_server_t)
+[] disconnect!i -> DISCONNECTED_SERVER(i)
 
-REPORTQUEUE(i) = saved?j:diff(CLIENTS,{i})?t -> REPORTQUEUE'(i, j, t)
-REPORTQUEUE'(i, j, t) = saved?j':diff(CLIENTS,{i})?new_t -> REPORTQUEUE'(i, j', new_t)
-   [] report_queue!j!t -> REPORTQUEUE(i)
+DISCONNECTED_SERVER(i) = connect!i -> SERVER'(i)
 
-DB(t) = save?i
-   -> saved!i!next_t(t)
-   -> DB(next_t(t))
+REPORTQUEUE(i) =
+   saved?j:diff(CLIENTS,{i})?t -> REPORTQUEUE'(i, j, t)
+[] disconnect!i -> DISCONNECTED_REPORTQUEUE(i)
 
-CONN(i, t0) = CLIENT(i, t0) [|{| up.i, down.i |}|] (SERVER(i, t0) [|{| report_queue |}|] REPORTQUEUE(i))
+REPORTQUEUE'(i, j, t) =
+   saved?j':diff(CLIENTS,{i})?new_t -> REPORTQUEUE'(i, j', new_t)
+[] report_queue!j!t -> REPORTQUEUE(i)
+[] disconnect!i -> DISCONNECTED_REPORTQUEUE(i)
+
+DISCONNECTED_REPORTQUEUE(i) = connect!i -> REPORTQUEUE(i)
+
+DB(t) = save?i -> saved!i!next_t(t) -> DB(next_t(t))
+[] query_db?i!t -> DB(t)
+
+CONN(i, t0) = CLIENT(i, t0) [|{| up.i, down.i, resync.i, connect.i, disconnect.i |}|] (SERVER(i, t0) [|{| report_queue, connect.i, disconnect.i |}|] REPORTQUEUE(i))
 CONNS = [| productions(saved) |] i:CLIENTS @ CONN(i, 0)
-SYSTEM = DB(0) [|{| save, saved |}|] CONNS
+SYSTEM = DB(0) [|{| save, saved, query_db |}|] CONNS
 
 -----------------------------------------
 -- Basic assertions
@@ -72,19 +89,52 @@ MaxInputSystem(n) = SYSTEM [|{| up |}|] MaxInputs(n)
 -- N way sync: changes on n clients will sync to all
 -----------------------------------------
 
-
 sequences({}) = {<>}
 sequences(a) = {<z>^z' | z <- a, z' <- sequences(diff(a, {z}))}
 
 renderAll(sequence, t) = ; i:sequence @ render!i.t -> SKIP
 
-SyncAll(n) = |~| i:CLIENTS @ up!i!0 -> SyncAll'(n, n-1)
+SyncAll(n) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncAll'(n, n-1)
 SyncAll'(n, 0) = |~| renderSeq:sequences(CLIENTS) @ renderAll(renderSeq, n); STOP
 SyncAll'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncAll'(n, m-1)
 
-assert SyncAll(3) [FD= MaxInputSystem(3) \diff(Events, union(productions(up), {render.i.3 | i <- CLIENTS}))
-assert SyncAll(5) [FD= MaxInputSystem(5) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
-assert SyncAll(9) [FD= MaxInputSystem(9) \diff(Events, union(productions(up), {render.i.9 | i <- CLIENTS}))
+-- If we constrain this system to never disconnect, it should behave just as the prior system
+assert SyncAll(3) [FD= (MaxInputSystem(3) [|{| disconnect |}|] STOP) \diff(Events, union(productions(up), {render.i.3 | i <- CLIENTS}))
+assert SyncAll(5) [FD= (MaxInputSystem(5) [|{| disconnect |}|] STOP) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
+assert SyncAll(9) [FD= (MaxInputSystem(9) [|{| disconnect |}|] STOP) \diff(Events, union(productions(up), {render.i.9 | i <- CLIENTS}))
 
--- This proves that given n clients, if we restrict them to x inputs total from any client in any order, eventually all n clients will render the same state i.e. they will be in sync.
--- Note that this doesn't say anything about timing other except that eventually it will happen.
+
+
+-- We want to make this same assertion including an arbitrary number of disconnects, but with all clients
+-- ending in a connect state. Let's constrain our system to require each process to disconnect at least once
+-- but then end up connected.
+
+-- For starters, let's just say each process MUST disconnect once and then reconnect
+OneDisconnectForAll = ||| i:CLIENTS @ disconnect!i -> connect!i -> STOP
+
+OneDisconnectSystem(inputs) =
+  (SYSTEM [|{| up |}|] MaxInputs(inputs)) [|{| connect, disconnect |}|] OneDisconnectForAll
+
+assert SyncAll(3) [FD= OneDisconnectSystem(3) \diff(Events, union(productions(up), {render.i.3 | i <- CLIENTS}))
+
+-- The issue here now is that we can have more render events than we permit because of the connection syncs.
+-- One fix would be to change our implementation so it doesn't actually save if the client hasn't changed.
+-- Or we could change the spec so that it doesn't actually care what t they end up on, just so they all end
+-- up on the same t eventually
+
+
+
+connectAll(sequence, n) = ; i:sequence @ connect!i -> SKIP
+
+isConnected = < true | n:seq(CLIENTS) >
+
+AllowNDisconnects(n) = AllowNDisconnects'(n, n)
+AllowNDisconnects'(n, 0) = |~| connSeq:sequences(CLIENTS) @ connectAll(connSeq, n); SKIP
+AllowNDisconnects'(n, m) =
+   connect?i -> AllowNDisconnects'(n, m)
+[] disconnect?i -> AllowNDisconnects'(n, m-1)
+
+InputsNAndDisconnectsM(inputs, disconnects) =
+  (SYSTEM [|{| up |}|] MaxInputs(inputs)) [|{| connect, disconnect |}|] AllowNDisconnects(disconnects)
+
+--assert SyncAll(3) [FD= InputsNAndDisconnectsM(3, 5) \diff(Events, union(productions(up), {render.i.3 | i <- CLIENTS}))
