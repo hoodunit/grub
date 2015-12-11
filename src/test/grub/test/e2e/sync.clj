@@ -33,10 +33,10 @@
     (set (map (partial grub-elem-data driver) elems))))
 
 (defn click-random-grub [driver]
-  (let [elems (get-grub-elems driver)
-        random-elem (nth elems (rand-int (count elems)))]
-    (try (taxi/click driver random-elem)
-         (catch Exception e (println "Click failed")))))
+  (try (let [elems (get-grub-elems driver)
+             random-elem (nth elems (rand-int (count elems)))]
+         (taxi/click driver random-elem))
+       (catch Exception e (println "Click failed"))))
 
 (defn add-grub-btn [driver]
   (taxi/element driver "#add-grub-btn"))
