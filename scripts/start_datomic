@@ -1,4 +1,3 @@
 #!/bin/bash
-DATOMIC_HOME=$HOME/app/datomic-pro-0.9.5173
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-$DATOMIC_HOME/bin/transactor $DIR/transactor.properties
+$DATOMIC_HOME/bin/transactor $DATOMIC_TRANSACTOR_PROPERTIES_DIR/transactor.properties
