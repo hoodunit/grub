@@ -1,0 +1,90 @@
+NUM_CLIENTS = 3
+NUM_DB_STATES = 10
+CLIENTS = {0..NUM_CLIENTS-1}
+TIMES = {0..NUM_DB_STATES-1}
+
+channel save:CLIENTS
+channel render:CLIENTS.TIMES
+channel disconnect:CLIENTS
+channel connect:CLIENTS
+channel up:CLIENTS.TIMES
+channel down:CLIENTS.TIMES.TIMES
+channel saved:CLIENTS.TIMES
+channel report_queue:CLIENTS.TIMES
+
+next_t(t) = (t + 1) % NUM_DB_STATES
+
+CLIENT(i, t) = up!i!t -> CLIENT'(i, t) [] CLIENT'(i, t)
+
+CLIENT'(i, t) =
+   down!i?client_t?server_t
+   -> render!i!server_t
+   -> CLIENT(i, server_t)
+--[] disconnect!i -> DISCONNECTED_CLIENT(i, t)
+
+--DISCONNECTED_CLIENT(i, t) =
+--  connect!i
+--  -> up!i!t
+--  -> CLIENT'(i, t)
+
+SERVER(i, client_t) =
+   up!i?server_t
+   -> save!i
+   -> saved!i?new_server_t
+   -> down!i!server_t!new_server_t
+   -> SERVER(i, new_server_t)
+[] report_queue?j:diff(CLIENTS,{i})?new_server_t
+   -> if new_server_t == client_t
+      then SERVER(i, client_t)
+      else down!i!client_t!new_server_t
+        -> SERVER(i, new_server_t)
+
+REPORTQUEUE(i) = saved?j:diff(CLIENTS,{i})?t -> REPORTQUEUE'(i, j, t)
+REPORTQUEUE'(i, j, t) = saved?j':diff(CLIENTS,{i})?new_t -> REPORTQUEUE'(i, j', new_t)
+   [] report_queue!j!t -> REPORTQUEUE(i)
+
+DB(t) = save?i
+   -> saved!i!next_t(t)
+   -> DB(next_t(t))
+
+CONN(i, t0) = CLIENT(i, t0) [|{| up.i, down.i |}|] (SERVER(i, t0) [|{| report_queue |}|] REPORTQUEUE(i))
+CONNS = [| productions(saved) |] i:CLIENTS @ CONN(i, 0)
+SYSTEM = DB(0) [|{| save, saved |}|] CONNS
+
+-----------------------------------------
+-- Basic assertions
+-----------------------------------------
+
+assert SYSTEM :[deadlock free [F]]
+assert SYSTEM :[divergence-free]
+
+-----------------------------------------
+-- Helper functions
+-----------------------------------------
+
+-- Suppose we want to limit our system to n inputs.
+-- This makes the problem computationally tractable.
+MaxInputs(0) = STOP
+MaxInputs(n) = up?i?t -> MaxInputs(n-1)
+MaxInputSystem(n) = SYSTEM [|{| up |}|] MaxInputs(n)
+
+-----------------------------------------
+-- N way sync: changes on n clients will sync to all
+-----------------------------------------
+
+
+sequences({}) = {<>}
+sequences(a) = {<z>^z' | z <- a, z' <- sequences(diff(a, {z}))}
+
+renderAll(sequence, t) = ; i:sequence @ render!i.t -> SKIP
+
+SyncAll(n) = |~| i:CLIENTS @ up!i!0 -> SyncAll'(n, n-1)
+SyncAll'(n, 0) = |~| renderSeq:sequences(CLIENTS) @ renderAll(renderSeq, n); STOP
+SyncAll'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncAll'(n, m-1)
+
+assert SyncAll(3) [FD= MaxInputSystem(3) \diff(Events, union(productions(up), {render.i.3 | i <- CLIENTS}))
+assert SyncAll(5) [FD= MaxInputSystem(5) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
+assert SyncAll(9) [FD= MaxInputSystem(9) \diff(Events, union(productions(up), {render.i.9 | i <- CLIENTS}))
+
+-- This proves that given n clients, if we restrict them to x inputs total from any client in any order, eventually all n clients will render the same state i.e. they will be in sync.
+-- Note that this doesn't say anything about timing other except that eventually it will happen.
