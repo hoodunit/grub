@@ -1,4 +1,4 @@
-NUM_CLIENTS = 3
+NUM_CLIENTS = 4
 NUM_DB_STATES = 10
 CLIENTS = {0..NUM_CLIENTS-1}
 TIMES = {0..NUM_DB_STATES-1}
@@ -56,9 +56,9 @@ assert SYSTEM :[divergence-free]
 -- One way sync: changes on one client will sync to other client
 -----------------------------------------
 
--- Suppose we limit our implemenetation to say that each
+-- Suppose we limit our implementation to say that each
 -- user makes a finite number of changes n.
-MaxInputs(0) = STOP
+MaxInputs(0) = SKIP
 MaxInputs(n) = up?i?t -> MaxInputs(n-1)
 
 -- Suppose we limit inputs to client 0.
@@ -143,10 +143,13 @@ sequences(a) = {<z>^z' | z <- a, z' <- sequences(diff(a, {z}))}
 
 renderAll(sequence, t) = ; i:sequence @ render!i.t -> SKIP
 
-SyncAll(n) = |~| i:CLIENTS @ up!i!0 -> SyncThree'(n, n-1)
-SyncAll'(n, 0) = |~| renderSeq:sequences(CLIENTS) @ renderAll(renderSeq, n)
+SyncAll(n) = |~| i:CLIENTS @ up!i!0 -> SyncAll'(n, n-1)
+SyncAll'(n, 0) = |~| renderSeq:sequences(CLIENTS) @ renderAll(renderSeq, n); STOP
 SyncAll'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncAll'(n, m-1)
 
+-- Number of changes allowed: 1, 5, 9
+assert SyncAll(1) [FD= MaxInputSystem(1) \diff(Events, union(productions(up), {render.i.1 | i <- CLIENTS}))
+assert SyncAll(5) [FD= MaxInputSystem(5) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
 assert SyncAll(9) [FD= MaxInputSystem(9) \diff(Events, union(productions(up), {render.i.9 | i <- CLIENTS}))
 
 -- This proves that given n clients, if we restrict them to x inputs total from any client in any order, eventually all n clients will render the same state i.e. they will be in sync.
