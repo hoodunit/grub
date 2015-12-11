@@ -7,12 +7,20 @@ Install dependencies
 ------------
 - Java
 - Datomic
+  - Set environment variables:
+
+      `DATOMIC_HOME=<Datomic directory>`
+
+      `DATOMIC_TRANSACTOR_PROPERTIES_DIR=<directory with transactor.properties file>`
+  - Add Datomic credentials to `~/.lein/credentials.clj.gpg` per Datomic instructions.
+
 - Leiningen
 
 Build for development
 -------
 
 ```
+$ ./scripts/start_datomic
 $ lein cljsbuild auto dev
 $ lein run dev
 ```
