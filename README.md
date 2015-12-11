@@ -25,7 +25,7 @@ $ lein cljsbuild auto dev
 $ lein run dev
 ```
 
-Navigate to http://localhost:3000.
+Navigate to http://localhost:3000. Run unit tests with `lein midje` and end-to-end tests with `lein run e2e`.
 
 Build for production
 -------
