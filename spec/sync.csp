@@ -48,115 +48,97 @@ REPORTQUEUE'(i, j, t) =
 
 SERVER_WITH_REPORTS(i, t0) = (SERVER(i, t0) [|{| report_queue |}|] REPORTQUEUE(i))
 CONN(i, t0) = CLIENT(i, t0) [|{| up.i, down.i |}|] SERVER_WITH_REPORTS(i, t0)
-CONNS(t0) = [| productions(saved) |] i:CLIENTS @ CONN(i, t0)
-SYSTEM = DB(0) [|{| save, saved |}|] CONNS(0)
+CONNS(numClients, t0) = [| productions(saved) |] i:{0..numClients-1} @ CONN(i, t0)
+SYSTEM(numClients) = DB(0) [|{| save, saved |}|] CONNS(numClients, 0)
 
 -----------------------------------------
--- Assertions
+-- One way sync: a change on one client will sync to another
 -----------------------------------------
 
-assert SYSTEM :[deadlock free [F]]
-assert SYSTEM :[divergence-free]
-
------------------------------------------
--- One way sync: changes on one client will sync to other client
------------------------------------------
-
--- Suppose we limit our implementation to say that each
--- user makes a finite number of changes n.
+-- Constrain our implementation to allow each
+-- user only a finite number of changes n.
 MaxInputs(0) = SKIP
 MaxInputs(n) = up?i?t -> MaxInputs(n-1)
 
--- Suppose we limit inputs to client 0.
+-- Constrain our implementation to allow
+-- only changes from a single client.
 
-OnlyClient(i) = up!i?t -> OnlyClient(i)
-ClientZeroInput = OnlyClient(0) [|{| up |}|] SYSTEM
+OnlyInputFromClient(i) = up!i?t -> OnlyInputFromClient(i)
 
-OneInputFromClientZero = (OnlyClient(0) [|{| up |}|] MaxInputs(1)) [|{| up |}|] SYSTEM
+-- Show that, given two connected clients client 0 and client 1,
+-- a single change on client 0 will make it to client 1.
 
--- Now we show that a change on client 0 will make it to client 1.
+-- Our constrained implementation, which allows one input from
+-- client 0 and then ends:
+OneInputFromClientZeroSystem = (SYSTEM(2) [|{| up |}|] MaxInputs(1)) [|{| up |}|] OnlyInputFromClient(0)
 
+-- Specification: a single change on client 0 will make it to client 1.
 SyncOneInput = up.0.0 -> render.1.1 -> STOP
-assert SyncOneInput [FD= OneInputFromClientZero \diff(Events, union(productions(up.0), {render.1.1}))
 
--- Expanding on this: what if we have two changes? We just care that, eventually, both of them get synced.
-SyncTwoInputs = up.0.0 -> up.0.1 -> render.1.2 -> STOP
+-- Assertion: our constrained system fulfills this specification.
+assert SyncOneInput [FD= OneInputFromClientZeroSystem \diff(Events, union(productions(up.0), {render.1.1}))
 
-assert SyncTwoInputs [FD= (ClientZeroInput [|{| up |}|] MaxInputs(2)) \diff(Events, union(productions(up.0), {render.1.2}))
+-----------------------------------------
+-- One way sync: n changes on one client will sync to another client
+-----------------------------------------
 
--- Can we do this for an arbitrary n changes?
-OneWaySync(n) = up.0.0 -> OneWaySync'(n, n-1)
-OneWaySync'(n, 0) = render.1.n -> STOP
-OneWaySync'(n, i) = up.0.n-i -> OneWaySync'(n, i-1)
+-- Specification: client 0 makes n changes
+-- and client 1 renders with the last of those changes.
 
-OneSideInputs(n) = (ClientZeroInput [|{| up |}|] MaxInputs(n)) \diff(Events, union(productions(up.0), {render.1.n}))
+SyncNInputs(n) = up.0.0 -> SyncNInputs'(n, n-1)
+SyncNInputs'(n, 0) = render.1.n -> STOP
+SyncNInputs'(n, i) = up.0.n-i -> SyncNInputs'(n, i-1)
 
-assert OneWaySync(1) [FD= OneSideInputs(1)
-assert OneWaySync(9) [FD= OneSideInputs(9)
+-- Constraint: allow n inputs from client 0
+NInputsFromClientZeroSystem(n) = (SYSTEM(2) [|{| up |}|] MaxInputs(n)) [|{| up |}|] OnlyInputFromClient(0)
+
+assert SyncNInputs(1) [FD= NInputsFromClientZeroSystem(1) \diff(Events, union(productions(up.0), {render.1.1}))
+assert SyncNInputs(9) [FD= NInputsFromClientZeroSystem(9) \diff(Events, union(productions(up.0), {render.1.9}))
 
 -----------------------------------------
 -- Two way sync: changes on both clients will sync to both
 -----------------------------------------
 
--- Start simple.
--- Let's just constrain our system to say, first client 0 does a change then client 1 does a change.
+-- Let's constrain our system to say, first client 0 
+-- does a change then client 1 does a change.
 
 AlternateInputs = up.0.0 -> up.1?t -> STOP
 
--- Then our specification becomes simple. If client 0 inputs something then client one inputs something, at some point both should call render with the state after both changes hit the database (t=2).
+-- Then our specification becomes simple. If client 0 inputs something 
+-- and then client one inputs something, at some point both should call 
+-- render with the state after both changes hit the database (t=2).
 TwoWaySync = up.0.0 -> ((up.1.0 -> TwoWaySyncRender) |~|
                         (up.1.1 -> TwoWaySyncRender))
 TwoWaySyncRender = ((render.0.2 -> render.1.2 -> STOP) |~|
                     (render.1.2 -> render.0.2 -> STOP))
 
-assert TwoWaySync [FD= (SYSTEM [|{| up |}|] AlternateInputs) \diff(Events, union(union(productions(up.0), productions(up.1)), {render.0.2, render.1.2}))
-
--- Let's extend this to an arbitrary number of inputs from either client (we don't care which). In the end we expect both to render the same DB state.
--- This is basically the general specification for eventual consistency. We are saying that supposing n finite inputs
--- from either client, eventually both of the clients get in sync and then stop.
-
-Sync(n) = (up.0.0 -> Sync'(n, n-1)) |~| (up.1.0 -> Sync'(n, n-1))
-Sync'(n, 0) = (render.0.n -> render.1.n -> STOP) |~| (render.1.n -> render.0.n -> STOP)
-Sync'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> Sync'(n, m-1)
-   
-assert Sync(5) [FD= (SYSTEM [|{| up |}|] MaxInputs(5)) \diff(Events, union(productions(up), {render.0.5, render.1.5}))
+assert TwoWaySync [FD= (SYSTEM(2) [|{| up |}|] AlternateInputs) \diff(Events, union(union(productions(up.0), productions(up.1)), {render.0.2, render.1.2}))
 
 -----------------------------------------
--- 3 way sync: changes on 3 clients will sync to all
+-- N way eventual sync: changes on n clients will sync to all
 -----------------------------------------
 
--- Can we extend our previous result to 3 clients?
-
-SyncThree(n) = |~| i:CLIENTS @ up!i!0 -> SyncThree'(n, n-1)
-SyncThree'(n, 0) = 
-  (render.0.n -> render.1.n -> render.2.n -> STOP) |~|
-  (render.0.n -> render.2.n -> render.1.n -> STOP) |~|
-  (render.1.n -> render.0.n -> render.2.n -> STOP) |~|
-  (render.1.n -> render.2.n -> render.0.n -> STOP) |~|
-  (render.2.n -> render.0.n -> render.1.n -> STOP) |~|
-  (render.2.n -> render.1.n -> render.0.n -> STOP)
-SyncThree'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncThree'(n, m-1)
-
-MaxInputSystem(n) = SYSTEM [|{| up |}|] MaxInputs(n)
-assert SyncThree(5) [FD= MaxInputSystem(5) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
-
------------------------------------------
--- N way sync: changes on n clients will sync to all
------------------------------------------
+-- Specification: n changes are made, where a change can be
+-- made on any client, and then render is called with each 
+-- of the clients in any order
 
 sequences({}) = {<>}
 sequences(a) = {<z>^z' | z <- a, z' <- sequences(diff(a, {z}))}
 
 renderAll(sequence, t) = ; i:sequence @ render!i.t -> SKIP
 
-SyncAll(n) = |~| i:CLIENTS @ up!i!0 -> SyncAll'(n, n-1)
-SyncAll'(n, 0) = |~| renderSeq:sequences(CLIENTS) @ renderAll(renderSeq, n); STOP
-SyncAll'(n, m) = |~| i:CLIENTS, t:TIMES @ up!i!t -> SyncAll'(n, m-1)
+SyncAll(numClients, n) = |~| i:{0..numClients-1} @ up!i!0 -> SyncAll'(numClients, n, n-1)
+SyncAll'(numClients, n, 0) = |~| renderSeq:sequences({0..numClients-1}) @ renderAll(renderSeq, n); STOP
+SyncAll'(numClients, n, m) = |~| i:{0..numClients-1}, t:TIMES @ up!i!t -> SyncAll'(numClients, n, m-1)
 
+-- Helper function: a system where only n inputs are allowed.
+MaxInputSystem(numClients, n) = SYSTEM(numClients) [|{| up |}|] MaxInputs(n)
+
+-- Number of clients: 4
 -- Number of changes allowed: 1, 5, 9
-assert SyncAll(1) [FD= MaxInputSystem(1) \diff(Events, union(productions(up), {render.i.1 | i <- CLIENTS}))
-assert SyncAll(5) [FD= MaxInputSystem(5) \diff(Events, union(productions(up), {render.i.5 | i <- CLIENTS}))
-assert SyncAll(9) [FD= MaxInputSystem(9) \diff(Events, union(productions(up), {render.i.9 | i <- CLIENTS}))
+assert SyncAll(4, 1) [FD= MaxInputSystem(4, 1) \diff(Events, union(productions(up), {render.i.1 | i <- {0..3}}))
+assert SyncAll(4, 5) [FD= MaxInputSystem(4, 5) \diff(Events, union(productions(up), {render.i.5 | i <- {0..3}}))
+assert SyncAll(5, 9) [FD= MaxInputSystem(4, 9) \diff(Events, union(productions(up), {render.i.9 | i <- {0..3}}))
 
 -- This proves that given n clients, if we restrict them to x inputs total from any client in any order, eventually all n clients will render the same state i.e. they will be in sync.
 -- Note that this doesn't say anything about timing other except that eventually it will happen. 
