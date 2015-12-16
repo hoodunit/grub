@@ -6,7 +6,14 @@
             [cljs.core.async :as a :refer [<! >! chan]])
   (:require-macros [cljs.core.async.macros :refer [go-loop]] ))
 
+(defn list-name-from-url []
+  (last (clojure.string/split (.-location js/window) #"/")))
+
+(defn save-list-name-from-url []
+  (set! (.-cookie js/document) (str "list=" (list-name-from-url))))
+
 (defn start-app []
+  (save-list-name-from-url)
   (let [ui-state (atom state/empty-state)
         from-server (chan)
         to-server (chan)

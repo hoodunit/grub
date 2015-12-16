@@ -13,7 +13,7 @@
 (def protocol (.-protocol location))
 (def ws-protocol (if (= protocol "http:") "ws://" "wss://"))
 (def host (.-host location))
-(def path (str (.-pathname location) "ws"))
+(def path (str "/ws" (.-pathname location)))
 (def server-url (str ws-protocol host path))
 (def reader (t/reader :json))
 (def writer (t/writer :json))
@@ -35,7 +35,7 @@
     (listen goog.net.WebSocket.EventType.OPENED #(do (println "ws connected") (a/put! to-client (event/connected))))
     (listen goog.net.WebSocket.EventType.MESSAGE #(a/put! to-client (read-msg %)))
     (listen goog.net.WebSocket.EventType.CLOSED #(println "ws disconnected"))
-    (listen goog.net.WebSocket.EventType.ERROR #(println "ws error:" %))
+    (listen goog.net.WebSocket.EventType.ERROR #(do (println "ws error:") (.log js/console %)))
     (go (loop [] 
             (when-let [msg (<! from-client)]
               (send-message ws msg)

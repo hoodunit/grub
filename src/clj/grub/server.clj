@@ -4,10 +4,12 @@
             [grub.server-sync :as sync]
             [ring.middleware.resource :as resource]
             [ring.middleware.content-type :as content-type]
+            [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.response :as resp]
             [org.httpkit.server :as httpkit]
             [clojure.core.async :as a :refer [<! >! chan go]]
-            [hiccup.page :as hiccup]))
+            [hiccup.page :as hiccup]
+            [grub.util :as util]))
 
 (def prod-index-page
   (hiccup/html5
@@ -47,7 +49,7 @@
    :port         3000
    :stop-server  nil})
 
-(defn sync-client-with-db! [ws-channel db-conn db-reports]
+(defn sync-client-with-db! [ws-channel list-name db-conn db-reports]
   (let [from-client (chan)
         to-client (chan)
         diffs (chan)
@@ -61,7 +63,8 @@
                    (a/close! full-sync-reqs)
                    )]
     (ws/add-connected-client! ws-channel to-client from-client on-close)
-    (sync/start-sync! to-client diffs full-sync-reqs db-conn report-queue)
+    (db/create-list-unless-exists db-conn list-name)
+    (sync/start-sync! list-name to-client diffs full-sync-reqs db-conn report-queue)
     (go (loop [] (let [event (<! from-client)]
                    (cond
                      (nil? event) nil                       ;; drop out of loop
@@ -70,16 +73,25 @@
                      :else (do (println "Unknown event:" event) (recur))))))))
 
 (defn handle-websocket [handler db-conn db-reports]
-  (fn [{:keys [websocket?] :as request}]
+  (fn [{:keys [websocket? uri] :as request}]
     (if websocket?
-      (httpkit/with-channel request ws-channel (sync-client-with-db! ws-channel db-conn db-reports))
+      (let [list-name (last (clojure.string/split uri #"/"))]
+        (httpkit/with-channel request ws-channel (sync-client-with-db! ws-channel list-name db-conn db-reports)))
       (handler request))))
 
-(defn handle-root [handler index]
+(defn random-list-name []
+  (util/rand-str 10))
+
+(defn redirect-grub-list [{:keys [cookies]}]
+  (let [last-list (:value (get cookies "list"))]
+    (or last-list (random-list-name))))
+
+(defn handle-routes [handler index]
   (fn [{:keys [uri] :as request}]
-    (if (= uri "/")
-      (resp/response index)
-      (handler request))))
+    (cond
+      (= uri "/") (resp/redirect (str "/" (redirect-grub-list request)))
+      (re-matches #"/[\w]+" uri) (resp/response index)
+      :else (handler request))))
 
 (defn wrap-bounce-favicon [handler]
   (fn [req]
@@ -91,8 +103,9 @@
   (-> (fn [req] (resp/not-found "Not found"))
       (resource/wrap-resource "public")
       (content-type/wrap-content-type)
-      (handle-root index)
+      (handle-routes index)
       (handle-websocket db-conn db-reports)
+      (wrap-cookies)
       (wrap-bounce-favicon)))
 
 (defn start [{:keys [port database-uri] :as system}]
@@ -109,3 +122,11 @@
   (stop-server)
   (db/disconnect db-conn)
   system)
+
+(defn start-dev [system]
+  (atom (start system)))
+
+(defn restart-dev [system-atom]
+  (swap! system-atom stop)
+  (swap! system-atom start))
+

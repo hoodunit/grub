@@ -5,7 +5,22 @@
             [clojure.pprint :refer [pprint]]))
 
 (def schema-tx [
+  ;; list
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :list/name
+   :db/valueType          :db.type/string
+   :db/cardinality        :db.cardinality/one
+   :db/unique             :db.unique/identity
+   :db/doc                "List name (external identifier)"
+   :db.install/_attribute :db.part/db}
+
   ;; grubs
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :grub/listid
+   :db/valueType          :db.type/ref
+   :db/cardinality        :db.cardinality/one
+   :db/doc                "Grub list entity ID"
+   :db.install/_attribute :db.part/db}
   {:db/id                 #db/id[:db.part/db]
    :db/ident              :grub/id
    :db/valueType          :db.type/keyword
@@ -28,6 +43,12 @@
    :db.install/_attribute :db.part/db}
 
   ;; recipes
+  {:db/id                 #db/id[:db.part/db]
+   :db/ident              :recipe/listid
+   :db/valueType          :db.type/ref
+   :db/cardinality        :db.cardinality/one
+   :db/doc                "Recipe list entity ID"
+   :db.install/_attribute :db.part/db}
   {:db/id                 #db/id[:db.part/db]
    :db/ident              :recipe/id
    :db/valueType          :db.type/keyword
@@ -58,29 +79,36 @@
    :db.install/_attribute :db.part/db}
   ])
 
-(defn add-schema-to-db [uri]
+(defn add-schema-to-db [uri schema-tx]
   (d/transact (d/connect uri) schema-tx) )
 
 (defn create-db-unless-exists [uri]
   (let [db-created? (d/create-database uri)]
-    (when db-created? @(add-schema-to-db uri))))
+    (when db-created? @(add-schema-to-db uri schema-tx))))
 
 (defn connect [uri]
   (create-db-unless-exists uri)
-  (let [conn (d/connect uri)]
-    (println "Connected to datomic at " uri)
-    conn))
+  (d/connect uri))
 
-(def all-grubs-query
+(defn add-list-tx [list-name]
+  {:db/id             (d/tempid :db.part/user)
+   :list/name         list-name})
+
+(defn create-list-unless-exists [conn list-name]
+  (d/transact conn [(add-list-tx list-name)]))
+
+(defn all-grubs-query [list-name]
   [:find '?id '?text '?completed
    :where
+   ['?e :grub/listid [:list/name list-name]]
    ['?e :grub/id '?id]
    ['?e :grub/text '?text]
    ['?e :grub/completed '?completed]])
 
-(def all-recipes-query
+(defn all-recipes-query [list-name]
   [:find '?id '?name '?grubs '?directions
    :where
+   ['?e :recipe/listid [:list/name list-name]]
    ['?e :recipe/id '?id]
    ['?e :recipe/name '?name]
    ['?e :recipe/grubs '?grubs]
@@ -92,75 +120,88 @@
 (defn recipe-as-map [[id name grubs directions]]
   {:id id :name name :grubs grubs :directions directions})
 
-(defn get-db-grubs [db]
-  (->> (d/q all-grubs-query db)
+(defn get-db-grubs [db list-name]
+  (->> (d/q (all-grubs-query list-name) db)
        (map grub-as-map)
        vec
        (util/map-by-key :id)))
 
-(defn get-db-recipes [db]
-  (->> (d/q all-recipes-query db)
+(defn get-db-recipes [db list-name]
+  (->> (d/q (all-recipes-query list-name) db)
        (map recipe-as-map)
        vec
        (util/map-by-key :id)))
 
-(defn get-current-db-state [db]
-  {:grubs (get-db-grubs db)
-   :recipes (get-db-recipes db)})
+(defn get-current-db-state [db list-name]
+  {:grubs (get-db-grubs db list-name)
+   :recipes (get-db-recipes db list-name)})
 
-(defn get-current-state [conn]
-  (get-current-db-state (d/db conn)))
+(defn get-current-state [conn list-name]
+  (get-current-db-state (d/db conn) list-name))
+
+(defn disconnect [conn]
+  (d/release conn))
 
 (defn remove-keys-with-nil-vals [mapcoll]
   (->> mapcoll
        (remove (fn [[k v]] (nil? v)))
        (reduce (fn [cur [k v]] (assoc cur k v)) {})))
 
-(defn upsert-grub-tx [grub]
+(defn upsert-grub-tx [list-name grub]
   [(remove-keys-with-nil-vals {:db/id          (d/tempid :db.part/user)
+                               :grub/listid    [:list/name list-name]
                                :grub/id        (:id grub)
                                :grub/text      (:text grub)
                                :grub/completed (:completed grub)})])
 
-(defn upsert-recipe-tx [recipe]
+(defn upsert-recipe-tx [list-name recipe]
   [(remove-keys-with-nil-vals {:db/id             (d/tempid :db.part/user)
+                               :recipe/listid     list-name
                                :recipe/id         (:id recipe)
                                :recipe/name       (:name recipe)
                                :recipe/grubs      (:grubs recipe)
                                :recipe/directions (:directions recipe)})])
 
-(defn disconnect [conn]
-  (d/release conn))
+(defn retract-grub-tx [id]
+  [:db.fn/retractEntity [:grub/id id]])
 
-(defn diff-tx [diff]
-  (let [grubs-upsert-tx (->> diff
-                             :grubs
-                             :+
-                             (map (fn [[k v]] (assoc v :id k)))
-                             (map upsert-grub-tx)
-                             (flatten)
-                             (vec))
-        grubs-retract-tx (->> diff
-                              :grubs
-                              :-
-                              (map (fn [id] [:db.fn/retractEntity [:grub/id id]]))
-                              (vec))
-        recipes-upsert-tx (->> diff
-                               :recipes
-                               :+
-                               (map (fn [[k v]] (assoc v :id k)))
-                               (map upsert-recipe-tx)
-                               (flatten)
-                               (vec))
-        recipes-retract-tx (->> diff
-                              :recipes
-                              :-
-                              (map (fn [id] [:db.fn/retractEntity [:recipe/id id]]))
-                              (vec))]
-    (vec (concat grubs-upsert-tx grubs-retract-tx recipes-upsert-tx recipes-retract-tx))))
+(defn retract-recipe-tx [id]
+  [:db.fn/retractEntity [:recipe/id id]])
 
-(defn patch-state! [conn diff]
-  @(d/transact conn (diff-tx diff)))
+(defn grubs-upsert-tx [list-name diff]
+  (->> (:+ (:grubs diff))
+       (map (fn [[k v]] (assoc v :id k)))
+       (map (partial upsert-grub-tx list-name))
+       (flatten)
+       (vec)))
+
+(defn grubs-retract-tx [diff]
+  (->> (:- (:grubs diff))
+       (map retract-grub-tx)
+       (vec)))
+
+(defn recipes-upsert-tx [list-name diff]
+  (->> (:+ (:recipes diff))
+       (map (fn [[k v]] (assoc v :id k)))
+       (map (partial upsert-recipe-tx list-name))
+       (flatten)
+       (vec)))
+
+(defn recipes-retract-tx [diff]
+  (->> (:- (:recipes diff))
+       (map retract-recipe-tx)
+       (vec)))
+
+(defn diff-tx [list-name diff]
+    (vec (concat
+           (grubs-upsert-tx list-name diff)
+           (grubs-retract-tx diff)
+           (recipes-upsert-tx list-name diff)
+           (recipes-retract-tx diff))))
+
+(defn patch-state! [conn list-name diff]
+  (let [tx (diff-tx list-name diff)]
+    @(d/transact conn tx)))
 
 (defn report-queue-channel [conn]
   (let [queue (d/tx-report-queue conn)
